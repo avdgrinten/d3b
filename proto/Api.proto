@@ -1,0 +1,66 @@
+
+import "proto/Config.proto";
+import "proto/Request.proto";
+
+package Api.Proto;
+option optimize_for = LITE_RUNTIME;
+
+// -----------------------------------------------------------
+// requests send by client
+// -----------------------------------------------------------
+
+enum ClientRequests {
+	kCqQuery = 1;
+	kCqShortTransact = 32;
+	kCqCreateStorage = 256;
+	kCqCreateView = 257;
+	kCqUnlinkStorage = 258;
+	kCqUnlinkView = 259;
+};
+
+message CqQuery {
+	required Db.Proto.Query query = 2;
+}
+
+message CqShortTransact {
+	repeated Db.Proto.Update updates = 2;
+};
+
+message CqCreateStorage {
+	required Db.Proto.StorageConfig config = 1;
+}
+message CqCreateView {
+	required Db.Proto.ViewConfig config = 1;
+}
+
+message CqUnlinkStorage {
+	required string identifier = 1;
+}
+message CqUnlinkView {
+	required string identifier = 1;
+}
+
+// -----------------------------------------------------------
+// responses send by server
+// -----------------------------------------------------------
+
+enum ServerResponses {
+	kSrFin = 1;
+	kSrRows = 2;
+};
+
+enum EnumErrors {
+	kErrNone = 0;
+	kErrIllegalRequest = 1;
+}
+
+message SrFin {
+	optional bool success = 1;
+	optional EnumErrors err_code = 2;
+	optional string err_msg = 3;
+}
+
+message SrRows {
+	repeated bytes row_data = 1;
+}
+

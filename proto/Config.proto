@@ -1,0 +1,22 @@
+
+package Db.Proto;
+option optimize_for = LITE_RUNTIME;
+
+message Config {
+	repeated StorageConfig storage = 1;
+	repeated ViewConfig views = 2;
+}
+
+message StorageConfig {
+	required string driver = 1;
+	required string identifier = 2;
+}
+
+message ViewConfig {
+	required string driver = 1;
+	required string identifier = 2;
+	
+	optional string base_storage = 128;
+	optional string script_file = 129;
+}
+
