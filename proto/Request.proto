@@ -15,7 +15,9 @@ message Rows {
 }
 
 enum Actions {
+	kActNone = 0;
 	kActInsert = 1;
+	kActUpdate = 2;
 }
 
 message Update {

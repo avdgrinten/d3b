@@ -43,7 +43,9 @@ struct StaticDescriptorInitializer_proto_2fRequest_2eproto {
 
 bool Actions_IsValid(int value) {
   switch(value) {
+    case 0:
     case 1:
+    case 2:
       return true;
     default:
       return false;
@@ -540,7 +542,7 @@ Update::Update(const Update& from)
 
 void Update::SharedCtor() {
   _cached_size_ = 0;
-  action_ = 1;
+  action_ = 0;
   id_ = GOOGLE_LONGLONG(0);
   storage_idx_ = 0;
   storage_name_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
@@ -580,7 +582,7 @@ Update* Update::New() const {
 
 void Update::Clear() {
   if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
-    action_ = 1;
+    action_ = 0;
     id_ = GOOGLE_LONGLONG(0);
     storage_idx_ = 0;
     if (has_storage_name()) {

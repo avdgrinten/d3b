@@ -67,11 +67,13 @@ const int ServerResponses_ARRAYSIZE = ServerResponses_MAX + 1;
 
 enum EnumErrors {
   kErrNone = 0,
-  kErrIllegalRequest = 1
+  kErrIllegalRequest = 1,
+  kErrIllegalStorage = 128,
+  kErrIllegalView = 129
 };
 bool EnumErrors_IsValid(int value);
 const EnumErrors EnumErrors_MIN = kErrNone;
-const EnumErrors EnumErrors_MAX = kErrIllegalRequest;
+const EnumErrors EnumErrors_MAX = kErrIllegalView;
 const int EnumErrors_ARRAYSIZE = EnumErrors_MAX + 1;
 
 // ===================================================================

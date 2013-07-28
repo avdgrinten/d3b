@@ -52,6 +52,9 @@ enum ServerResponses {
 enum EnumErrors {
 	kErrNone = 0;
 	kErrIllegalRequest = 1;
+	
+	kErrIllegalStorage = 128;
+	kErrIllegalView = 129;
 }
 
 message SrFin {

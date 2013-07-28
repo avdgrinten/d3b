@@ -201,7 +201,7 @@ void JsView::onRemove(int storage, id_type id) {
 		v8::Local<v8::Value> key_a = p_deserializeKey(ser_a);
 		v8::Local<v8::Value> result = p_compare(key_a, key);
 		return result->Int32Value();
-	}, &found, nullptr);
+	}, nullptr, nullptr);
 	
 	Btree<id_type>::Seq seq = p_orderTree.sequence(ref);
 
