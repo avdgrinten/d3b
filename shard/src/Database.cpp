@@ -50,23 +50,6 @@ int main(int argc, char **argv) {
 		engine->loadConfig();
 	}
 
-/*	engine->createStorage("FlexImutStorage", "spidy");
-	engine->createView("JsView", "listings");
-	
-	int storage = engine->getStorage("spidy");
-	for(int i = 0; i < 1000; i++) {
-		std::string str = std::to_string(500 - i);
-		engine->insert(storage, str.c_str(), str.length());
-		engine->insert(storage, str.c_str(), str.length());
-	}*/
-	
-/*	engine->query(engine->getView("listings"),
-			[] (int n, void **results, int *length) {
-		for(int i = 0; i < n; i++) {
-			std::cout << std::string((char*)results[i], length[i]) << std::endl;
-		}
-	});*/
-
 	if(!opts.count("create")) {
 		Api::Server *server = new Api::Server(engine);
 		server->start();

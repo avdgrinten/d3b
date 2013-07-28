@@ -91,6 +91,10 @@ void TransactManager::commit(trid_type trid) {
 			p_engine->insert(up_info->desc.storage_idx(), id,
 					up_info->desc.buffer().c_str(),
 					up_info->desc.buffer().size());
+		}else if(up_info->desc.action() == Proto::kActUpdate) {
+			p_engine->update(up_info->desc.storage_idx(), id,
+					up_info->desc.buffer().c_str(),
+					up_info->desc.buffer().size());
 		}else throw std::logic_error("commit(): Illegal action!");
 	}
 	

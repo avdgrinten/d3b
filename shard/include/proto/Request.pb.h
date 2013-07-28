@@ -37,11 +37,13 @@ class Rows;
 class Update;
 
 enum Actions {
-  kActInsert = 1
+  kActNone = 0,
+  kActInsert = 1,
+  kActUpdate = 2
 };
 bool Actions_IsValid(int value);
-const Actions Actions_MIN = kActInsert;
-const Actions Actions_MAX = kActInsert;
+const Actions Actions_MIN = kActNone;
+const Actions Actions_MAX = kActUpdate;
 const int Actions_ARRAYSIZE = Actions_MAX + 1;
 
 // ===================================================================
@@ -675,7 +677,7 @@ inline void Update::clear_has_action() {
   _has_bits_[0] &= ~0x00000001u;
 }
 inline void Update::clear_action() {
-  action_ = 1;
+  action_ = 0;
   clear_has_action();
 }
 inline Db::Proto::Actions Update::action() const {

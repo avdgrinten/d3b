@@ -50,6 +50,14 @@ Error FlexImutStorage::insert(id_type id,
 	return Error(true);
 }
 
+Error FlexImutStorage::update(id_type id,
+		const void *document, Linux::size_type length) {
+	DataStore::Object object = p_docStore.getObject(id);
+	p_docStore.allocObject(object, length);
+	p_docStore.writeObject(object, 0, length, document);
+	return Error(true);
+}
+
 Linux::size_type FlexImutStorage::length(id_type id) {
 	DataStore::Object object = p_docStore.getObject(id);
 	return p_docStore.objectLength(object);

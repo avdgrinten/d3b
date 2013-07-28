@@ -148,6 +148,24 @@ Error Engine::insert(int storage, id_type id,
 	return Error(true);
 }
 
+Error Engine::update(int storage, id_type id,
+		const void *document, Linux::size_type length) {
+	if(storage == -1)
+		throw std::runtime_error("Illegal storage specified");
+
+	for(int i = 1; i < p_views.size(); i++)
+		p_views[i]->onRemove(storage, id);
+
+	StorageDriver *driver = p_storage[storage];
+	driver->update(id, document, length);
+
+	std::cout << "Update '" << std::string((const char*)document, length) << "'" << std::endl;
+	
+	for(int i = 1; i < p_views.size(); i++)
+		p_views[i]->onInsert(storage, id, document, length);
+	return Error(true);
+}
+
 Linux::size_type Engine::length(int storage, id_type id) {
 	if(storage == -1)
 		throw std::runtime_error("Illegal storage specified");
@@ -162,14 +180,14 @@ void Engine::fetch(int storage, id_type id, void *buffer) {
 	return driver->fetch(id, buffer);
 }
 
-void Engine::query(const Proto::Query &request,
+Error Engine::query(const Proto::Query &request,
 		std::function<void(const Proto::Rows&)> report,
 		std::function<void()> callback) {
 	int view = -1;
 	if(request.has_view_name())
 		view = getView(request.view_name());
 	if(view == -1)
-		throw std::runtime_error("Illegal view specified");
+		return Error(kErrIllegalView);
 	ViewDriver *driver = p_views[view];
 	driver->query(request, report, callback);
 }

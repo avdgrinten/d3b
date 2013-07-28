@@ -86,6 +86,8 @@ bool EnumErrors_IsValid(int value) {
   switch(value) {
     case 0:
     case 1:
+    case 128:
+    case 129:
       return true;
     default:
       return false;

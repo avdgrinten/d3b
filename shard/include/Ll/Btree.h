@@ -58,6 +58,7 @@ public:
 		void operator++ ();
 		KeyType getKey();
 		void getValue(void *value);
+		void setValue(void *value);
 		
 	private:
 		Seq(Btree &tree, blknum_type block, blknum_type entry)
@@ -335,6 +336,13 @@ void Btree<KeyType>::Seq::getValue(void *value) {
 	assert(p_block > 0 && p_entry >= 0);
 	std::memcpy(value, p_buffer + p_tree.p_valOffLeaf(p_entry),
 			p_tree.p_valSize);
+}
+template<typename KeyType>
+void Btree<KeyType>::Seq::setValue(void *value) {
+	assert(p_block > 0 && p_entry >= 0);
+	std::memcpy(p_buffer + p_tree.p_valOffLeaf(p_entry), value,
+			p_tree.p_valSize);
+	p_tree.p_writeBlock(p_block, p_buffer);
 }
 
 /* ------------------------------------------------------------------------- *

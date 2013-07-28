@@ -1,4 +1,7 @@
 
+#ifndef D3B_LL_DATASTORE_H_
+#define D3B_LL_DATASTORE_H_
+
 class DataStore {
 public:
 	typedef uint64_t lid_type;
@@ -66,4 +69,6 @@ private:
 	void p_writeData(const IdxRecord &index, Linux::size_type length, const void *data);
 	void p_readData(const IdxRecord &index, Linux::size_type length, void *data);
 };
+
+#endif
 

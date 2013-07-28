@@ -6,16 +6,27 @@
 
 #include <queue>
 
+enum ErrorCode {
+	kErrSuccess = 1,
+	kErrUnknown = 2,
+
+	kErrIllegalStorage = 128,
+	kErrIllegalView = 129
+};
+
 class Error {
 public:
-	Error(bool success) : p_success(success) {
+	Error(bool success) {
+		p_code = success ? kErrSuccess : kErrUnknown;
+	}
+	Error(ErrorCode code) : p_code(code) {
 	}
 	
 	bool ok() {
-		return p_success;
+		return p_code == kErrSuccess;
 	}
 private:
-	bool p_success;
+	ErrorCode p_code;
 };
 
 class OS {

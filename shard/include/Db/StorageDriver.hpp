@@ -36,6 +36,8 @@ public:
 	
 	virtual Error insert(id_type id,
 			const void *document, Linux::size_type length) = 0;
+	virtual Error update(id_type id,
+			const void *document, Linux::size_type length) = 0;
 	
 	virtual Linux::size_type length(id_type id) = 0;
 	virtual void fetch(id_type id, void *buffer) = 0;

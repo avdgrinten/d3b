@@ -33,6 +33,7 @@ public:
 
 	virtual void onInsert(int storage, id_type id,
 			const void *document, Linux::size_type length) = 0;
+	virtual void onRemove(int storage, id_type id) = 0;
 	
 	virtual void query(const Proto::Query &request,
 			std::function<void(const Proto::Rows&)> report,

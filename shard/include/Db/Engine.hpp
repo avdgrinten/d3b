@@ -34,10 +34,12 @@ public:
 	Error allocId(int storage, id_type *out_id);
 	Error insert(int storage, id_type id,
 			const void *document, Linux::size_type length);
+	Error update(int storage, id_type id,
+			const void *document, Linux::size_type length);
 	Linux::size_type length(int storage, id_type id);
 	void fetch(int storage, id_type id, void *buffer);
 	
-	void query(const Proto::Query &request,
+	Error query(const Proto::Query &request,
 			std::function<void(const Proto::Rows&)> report,
 			std::function<void()> callback);
 	
