@@ -64,6 +64,10 @@ Client.prototype.p_onMessage = function() {
 	}
 	var response = msg.parse(this.bodyBuffer);
 	
+	if(this.debug)
+		console.log('[' + this.packetSeqNumber + '] < ' + this.packetOpcode
+			+ ' ' + JSON.stringify(response));
+
 	if(this.packetSeqNumber in this.activeRequests) {
 		var request = this.activeRequests[this.packetSeqNumber];
 		request.emit('response', this.packetOpcode, response);
@@ -86,6 +90,11 @@ Client.prototype.p_send = function(opcode, seq_number, request) {
 		msg = schema['Api.Proto.CqUnlinkView']; break;
 	default: throw new Error("p_send(): Illegal opcode");
 	}
+	
+	if(this.debug)
+		console.log('[' + seq_number + '] < ' + opcode
+			+ ' ' + JSON.stringify(request));
+	
 	var buffer = msg.serialize(request);
 
 	var header = new Buffer(12);
@@ -146,9 +155,10 @@ function Request(client) {
 	this.seqNumber = this.client.sequence;
 	this.client.sequence++;
 	this.client.activeRequests[this.seqNumber] = this;
+	
+	events.EventEmitter.call(this);
 }
-
-Request.prototype = new events.EventEmitter;
+require('util').inherits(Request, events.EventEmitter);
 
 Request.prototype.send = function(opcode, request) {
 	this.client.p_send(opcode, this.seqNumber, request);
