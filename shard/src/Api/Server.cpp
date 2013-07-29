@@ -19,7 +19,10 @@ namespace Api {
 
 Server::Connection::Connection(Server *server,
 		Linux::SockStream *sock_stream)
-	: p_server(server), p_sockStream(sock_stream) {
+		: p_server(server), p_sockStream(sock_stream) {
+	p_sockStream->onClose([] () {
+		std::cout << "Connection closed" << std::endl;
+	});
 }
 
 void Server::Connection::p_postResponse(int opcode, int seq_number,
@@ -187,6 +190,52 @@ void Server::Connection::p_processMessage(Async::Callback callback) {
 		
 		Proto::SrFin response;
 		p_postResponse(Proto::kSrFin, seq_number, response);
+	}else if(p_curPacket.opcode == Proto::kCqUploadExtern) {
+		Proto::CqUploadExtern request;
+		if(!request.ParseFromArray(p_curBuffer, p_curPacket.length)) {
+			Proto::SrFin response;
+			response.set_success(false);
+			response.set_err_code(Proto::kErrIllegalRequest);
+			p_postResponse(Proto::kSrFin, seq_number, response);
+			callback();
+			return;
+		}
+		
+		auto fd = osIntf->createFile();
+		fd->openSync(engine->getPath() + "/extern/" + request.file_name(),
+				Linux::kFileCreate | Linux::kFileTrunc | Linux::kFileWrite);
+		fd->pwriteSync(0, request.buffer().length(), request.buffer().c_str());
+		fd->closeSync();
+		
+		Proto::SrFin response;
+		p_postResponse(Proto::kSrFin, seq_number, response);
+	}else if(p_curPacket.opcode == Proto::kCqDownloadExtern) {
+		Proto::CqDownloadExtern request;
+		if(!request.ParseFromArray(p_curBuffer, p_curPacket.length)) {
+			Proto::SrFin response;
+			response.set_success(false);
+			response.set_err_code(Proto::kErrIllegalRequest);
+			p_postResponse(Proto::kSrFin, seq_number, response);
+			callback();
+			return;
+		}
+		
+		auto fd = osIntf->createFile();
+		fd->openSync(engine->getPath() + "/extern/" + request.file_name(),
+				Linux::kFileRead);
+		Linux::size_type length = fd->lengthSync();
+		
+		char *buffer = new char[length];
+		fd->preadSync(0, length, buffer);
+		fd->closeSync();
+		
+		Proto::SrBlob blob_resp;
+		blob_resp.set_buffer(std::string(buffer, length));
+		p_postResponse(Proto::kSrBlob, seq_number, blob_resp);
+		delete[] buffer;
+		
+		Proto::SrFin fin_resp;
+		p_postResponse(Proto::kSrFin, seq_number, fin_resp);
 	}else{
 		Proto::SrFin response;
 		response.set_success(false);

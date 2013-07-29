@@ -13,7 +13,7 @@
 #include <iostream>
 
 enum epollevt_type {
-	evt_none, evt_read, evt_write
+	evt_none, evt_read = 1, evt_write = 2, evt_hup = 4
 };
 
 Linux *osIntf = new Linux();
@@ -127,6 +127,11 @@ Linux::SockStream::SockStream(int socket_fd)
 		throw std::runtime_error("fcntl(F_SETFL) failed");
 	
 	p_epollFunctor = [this](int events) { p_epollProcess(events); };
+	p_epollUpdate();
+}
+
+void Linux::SockStream::onClose(std::function<void()> callback) {
+	p_onClose = callback;
 }
 
 void Linux::SockStream::read(size_type length, void *buffer,
@@ -163,20 +168,21 @@ void Linux::SockStream::p_epollUpdate() {
 		event.events |= EPOLLIN;
 	if(!p_writeQueue.empty())
 		event.events |= EPOLLOUT;
-
-	if(event.events == 0) {
+	event.events |= EPOLLRDHUP;
+	
+	if(p_epollInstalled && event.events == 0) {
 		if(epoll_ctl(osIntf->p_epollFd, EPOLL_CTL_DEL,
 				p_socketFd, &event) == - 1)
-			throw std::runtime_error("epoll_ctl() failed");
+			throw std::runtime_error("epoll_ctl(EPOLL_CTL_DEL) failed");
 		p_epollInstalled = false;
 	}else if(p_epollInstalled) {
 		if(epoll_ctl(osIntf->p_epollFd, EPOLL_CTL_MOD,
 				p_socketFd, &event) == - 1)
-			throw std::runtime_error("epoll_ctl() failed");
+			throw std::runtime_error("epoll_ctl(EPOLL_CTL_MOD) failed");
 	}else{
 		if(epoll_ctl(osIntf->p_epollFd, EPOLL_CTL_ADD,
 				p_socketFd, &event) == - 1)
-			throw std::runtime_error("epoll_ctl() failed");
+			throw std::runtime_error("epoll_ctl(EPOLL_CTL_ADD) failed");
 		p_epollInstalled = true;
 	}
 }
@@ -220,6 +226,12 @@ void Linux::SockStream::p_epollProcess(int events) {
 			callback();
 		}
 	}
+	
+	if(events & evt_hup) {
+		p_onClose();
+		if(close(p_socketFd) != 0)
+			throw std::runtime_error("close() failed");
+	}
 }
 
 /* ------------------------------------------------------------------- */
@@ -256,6 +268,10 @@ void Linux::processIO() {
 			type |= epollevt_type::evt_read;
 		if(events[i].events & EPOLLOUT)
 			type |= epollevt_type::evt_write;
+		if(events[i].events & EPOLLHUP)
+			type |= epollevt_type::evt_hup;
+		if(events[i].events & EPOLLRDHUP)
+			type |= epollevt_type::evt_hup;
 
 		auto functor_ptr = (std::function<void(int)>*)
 				events[i].data.ptr;

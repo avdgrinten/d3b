@@ -15,11 +15,14 @@ var ClientRequests = {
 	kCqCreateStorage: 256,
 	kCqCreateView: 257,
 	kCqUnlinkStorage: 258,
-	kCqUnlinkView: 259
+	kCqUnlinkView: 259,
+	kCqUploadExtern: 260,
+	kCqDownloadExtern: 261
 };
 var ServerResponses = {
 	kSrFin: 1,
-	kSrRows: 2
+	kSrRows: 2,
+	kSrBlob: 3
 };
 
 function Client() {
@@ -53,6 +56,10 @@ Client.prototype.useSocket = function(socket) {
 		this.emit('end');
 	}.bind(this));
 }
+Client.prototype.close = function(callback) {
+	this.p_socket.end();
+	callback();
+}
 
 Client.prototype.p_onMessage = function() {
 //	console.log("msg");
@@ -60,6 +67,7 @@ Client.prototype.p_onMessage = function() {
 	switch(this.packetOpcode) {
 	case ServerResponses.kSrFin: msg = schema['Api.Proto.SrFin']; break;
 	case ServerResponses.kSrRows: msg = schema['Api.Proto.SrRows']; break;
+	case ServerResponses.kSrBlob: msg = schema['Api.Proto.SrBlob']; break;
 	default: throw new Error("p_onMessage(): Illegal opcode");
 	}
 	var response = msg.parse(this.bodyBuffer);
@@ -88,6 +96,10 @@ Client.prototype.p_send = function(opcode, seq_number, request) {
 		msg = schema['Api.Proto.CqUnlinkStorage']; break;
 	case ClientRequests.kCqUnlinkView:
 		msg = schema['Api.Proto.CqUnlinkView']; break;
+	case ClientRequests.kCqUploadExtern:
+		msg = schema['Api.Proto.CqUploadExtern']; break;
+	case ClientRequests.kCqDownloadExtern:
+		msg = schema['Api.Proto.CqDownloadExtern']; break;
 	default: throw new Error("p_send(): Illegal opcode");
 	}
 	

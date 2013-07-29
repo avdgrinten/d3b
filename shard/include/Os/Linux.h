@@ -116,10 +116,14 @@ public:
 				std::function<void()> callback);
 		void write(size_type length, const void *buffer,
 				std::function<void()> callback);
+		
+		void onClose(std::function<void()> callback);
 	private:
 		SockStream(int socket_fd);
 
 		int p_socketFd;
+		
+		std::function<void()> p_onClose;
 		
 		std::queue<RwInfo> p_readQueue;
 		std::queue<RwInfo> p_writeQueue;

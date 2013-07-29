@@ -40,8 +40,11 @@ class CqCreateStorage;
 class CqCreateView;
 class CqUnlinkStorage;
 class CqUnlinkView;
+class CqUploadExtern;
+class CqDownloadExtern;
 class SrFin;
 class SrRows;
+class SrBlob;
 
 enum ClientRequests {
   kCqQuery = 1,
@@ -49,20 +52,23 @@ enum ClientRequests {
   kCqCreateStorage = 256,
   kCqCreateView = 257,
   kCqUnlinkStorage = 258,
-  kCqUnlinkView = 259
+  kCqUnlinkView = 259,
+  kCqUploadExtern = 260,
+  kCqDownloadExtern = 261
 };
 bool ClientRequests_IsValid(int value);
 const ClientRequests ClientRequests_MIN = kCqQuery;
-const ClientRequests ClientRequests_MAX = kCqUnlinkView;
+const ClientRequests ClientRequests_MAX = kCqDownloadExtern;
 const int ClientRequests_ARRAYSIZE = ClientRequests_MAX + 1;
 
 enum ServerResponses {
   kSrFin = 1,
-  kSrRows = 2
+  kSrRows = 2,
+  kSrBlob = 3
 };
 bool ServerResponses_IsValid(int value);
 const ServerResponses ServerResponses_MIN = kSrFin;
-const ServerResponses ServerResponses_MAX = kSrRows;
+const ServerResponses ServerResponses_MAX = kSrBlob;
 const int ServerResponses_ARRAYSIZE = ServerResponses_MAX + 1;
 
 enum EnumErrors {
@@ -506,6 +512,166 @@ class CqUnlinkView : public ::google::protobuf::MessageLite {
 };
 // -------------------------------------------------------------------
 
+class CqUploadExtern : public ::google::protobuf::MessageLite {
+ public:
+  CqUploadExtern();
+  virtual ~CqUploadExtern();
+  
+  CqUploadExtern(const CqUploadExtern& from);
+  
+  inline CqUploadExtern& operator=(const CqUploadExtern& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  
+  static const CqUploadExtern& default_instance();
+  
+  void Swap(CqUploadExtern* other);
+  
+  // implements Message ----------------------------------------------
+  
+  CqUploadExtern* New() const;
+  void CheckTypeAndMergeFrom(const ::google::protobuf::MessageLite& from);
+  void CopyFrom(const CqUploadExtern& from);
+  void MergeFrom(const CqUploadExtern& from);
+  void Clear();
+  bool IsInitialized() const;
+  
+  int ByteSize() const;
+  bool MergePartialFromCodedStream(
+      ::google::protobuf::io::CodedInputStream* input);
+  void SerializeWithCachedSizes(
+      ::google::protobuf::io::CodedOutputStream* output) const;
+  int GetCachedSize() const { return _cached_size_; }
+  private:
+  void SharedCtor();
+  void SharedDtor();
+  void SetCachedSize(int size) const;
+  public:
+  
+  ::std::string GetTypeName() const;
+  
+  // nested types ----------------------------------------------------
+  
+  // accessors -------------------------------------------------------
+  
+  // required string file_name = 1;
+  inline bool has_file_name() const;
+  inline void clear_file_name();
+  static const int kFileNameFieldNumber = 1;
+  inline const ::std::string& file_name() const;
+  inline void set_file_name(const ::std::string& value);
+  inline void set_file_name(const char* value);
+  inline void set_file_name(const char* value, size_t size);
+  inline ::std::string* mutable_file_name();
+  inline ::std::string* release_file_name();
+  
+  // required bytes buffer = 2;
+  inline bool has_buffer() const;
+  inline void clear_buffer();
+  static const int kBufferFieldNumber = 2;
+  inline const ::std::string& buffer() const;
+  inline void set_buffer(const ::std::string& value);
+  inline void set_buffer(const char* value);
+  inline void set_buffer(const void* value, size_t size);
+  inline ::std::string* mutable_buffer();
+  inline ::std::string* release_buffer();
+  
+  // @@protoc_insertion_point(class_scope:Api.Proto.CqUploadExtern)
+ private:
+  inline void set_has_file_name();
+  inline void clear_has_file_name();
+  inline void set_has_buffer();
+  inline void clear_has_buffer();
+  
+  ::std::string* file_name_;
+  ::std::string* buffer_;
+  
+  mutable int _cached_size_;
+  ::google::protobuf::uint32 _has_bits_[(2 + 31) / 32];
+  
+  friend void  protobuf_AddDesc_proto_2fApi_2eproto();
+  friend void protobuf_AssignDesc_proto_2fApi_2eproto();
+  friend void protobuf_ShutdownFile_proto_2fApi_2eproto();
+  
+  void InitAsDefaultInstance();
+  static CqUploadExtern* default_instance_;
+};
+// -------------------------------------------------------------------
+
+class CqDownloadExtern : public ::google::protobuf::MessageLite {
+ public:
+  CqDownloadExtern();
+  virtual ~CqDownloadExtern();
+  
+  CqDownloadExtern(const CqDownloadExtern& from);
+  
+  inline CqDownloadExtern& operator=(const CqDownloadExtern& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  
+  static const CqDownloadExtern& default_instance();
+  
+  void Swap(CqDownloadExtern* other);
+  
+  // implements Message ----------------------------------------------
+  
+  CqDownloadExtern* New() const;
+  void CheckTypeAndMergeFrom(const ::google::protobuf::MessageLite& from);
+  void CopyFrom(const CqDownloadExtern& from);
+  void MergeFrom(const CqDownloadExtern& from);
+  void Clear();
+  bool IsInitialized() const;
+  
+  int ByteSize() const;
+  bool MergePartialFromCodedStream(
+      ::google::protobuf::io::CodedInputStream* input);
+  void SerializeWithCachedSizes(
+      ::google::protobuf::io::CodedOutputStream* output) const;
+  int GetCachedSize() const { return _cached_size_; }
+  private:
+  void SharedCtor();
+  void SharedDtor();
+  void SetCachedSize(int size) const;
+  public:
+  
+  ::std::string GetTypeName() const;
+  
+  // nested types ----------------------------------------------------
+  
+  // accessors -------------------------------------------------------
+  
+  // required string file_name = 1;
+  inline bool has_file_name() const;
+  inline void clear_file_name();
+  static const int kFileNameFieldNumber = 1;
+  inline const ::std::string& file_name() const;
+  inline void set_file_name(const ::std::string& value);
+  inline void set_file_name(const char* value);
+  inline void set_file_name(const char* value, size_t size);
+  inline ::std::string* mutable_file_name();
+  inline ::std::string* release_file_name();
+  
+  // @@protoc_insertion_point(class_scope:Api.Proto.CqDownloadExtern)
+ private:
+  inline void set_has_file_name();
+  inline void clear_has_file_name();
+  
+  ::std::string* file_name_;
+  
+  mutable int _cached_size_;
+  ::google::protobuf::uint32 _has_bits_[(1 + 31) / 32];
+  
+  friend void  protobuf_AddDesc_proto_2fApi_2eproto();
+  friend void protobuf_AssignDesc_proto_2fApi_2eproto();
+  friend void protobuf_ShutdownFile_proto_2fApi_2eproto();
+  
+  void InitAsDefaultInstance();
+  static CqDownloadExtern* default_instance_;
+};
+// -------------------------------------------------------------------
+
 class SrFin : public ::google::protobuf::MessageLite {
  public:
   SrFin();
@@ -672,6 +838,79 @@ class SrRows : public ::google::protobuf::MessageLite {
   
   void InitAsDefaultInstance();
   static SrRows* default_instance_;
+};
+// -------------------------------------------------------------------
+
+class SrBlob : public ::google::protobuf::MessageLite {
+ public:
+  SrBlob();
+  virtual ~SrBlob();
+  
+  SrBlob(const SrBlob& from);
+  
+  inline SrBlob& operator=(const SrBlob& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  
+  static const SrBlob& default_instance();
+  
+  void Swap(SrBlob* other);
+  
+  // implements Message ----------------------------------------------
+  
+  SrBlob* New() const;
+  void CheckTypeAndMergeFrom(const ::google::protobuf::MessageLite& from);
+  void CopyFrom(const SrBlob& from);
+  void MergeFrom(const SrBlob& from);
+  void Clear();
+  bool IsInitialized() const;
+  
+  int ByteSize() const;
+  bool MergePartialFromCodedStream(
+      ::google::protobuf::io::CodedInputStream* input);
+  void SerializeWithCachedSizes(
+      ::google::protobuf::io::CodedOutputStream* output) const;
+  int GetCachedSize() const { return _cached_size_; }
+  private:
+  void SharedCtor();
+  void SharedDtor();
+  void SetCachedSize(int size) const;
+  public:
+  
+  ::std::string GetTypeName() const;
+  
+  // nested types ----------------------------------------------------
+  
+  // accessors -------------------------------------------------------
+  
+  // required bytes buffer = 1;
+  inline bool has_buffer() const;
+  inline void clear_buffer();
+  static const int kBufferFieldNumber = 1;
+  inline const ::std::string& buffer() const;
+  inline void set_buffer(const ::std::string& value);
+  inline void set_buffer(const char* value);
+  inline void set_buffer(const void* value, size_t size);
+  inline ::std::string* mutable_buffer();
+  inline ::std::string* release_buffer();
+  
+  // @@protoc_insertion_point(class_scope:Api.Proto.SrBlob)
+ private:
+  inline void set_has_buffer();
+  inline void clear_has_buffer();
+  
+  ::std::string* buffer_;
+  
+  mutable int _cached_size_;
+  ::google::protobuf::uint32 _has_bits_[(1 + 31) / 32];
+  
+  friend void  protobuf_AddDesc_proto_2fApi_2eproto();
+  friend void protobuf_AssignDesc_proto_2fApi_2eproto();
+  friend void protobuf_ShutdownFile_proto_2fApi_2eproto();
+  
+  void InitAsDefaultInstance();
+  static SrBlob* default_instance_;
 };
 // ===================================================================
 
@@ -930,6 +1169,188 @@ inline ::std::string* CqUnlinkView::release_identifier() {
 
 // -------------------------------------------------------------------
 
+// CqUploadExtern
+
+// required string file_name = 1;
+inline bool CqUploadExtern::has_file_name() const {
+  return (_has_bits_[0] & 0x00000001u) != 0;
+}
+inline void CqUploadExtern::set_has_file_name() {
+  _has_bits_[0] |= 0x00000001u;
+}
+inline void CqUploadExtern::clear_has_file_name() {
+  _has_bits_[0] &= ~0x00000001u;
+}
+inline void CqUploadExtern::clear_file_name() {
+  if (file_name_ != &::google::protobuf::internal::kEmptyString) {
+    file_name_->clear();
+  }
+  clear_has_file_name();
+}
+inline const ::std::string& CqUploadExtern::file_name() const {
+  return *file_name_;
+}
+inline void CqUploadExtern::set_file_name(const ::std::string& value) {
+  set_has_file_name();
+  if (file_name_ == &::google::protobuf::internal::kEmptyString) {
+    file_name_ = new ::std::string;
+  }
+  file_name_->assign(value);
+}
+inline void CqUploadExtern::set_file_name(const char* value) {
+  set_has_file_name();
+  if (file_name_ == &::google::protobuf::internal::kEmptyString) {
+    file_name_ = new ::std::string;
+  }
+  file_name_->assign(value);
+}
+inline void CqUploadExtern::set_file_name(const char* value, size_t size) {
+  set_has_file_name();
+  if (file_name_ == &::google::protobuf::internal::kEmptyString) {
+    file_name_ = new ::std::string;
+  }
+  file_name_->assign(reinterpret_cast<const char*>(value), size);
+}
+inline ::std::string* CqUploadExtern::mutable_file_name() {
+  set_has_file_name();
+  if (file_name_ == &::google::protobuf::internal::kEmptyString) {
+    file_name_ = new ::std::string;
+  }
+  return file_name_;
+}
+inline ::std::string* CqUploadExtern::release_file_name() {
+  clear_has_file_name();
+  if (file_name_ == &::google::protobuf::internal::kEmptyString) {
+    return NULL;
+  } else {
+    ::std::string* temp = file_name_;
+    file_name_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
+    return temp;
+  }
+}
+
+// required bytes buffer = 2;
+inline bool CqUploadExtern::has_buffer() const {
+  return (_has_bits_[0] & 0x00000002u) != 0;
+}
+inline void CqUploadExtern::set_has_buffer() {
+  _has_bits_[0] |= 0x00000002u;
+}
+inline void CqUploadExtern::clear_has_buffer() {
+  _has_bits_[0] &= ~0x00000002u;
+}
+inline void CqUploadExtern::clear_buffer() {
+  if (buffer_ != &::google::protobuf::internal::kEmptyString) {
+    buffer_->clear();
+  }
+  clear_has_buffer();
+}
+inline const ::std::string& CqUploadExtern::buffer() const {
+  return *buffer_;
+}
+inline void CqUploadExtern::set_buffer(const ::std::string& value) {
+  set_has_buffer();
+  if (buffer_ == &::google::protobuf::internal::kEmptyString) {
+    buffer_ = new ::std::string;
+  }
+  buffer_->assign(value);
+}
+inline void CqUploadExtern::set_buffer(const char* value) {
+  set_has_buffer();
+  if (buffer_ == &::google::protobuf::internal::kEmptyString) {
+    buffer_ = new ::std::string;
+  }
+  buffer_->assign(value);
+}
+inline void CqUploadExtern::set_buffer(const void* value, size_t size) {
+  set_has_buffer();
+  if (buffer_ == &::google::protobuf::internal::kEmptyString) {
+    buffer_ = new ::std::string;
+  }
+  buffer_->assign(reinterpret_cast<const char*>(value), size);
+}
+inline ::std::string* CqUploadExtern::mutable_buffer() {
+  set_has_buffer();
+  if (buffer_ == &::google::protobuf::internal::kEmptyString) {
+    buffer_ = new ::std::string;
+  }
+  return buffer_;
+}
+inline ::std::string* CqUploadExtern::release_buffer() {
+  clear_has_buffer();
+  if (buffer_ == &::google::protobuf::internal::kEmptyString) {
+    return NULL;
+  } else {
+    ::std::string* temp = buffer_;
+    buffer_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
+    return temp;
+  }
+}
+
+// -------------------------------------------------------------------
+
+// CqDownloadExtern
+
+// required string file_name = 1;
+inline bool CqDownloadExtern::has_file_name() const {
+  return (_has_bits_[0] & 0x00000001u) != 0;
+}
+inline void CqDownloadExtern::set_has_file_name() {
+  _has_bits_[0] |= 0x00000001u;
+}
+inline void CqDownloadExtern::clear_has_file_name() {
+  _has_bits_[0] &= ~0x00000001u;
+}
+inline void CqDownloadExtern::clear_file_name() {
+  if (file_name_ != &::google::protobuf::internal::kEmptyString) {
+    file_name_->clear();
+  }
+  clear_has_file_name();
+}
+inline const ::std::string& CqDownloadExtern::file_name() const {
+  return *file_name_;
+}
+inline void CqDownloadExtern::set_file_name(const ::std::string& value) {
+  set_has_file_name();
+  if (file_name_ == &::google::protobuf::internal::kEmptyString) {
+    file_name_ = new ::std::string;
+  }
+  file_name_->assign(value);
+}
+inline void CqDownloadExtern::set_file_name(const char* value) {
+  set_has_file_name();
+  if (file_name_ == &::google::protobuf::internal::kEmptyString) {
+    file_name_ = new ::std::string;
+  }
+  file_name_->assign(value);
+}
+inline void CqDownloadExtern::set_file_name(const char* value, size_t size) {
+  set_has_file_name();
+  if (file_name_ == &::google::protobuf::internal::kEmptyString) {
+    file_name_ = new ::std::string;
+  }
+  file_name_->assign(reinterpret_cast<const char*>(value), size);
+}
+inline ::std::string* CqDownloadExtern::mutable_file_name() {
+  set_has_file_name();
+  if (file_name_ == &::google::protobuf::internal::kEmptyString) {
+    file_name_ = new ::std::string;
+  }
+  return file_name_;
+}
+inline ::std::string* CqDownloadExtern::release_file_name() {
+  clear_has_file_name();
+  if (file_name_ == &::google::protobuf::internal::kEmptyString) {
+    return NULL;
+  } else {
+    ::std::string* temp = file_name_;
+    file_name_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
+    return temp;
+  }
+}
+
+// -------------------------------------------------------------------
+
 // SrFin
 
 // optional bool success = 1;
@@ -1081,6 +1502,68 @@ SrRows::row_data() const {
 inline ::google::protobuf::RepeatedPtrField< ::std::string>*
 SrRows::mutable_row_data() {
   return &row_data_;
+}
+
+// -------------------------------------------------------------------
+
+// SrBlob
+
+// required bytes buffer = 1;
+inline bool SrBlob::has_buffer() const {
+  return (_has_bits_[0] & 0x00000001u) != 0;
+}
+inline void SrBlob::set_has_buffer() {
+  _has_bits_[0] |= 0x00000001u;
+}
+inline void SrBlob::clear_has_buffer() {
+  _has_bits_[0] &= ~0x00000001u;
+}
+inline void SrBlob::clear_buffer() {
+  if (buffer_ != &::google::protobuf::internal::kEmptyString) {
+    buffer_->clear();
+  }
+  clear_has_buffer();
+}
+inline const ::std::string& SrBlob::buffer() const {
+  return *buffer_;
+}
+inline void SrBlob::set_buffer(const ::std::string& value) {
+  set_has_buffer();
+  if (buffer_ == &::google::protobuf::internal::kEmptyString) {
+    buffer_ = new ::std::string;
+  }
+  buffer_->assign(value);
+}
+inline void SrBlob::set_buffer(const char* value) {
+  set_has_buffer();
+  if (buffer_ == &::google::protobuf::internal::kEmptyString) {
+    buffer_ = new ::std::string;
+  }
+  buffer_->assign(value);
+}
+inline void SrBlob::set_buffer(const void* value, size_t size) {
+  set_has_buffer();
+  if (buffer_ == &::google::protobuf::internal::kEmptyString) {
+    buffer_ = new ::std::string;
+  }
+  buffer_->assign(reinterpret_cast<const char*>(value), size);
+}
+inline ::std::string* SrBlob::mutable_buffer() {
+  set_has_buffer();
+  if (buffer_ == &::google::protobuf::internal::kEmptyString) {
+    buffer_ = new ::std::string;
+  }
+  return buffer_;
+}
+inline ::std::string* SrBlob::release_buffer() {
+  clear_has_buffer();
+  if (buffer_ == &::google::protobuf::internal::kEmptyString) {
+    return NULL;
+  } else {
+    ::std::string* temp = buffer_;
+    buffer_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
+    return temp;
+  }
 }
 
 

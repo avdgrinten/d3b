@@ -20,8 +20,11 @@ void protobuf_ShutdownFile_proto_2fApi_2eproto() {
   delete CqCreateView::default_instance_;
   delete CqUnlinkStorage::default_instance_;
   delete CqUnlinkView::default_instance_;
+  delete CqUploadExtern::default_instance_;
+  delete CqDownloadExtern::default_instance_;
   delete SrFin::default_instance_;
   delete SrRows::default_instance_;
+  delete SrBlob::default_instance_;
 }
 
 void protobuf_AddDesc_proto_2fApi_2eproto() {
@@ -38,16 +41,22 @@ void protobuf_AddDesc_proto_2fApi_2eproto() {
   CqCreateView::default_instance_ = new CqCreateView();
   CqUnlinkStorage::default_instance_ = new CqUnlinkStorage();
   CqUnlinkView::default_instance_ = new CqUnlinkView();
+  CqUploadExtern::default_instance_ = new CqUploadExtern();
+  CqDownloadExtern::default_instance_ = new CqDownloadExtern();
   SrFin::default_instance_ = new SrFin();
   SrRows::default_instance_ = new SrRows();
+  SrBlob::default_instance_ = new SrBlob();
   CqQuery::default_instance_->InitAsDefaultInstance();
   CqShortTransact::default_instance_->InitAsDefaultInstance();
   CqCreateStorage::default_instance_->InitAsDefaultInstance();
   CqCreateView::default_instance_->InitAsDefaultInstance();
   CqUnlinkStorage::default_instance_->InitAsDefaultInstance();
   CqUnlinkView::default_instance_->InitAsDefaultInstance();
+  CqUploadExtern::default_instance_->InitAsDefaultInstance();
+  CqDownloadExtern::default_instance_->InitAsDefaultInstance();
   SrFin::default_instance_->InitAsDefaultInstance();
   SrRows::default_instance_->InitAsDefaultInstance();
+  SrBlob::default_instance_->InitAsDefaultInstance();
   ::google::protobuf::internal::OnShutdown(&protobuf_ShutdownFile_proto_2fApi_2eproto);
 }
 
@@ -66,6 +75,8 @@ bool ClientRequests_IsValid(int value) {
     case 257:
     case 258:
     case 259:
+    case 260:
+    case 261:
       return true;
     default:
       return false;
@@ -76,6 +87,7 @@ bool ServerResponses_IsValid(int value) {
   switch(value) {
     case 1:
     case 2:
+    case 3:
       return true;
     default:
       return false;
@@ -1071,6 +1083,377 @@ void CqUnlinkView::Swap(CqUnlinkView* other) {
 // ===================================================================
 
 #ifndef _MSC_VER
+const int CqUploadExtern::kFileNameFieldNumber;
+const int CqUploadExtern::kBufferFieldNumber;
+#endif  // !_MSC_VER
+
+CqUploadExtern::CqUploadExtern()
+  : ::google::protobuf::MessageLite() {
+  SharedCtor();
+}
+
+void CqUploadExtern::InitAsDefaultInstance() {
+}
+
+CqUploadExtern::CqUploadExtern(const CqUploadExtern& from)
+  : ::google::protobuf::MessageLite() {
+  SharedCtor();
+  MergeFrom(from);
+}
+
+void CqUploadExtern::SharedCtor() {
+  _cached_size_ = 0;
+  file_name_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
+  buffer_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
+  ::memset(_has_bits_, 0, sizeof(_has_bits_));
+}
+
+CqUploadExtern::~CqUploadExtern() {
+  SharedDtor();
+}
+
+void CqUploadExtern::SharedDtor() {
+  if (file_name_ != &::google::protobuf::internal::kEmptyString) {
+    delete file_name_;
+  }
+  if (buffer_ != &::google::protobuf::internal::kEmptyString) {
+    delete buffer_;
+  }
+  if (this != default_instance_) {
+  }
+}
+
+void CqUploadExtern::SetCachedSize(int size) const {
+  GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
+  _cached_size_ = size;
+  GOOGLE_SAFE_CONCURRENT_WRITES_END();
+}
+const CqUploadExtern& CqUploadExtern::default_instance() {
+  if (default_instance_ == NULL) protobuf_AddDesc_proto_2fApi_2eproto();  return *default_instance_;
+}
+
+CqUploadExtern* CqUploadExtern::default_instance_ = NULL;
+
+CqUploadExtern* CqUploadExtern::New() const {
+  return new CqUploadExtern;
+}
+
+void CqUploadExtern::Clear() {
+  if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
+    if (has_file_name()) {
+      if (file_name_ != &::google::protobuf::internal::kEmptyString) {
+        file_name_->clear();
+      }
+    }
+    if (has_buffer()) {
+      if (buffer_ != &::google::protobuf::internal::kEmptyString) {
+        buffer_->clear();
+      }
+    }
+  }
+  ::memset(_has_bits_, 0, sizeof(_has_bits_));
+}
+
+bool CqUploadExtern::MergePartialFromCodedStream(
+    ::google::protobuf::io::CodedInputStream* input) {
+#define DO_(EXPRESSION) if (!(EXPRESSION)) return false
+  ::google::protobuf::uint32 tag;
+  while ((tag = input->ReadTag()) != 0) {
+    switch (::google::protobuf::internal::WireFormatLite::GetTagFieldNumber(tag)) {
+      // required string file_name = 1;
+      case 1: {
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_LENGTH_DELIMITED) {
+          DO_(::google::protobuf::internal::WireFormatLite::ReadString(
+                input, this->mutable_file_name()));
+        } else {
+          goto handle_uninterpreted;
+        }
+        if (input->ExpectTag(18)) goto parse_buffer;
+        break;
+      }
+      
+      // required bytes buffer = 2;
+      case 2: {
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_LENGTH_DELIMITED) {
+         parse_buffer:
+          DO_(::google::protobuf::internal::WireFormatLite::ReadBytes(
+                input, this->mutable_buffer()));
+        } else {
+          goto handle_uninterpreted;
+        }
+        if (input->ExpectAtEnd()) return true;
+        break;
+      }
+      
+      default: {
+      handle_uninterpreted:
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_END_GROUP) {
+          return true;
+        }
+        DO_(::google::protobuf::internal::WireFormatLite::SkipField(input, tag));
+        break;
+      }
+    }
+  }
+  return true;
+#undef DO_
+}
+
+void CqUploadExtern::SerializeWithCachedSizes(
+    ::google::protobuf::io::CodedOutputStream* output) const {
+  // required string file_name = 1;
+  if (has_file_name()) {
+    ::google::protobuf::internal::WireFormatLite::WriteString(
+      1, this->file_name(), output);
+  }
+  
+  // required bytes buffer = 2;
+  if (has_buffer()) {
+    ::google::protobuf::internal::WireFormatLite::WriteBytes(
+      2, this->buffer(), output);
+  }
+  
+}
+
+int CqUploadExtern::ByteSize() const {
+  int total_size = 0;
+  
+  if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
+    // required string file_name = 1;
+    if (has_file_name()) {
+      total_size += 1 +
+        ::google::protobuf::internal::WireFormatLite::StringSize(
+          this->file_name());
+    }
+    
+    // required bytes buffer = 2;
+    if (has_buffer()) {
+      total_size += 1 +
+        ::google::protobuf::internal::WireFormatLite::BytesSize(
+          this->buffer());
+    }
+    
+  }
+  GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
+  _cached_size_ = total_size;
+  GOOGLE_SAFE_CONCURRENT_WRITES_END();
+  return total_size;
+}
+
+void CqUploadExtern::CheckTypeAndMergeFrom(
+    const ::google::protobuf::MessageLite& from) {
+  MergeFrom(*::google::protobuf::down_cast<const CqUploadExtern*>(&from));
+}
+
+void CqUploadExtern::MergeFrom(const CqUploadExtern& from) {
+  GOOGLE_CHECK_NE(&from, this);
+  if (from._has_bits_[0 / 32] & (0xffu << (0 % 32))) {
+    if (from.has_file_name()) {
+      set_file_name(from.file_name());
+    }
+    if (from.has_buffer()) {
+      set_buffer(from.buffer());
+    }
+  }
+}
+
+void CqUploadExtern::CopyFrom(const CqUploadExtern& from) {
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+bool CqUploadExtern::IsInitialized() const {
+  if ((_has_bits_[0] & 0x00000003) != 0x00000003) return false;
+  
+  return true;
+}
+
+void CqUploadExtern::Swap(CqUploadExtern* other) {
+  if (other != this) {
+    std::swap(file_name_, other->file_name_);
+    std::swap(buffer_, other->buffer_);
+    std::swap(_has_bits_[0], other->_has_bits_[0]);
+    std::swap(_cached_size_, other->_cached_size_);
+  }
+}
+
+::std::string CqUploadExtern::GetTypeName() const {
+  return "Api.Proto.CqUploadExtern";
+}
+
+
+// ===================================================================
+
+#ifndef _MSC_VER
+const int CqDownloadExtern::kFileNameFieldNumber;
+#endif  // !_MSC_VER
+
+CqDownloadExtern::CqDownloadExtern()
+  : ::google::protobuf::MessageLite() {
+  SharedCtor();
+}
+
+void CqDownloadExtern::InitAsDefaultInstance() {
+}
+
+CqDownloadExtern::CqDownloadExtern(const CqDownloadExtern& from)
+  : ::google::protobuf::MessageLite() {
+  SharedCtor();
+  MergeFrom(from);
+}
+
+void CqDownloadExtern::SharedCtor() {
+  _cached_size_ = 0;
+  file_name_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
+  ::memset(_has_bits_, 0, sizeof(_has_bits_));
+}
+
+CqDownloadExtern::~CqDownloadExtern() {
+  SharedDtor();
+}
+
+void CqDownloadExtern::SharedDtor() {
+  if (file_name_ != &::google::protobuf::internal::kEmptyString) {
+    delete file_name_;
+  }
+  if (this != default_instance_) {
+  }
+}
+
+void CqDownloadExtern::SetCachedSize(int size) const {
+  GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
+  _cached_size_ = size;
+  GOOGLE_SAFE_CONCURRENT_WRITES_END();
+}
+const CqDownloadExtern& CqDownloadExtern::default_instance() {
+  if (default_instance_ == NULL) protobuf_AddDesc_proto_2fApi_2eproto();  return *default_instance_;
+}
+
+CqDownloadExtern* CqDownloadExtern::default_instance_ = NULL;
+
+CqDownloadExtern* CqDownloadExtern::New() const {
+  return new CqDownloadExtern;
+}
+
+void CqDownloadExtern::Clear() {
+  if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
+    if (has_file_name()) {
+      if (file_name_ != &::google::protobuf::internal::kEmptyString) {
+        file_name_->clear();
+      }
+    }
+  }
+  ::memset(_has_bits_, 0, sizeof(_has_bits_));
+}
+
+bool CqDownloadExtern::MergePartialFromCodedStream(
+    ::google::protobuf::io::CodedInputStream* input) {
+#define DO_(EXPRESSION) if (!(EXPRESSION)) return false
+  ::google::protobuf::uint32 tag;
+  while ((tag = input->ReadTag()) != 0) {
+    switch (::google::protobuf::internal::WireFormatLite::GetTagFieldNumber(tag)) {
+      // required string file_name = 1;
+      case 1: {
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_LENGTH_DELIMITED) {
+          DO_(::google::protobuf::internal::WireFormatLite::ReadString(
+                input, this->mutable_file_name()));
+        } else {
+          goto handle_uninterpreted;
+        }
+        if (input->ExpectAtEnd()) return true;
+        break;
+      }
+      
+      default: {
+      handle_uninterpreted:
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_END_GROUP) {
+          return true;
+        }
+        DO_(::google::protobuf::internal::WireFormatLite::SkipField(input, tag));
+        break;
+      }
+    }
+  }
+  return true;
+#undef DO_
+}
+
+void CqDownloadExtern::SerializeWithCachedSizes(
+    ::google::protobuf::io::CodedOutputStream* output) const {
+  // required string file_name = 1;
+  if (has_file_name()) {
+    ::google::protobuf::internal::WireFormatLite::WriteString(
+      1, this->file_name(), output);
+  }
+  
+}
+
+int CqDownloadExtern::ByteSize() const {
+  int total_size = 0;
+  
+  if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
+    // required string file_name = 1;
+    if (has_file_name()) {
+      total_size += 1 +
+        ::google::protobuf::internal::WireFormatLite::StringSize(
+          this->file_name());
+    }
+    
+  }
+  GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
+  _cached_size_ = total_size;
+  GOOGLE_SAFE_CONCURRENT_WRITES_END();
+  return total_size;
+}
+
+void CqDownloadExtern::CheckTypeAndMergeFrom(
+    const ::google::protobuf::MessageLite& from) {
+  MergeFrom(*::google::protobuf::down_cast<const CqDownloadExtern*>(&from));
+}
+
+void CqDownloadExtern::MergeFrom(const CqDownloadExtern& from) {
+  GOOGLE_CHECK_NE(&from, this);
+  if (from._has_bits_[0 / 32] & (0xffu << (0 % 32))) {
+    if (from.has_file_name()) {
+      set_file_name(from.file_name());
+    }
+  }
+}
+
+void CqDownloadExtern::CopyFrom(const CqDownloadExtern& from) {
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+bool CqDownloadExtern::IsInitialized() const {
+  if ((_has_bits_[0] & 0x00000001) != 0x00000001) return false;
+  
+  return true;
+}
+
+void CqDownloadExtern::Swap(CqDownloadExtern* other) {
+  if (other != this) {
+    std::swap(file_name_, other->file_name_);
+    std::swap(_has_bits_[0], other->_has_bits_[0]);
+    std::swap(_cached_size_, other->_cached_size_);
+  }
+}
+
+::std::string CqDownloadExtern::GetTypeName() const {
+  return "Api.Proto.CqDownloadExtern";
+}
+
+
+// ===================================================================
+
+#ifndef _MSC_VER
 const int SrFin::kSuccessFieldNumber;
 const int SrFin::kErrCodeFieldNumber;
 const int SrFin::kErrMsgFieldNumber;
@@ -1450,6 +1833,171 @@ void SrRows::Swap(SrRows* other) {
 
 ::std::string SrRows::GetTypeName() const {
   return "Api.Proto.SrRows";
+}
+
+
+// ===================================================================
+
+#ifndef _MSC_VER
+const int SrBlob::kBufferFieldNumber;
+#endif  // !_MSC_VER
+
+SrBlob::SrBlob()
+  : ::google::protobuf::MessageLite() {
+  SharedCtor();
+}
+
+void SrBlob::InitAsDefaultInstance() {
+}
+
+SrBlob::SrBlob(const SrBlob& from)
+  : ::google::protobuf::MessageLite() {
+  SharedCtor();
+  MergeFrom(from);
+}
+
+void SrBlob::SharedCtor() {
+  _cached_size_ = 0;
+  buffer_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
+  ::memset(_has_bits_, 0, sizeof(_has_bits_));
+}
+
+SrBlob::~SrBlob() {
+  SharedDtor();
+}
+
+void SrBlob::SharedDtor() {
+  if (buffer_ != &::google::protobuf::internal::kEmptyString) {
+    delete buffer_;
+  }
+  if (this != default_instance_) {
+  }
+}
+
+void SrBlob::SetCachedSize(int size) const {
+  GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
+  _cached_size_ = size;
+  GOOGLE_SAFE_CONCURRENT_WRITES_END();
+}
+const SrBlob& SrBlob::default_instance() {
+  if (default_instance_ == NULL) protobuf_AddDesc_proto_2fApi_2eproto();  return *default_instance_;
+}
+
+SrBlob* SrBlob::default_instance_ = NULL;
+
+SrBlob* SrBlob::New() const {
+  return new SrBlob;
+}
+
+void SrBlob::Clear() {
+  if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
+    if (has_buffer()) {
+      if (buffer_ != &::google::protobuf::internal::kEmptyString) {
+        buffer_->clear();
+      }
+    }
+  }
+  ::memset(_has_bits_, 0, sizeof(_has_bits_));
+}
+
+bool SrBlob::MergePartialFromCodedStream(
+    ::google::protobuf::io::CodedInputStream* input) {
+#define DO_(EXPRESSION) if (!(EXPRESSION)) return false
+  ::google::protobuf::uint32 tag;
+  while ((tag = input->ReadTag()) != 0) {
+    switch (::google::protobuf::internal::WireFormatLite::GetTagFieldNumber(tag)) {
+      // required bytes buffer = 1;
+      case 1: {
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_LENGTH_DELIMITED) {
+          DO_(::google::protobuf::internal::WireFormatLite::ReadBytes(
+                input, this->mutable_buffer()));
+        } else {
+          goto handle_uninterpreted;
+        }
+        if (input->ExpectAtEnd()) return true;
+        break;
+      }
+      
+      default: {
+      handle_uninterpreted:
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_END_GROUP) {
+          return true;
+        }
+        DO_(::google::protobuf::internal::WireFormatLite::SkipField(input, tag));
+        break;
+      }
+    }
+  }
+  return true;
+#undef DO_
+}
+
+void SrBlob::SerializeWithCachedSizes(
+    ::google::protobuf::io::CodedOutputStream* output) const {
+  // required bytes buffer = 1;
+  if (has_buffer()) {
+    ::google::protobuf::internal::WireFormatLite::WriteBytes(
+      1, this->buffer(), output);
+  }
+  
+}
+
+int SrBlob::ByteSize() const {
+  int total_size = 0;
+  
+  if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
+    // required bytes buffer = 1;
+    if (has_buffer()) {
+      total_size += 1 +
+        ::google::protobuf::internal::WireFormatLite::BytesSize(
+          this->buffer());
+    }
+    
+  }
+  GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
+  _cached_size_ = total_size;
+  GOOGLE_SAFE_CONCURRENT_WRITES_END();
+  return total_size;
+}
+
+void SrBlob::CheckTypeAndMergeFrom(
+    const ::google::protobuf::MessageLite& from) {
+  MergeFrom(*::google::protobuf::down_cast<const SrBlob*>(&from));
+}
+
+void SrBlob::MergeFrom(const SrBlob& from) {
+  GOOGLE_CHECK_NE(&from, this);
+  if (from._has_bits_[0 / 32] & (0xffu << (0 % 32))) {
+    if (from.has_buffer()) {
+      set_buffer(from.buffer());
+    }
+  }
+}
+
+void SrBlob::CopyFrom(const SrBlob& from) {
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+bool SrBlob::IsInitialized() const {
+  if ((_has_bits_[0] & 0x00000001) != 0x00000001) return false;
+  
+  return true;
+}
+
+void SrBlob::Swap(SrBlob* other) {
+  if (other != this) {
+    std::swap(buffer_, other->buffer_);
+    std::swap(_has_bits_[0], other->_has_bits_[0]);
+    std::swap(_cached_size_, other->_cached_size_);
+  }
+}
+
+::std::string SrBlob::GetTypeName() const {
+  return "Api.Proto.SrBlob";
 }
 
 

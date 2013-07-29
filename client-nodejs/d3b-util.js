@@ -51,6 +51,32 @@ function unlinkView(client, opts, callback) {
 		identifier: opts.identifier });
 }
 
+function uploadExtern(client, opts, callback) {
+	var req = client.request();
+	req.on('response', function(opcode, resp) {
+		if(opcode == d3b.ServerResponses.kSrFin) {
+			callback(null);
+			req.fin();
+		}else throw new Error("Unexpected response " + opcode);
+	});
+	req.send(d3b.ClientRequests.kCqUploadExtern, {
+		fileName: opts.fileName, buffer: opts.buffer });
+}
+
+function downloadExtern(client, opts, data_handler, callback) {
+	var req = client.request();
+	req.on('response', function(opcode, resp) {
+		if(opcode == d3b.ServerResponses.kSrFin) {
+			callback(null);
+			req.fin();
+		}else if(opcode == d3b.ServerResponses.kSrBlob) {
+			data_handler(resp.buffer);
+		}else throw new Error("Unexpected response " + opcode);
+	});
+	req.send(d3b.ClientRequests.kCqDownloadExtern, {
+		fileName: opts.fileName });
+}
+
 function insert(client, opts, callback) {
 	var req = client.request();
 	req.on('response', function(opcode, resp) {
@@ -95,6 +121,8 @@ module.exports.createStorage = createStorage;
 module.exports.createView = createView;
 module.exports.unlinkStorage = unlinkStorage;
 module.exports.unlinkView = unlinkView;
+module.exports.uploadExtern = uploadExtern;
+module.exports.downloadExtern = downloadExtern;
 module.exports.insert = insert;
 module.exports.update = update;
 module.exports.query = query;

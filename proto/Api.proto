@@ -12,10 +12,14 @@ option optimize_for = LITE_RUNTIME;
 enum ClientRequests {
 	kCqQuery = 1;
 	kCqShortTransact = 32;
+
 	kCqCreateStorage = 256;
 	kCqCreateView = 257;
 	kCqUnlinkStorage = 258;
 	kCqUnlinkView = 259;
+
+	kCqUploadExtern = 260;
+	kCqDownloadExtern = 261;
 };
 
 message CqQuery {
@@ -40,6 +44,14 @@ message CqUnlinkView {
 	required string identifier = 1;
 }
 
+message CqUploadExtern {
+	required string file_name = 1;
+	required bytes buffer = 2;
+}
+message CqDownloadExtern {
+	required string file_name = 1;
+}
+
 // -----------------------------------------------------------
 // responses send by server
 // -----------------------------------------------------------
@@ -47,6 +59,7 @@ message CqUnlinkView {
 enum ServerResponses {
 	kSrFin = 1;
 	kSrRows = 2;
+	kSrBlob = 3;
 };
 
 enum EnumErrors {
@@ -65,5 +78,9 @@ message SrFin {
 
 message SrRows {
 	repeated bytes row_data = 1;
+}
+
+message SrBlob {
+	required bytes buffer = 1;
 }
 

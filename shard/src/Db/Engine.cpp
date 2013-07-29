@@ -23,6 +23,7 @@ void Engine::createConfig() {
 		throw std::runtime_error("Config file exists already!");
 	osIntf->mkDir(p_path + "/storage");
 	osIntf->mkDir(p_path + "/views");
+	osIntf->mkDir(p_path + "/extern");
 	p_writeConfig();
 }
 
