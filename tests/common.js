@@ -42,7 +42,7 @@ D3bInstance.prototype.setup = function(callback) {
 		},
 		function(callback) {
 			self.$process = child_process.spawn('shard/shard',
-				[ '--path', self.$path ], { stdio: 'inherit' });
+				[ '--path', self.$path ] /*, { stdio: 'inherit' }*/);
 			self.$process.on('exit', function() {
 				self.$exited = true;
 			});
@@ -70,7 +70,6 @@ D3bInstance.prototype.connect = function(callback) {
 		callback(client);
 	});
 	client.on('end', function() {
-		console.log("end");
 	});
 	client.useSocket(net.connect(7963, 'localhost'));
 };
