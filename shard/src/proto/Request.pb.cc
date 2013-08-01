@@ -14,9 +14,11 @@ namespace Db {
 namespace Proto {
 
 void protobuf_ShutdownFile_proto_2fRequest_2eproto() {
+  delete Update::default_instance_;
   delete Query::default_instance_;
   delete Rows::default_instance_;
-  delete Update::default_instance_;
+  delete Data::default_instance_;
+  delete WriteAhead::default_instance_;
 }
 
 void protobuf_AddDesc_proto_2fRequest_2eproto() {
@@ -25,12 +27,16 @@ void protobuf_AddDesc_proto_2fRequest_2eproto() {
   already_here = true;
   GOOGLE_PROTOBUF_VERIFY_VERSION;
 
+  Update::default_instance_ = new Update();
   Query::default_instance_ = new Query();
   Rows::default_instance_ = new Rows();
-  Update::default_instance_ = new Update();
+  Data::default_instance_ = new Data();
+  WriteAhead::default_instance_ = new WriteAhead();
+  Update::default_instance_->InitAsDefaultInstance();
   Query::default_instance_->InitAsDefaultInstance();
   Rows::default_instance_->InitAsDefaultInstance();
-  Update::default_instance_->InitAsDefaultInstance();
+  Data::default_instance_->InitAsDefaultInstance();
+  WriteAhead::default_instance_->InitAsDefaultInstance();
   ::google::protobuf::internal::OnShutdown(&protobuf_ShutdownFile_proto_2fRequest_2eproto);
 }
 
@@ -50,6 +56,319 @@ bool Actions_IsValid(int value) {
     default:
       return false;
   }
+}
+
+
+// ===================================================================
+
+#ifndef _MSC_VER
+const int Update::kActionFieldNumber;
+const int Update::kIdFieldNumber;
+const int Update::kStorageIdxFieldNumber;
+const int Update::kStorageNameFieldNumber;
+const int Update::kBufferFieldNumber;
+#endif  // !_MSC_VER
+
+Update::Update()
+  : ::google::protobuf::MessageLite() {
+  SharedCtor();
+}
+
+void Update::InitAsDefaultInstance() {
+}
+
+Update::Update(const Update& from)
+  : ::google::protobuf::MessageLite() {
+  SharedCtor();
+  MergeFrom(from);
+}
+
+void Update::SharedCtor() {
+  _cached_size_ = 0;
+  action_ = 0;
+  id_ = GOOGLE_LONGLONG(0);
+  storage_idx_ = 0;
+  storage_name_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
+  buffer_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
+  ::memset(_has_bits_, 0, sizeof(_has_bits_));
+}
+
+Update::~Update() {
+  SharedDtor();
+}
+
+void Update::SharedDtor() {
+  if (storage_name_ != &::google::protobuf::internal::kEmptyString) {
+    delete storage_name_;
+  }
+  if (buffer_ != &::google::protobuf::internal::kEmptyString) {
+    delete buffer_;
+  }
+  if (this != default_instance_) {
+  }
+}
+
+void Update::SetCachedSize(int size) const {
+  GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
+  _cached_size_ = size;
+  GOOGLE_SAFE_CONCURRENT_WRITES_END();
+}
+const Update& Update::default_instance() {
+  if (default_instance_ == NULL) protobuf_AddDesc_proto_2fRequest_2eproto();  return *default_instance_;
+}
+
+Update* Update::default_instance_ = NULL;
+
+Update* Update::New() const {
+  return new Update;
+}
+
+void Update::Clear() {
+  if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
+    action_ = 0;
+    id_ = GOOGLE_LONGLONG(0);
+    storage_idx_ = 0;
+    if (has_storage_name()) {
+      if (storage_name_ != &::google::protobuf::internal::kEmptyString) {
+        storage_name_->clear();
+      }
+    }
+    if (has_buffer()) {
+      if (buffer_ != &::google::protobuf::internal::kEmptyString) {
+        buffer_->clear();
+      }
+    }
+  }
+  ::memset(_has_bits_, 0, sizeof(_has_bits_));
+}
+
+bool Update::MergePartialFromCodedStream(
+    ::google::protobuf::io::CodedInputStream* input) {
+#define DO_(EXPRESSION) if (!(EXPRESSION)) return false
+  ::google::protobuf::uint32 tag;
+  while ((tag = input->ReadTag()) != 0) {
+    switch (::google::protobuf::internal::WireFormatLite::GetTagFieldNumber(tag)) {
+      // optional .Db.Proto.Actions action = 1;
+      case 1: {
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT) {
+          int value;
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   int, ::google::protobuf::internal::WireFormatLite::TYPE_ENUM>(
+                 input, &value)));
+          if (Db::Proto::Actions_IsValid(value)) {
+            set_action(static_cast< Db::Proto::Actions >(value));
+          }
+        } else {
+          goto handle_uninterpreted;
+        }
+        if (input->ExpectTag(16)) goto parse_id;
+        break;
+      }
+      
+      // optional int64 id = 2;
+      case 2: {
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT) {
+         parse_id:
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   ::google::protobuf::int64, ::google::protobuf::internal::WireFormatLite::TYPE_INT64>(
+                 input, &id_)));
+          set_has_id();
+        } else {
+          goto handle_uninterpreted;
+        }
+        if (input->ExpectTag(24)) goto parse_storage_idx;
+        break;
+      }
+      
+      // optional int32 storage_idx = 3;
+      case 3: {
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT) {
+         parse_storage_idx:
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   ::google::protobuf::int32, ::google::protobuf::internal::WireFormatLite::TYPE_INT32>(
+                 input, &storage_idx_)));
+          set_has_storage_idx();
+        } else {
+          goto handle_uninterpreted;
+        }
+        if (input->ExpectTag(34)) goto parse_storage_name;
+        break;
+      }
+      
+      // optional string storage_name = 4;
+      case 4: {
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_LENGTH_DELIMITED) {
+         parse_storage_name:
+          DO_(::google::protobuf::internal::WireFormatLite::ReadString(
+                input, this->mutable_storage_name()));
+        } else {
+          goto handle_uninterpreted;
+        }
+        if (input->ExpectTag(138)) goto parse_buffer;
+        break;
+      }
+      
+      // optional bytes buffer = 17;
+      case 17: {
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_LENGTH_DELIMITED) {
+         parse_buffer:
+          DO_(::google::protobuf::internal::WireFormatLite::ReadBytes(
+                input, this->mutable_buffer()));
+        } else {
+          goto handle_uninterpreted;
+        }
+        if (input->ExpectAtEnd()) return true;
+        break;
+      }
+      
+      default: {
+      handle_uninterpreted:
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_END_GROUP) {
+          return true;
+        }
+        DO_(::google::protobuf::internal::WireFormatLite::SkipField(input, tag));
+        break;
+      }
+    }
+  }
+  return true;
+#undef DO_
+}
+
+void Update::SerializeWithCachedSizes(
+    ::google::protobuf::io::CodedOutputStream* output) const {
+  // optional .Db.Proto.Actions action = 1;
+  if (has_action()) {
+    ::google::protobuf::internal::WireFormatLite::WriteEnum(
+      1, this->action(), output);
+  }
+  
+  // optional int64 id = 2;
+  if (has_id()) {
+    ::google::protobuf::internal::WireFormatLite::WriteInt64(2, this->id(), output);
+  }
+  
+  // optional int32 storage_idx = 3;
+  if (has_storage_idx()) {
+    ::google::protobuf::internal::WireFormatLite::WriteInt32(3, this->storage_idx(), output);
+  }
+  
+  // optional string storage_name = 4;
+  if (has_storage_name()) {
+    ::google::protobuf::internal::WireFormatLite::WriteString(
+      4, this->storage_name(), output);
+  }
+  
+  // optional bytes buffer = 17;
+  if (has_buffer()) {
+    ::google::protobuf::internal::WireFormatLite::WriteBytes(
+      17, this->buffer(), output);
+  }
+  
+}
+
+int Update::ByteSize() const {
+  int total_size = 0;
+  
+  if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
+    // optional .Db.Proto.Actions action = 1;
+    if (has_action()) {
+      total_size += 1 +
+        ::google::protobuf::internal::WireFormatLite::EnumSize(this->action());
+    }
+    
+    // optional int64 id = 2;
+    if (has_id()) {
+      total_size += 1 +
+        ::google::protobuf::internal::WireFormatLite::Int64Size(
+          this->id());
+    }
+    
+    // optional int32 storage_idx = 3;
+    if (has_storage_idx()) {
+      total_size += 1 +
+        ::google::protobuf::internal::WireFormatLite::Int32Size(
+          this->storage_idx());
+    }
+    
+    // optional string storage_name = 4;
+    if (has_storage_name()) {
+      total_size += 1 +
+        ::google::protobuf::internal::WireFormatLite::StringSize(
+          this->storage_name());
+    }
+    
+    // optional bytes buffer = 17;
+    if (has_buffer()) {
+      total_size += 2 +
+        ::google::protobuf::internal::WireFormatLite::BytesSize(
+          this->buffer());
+    }
+    
+  }
+  GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
+  _cached_size_ = total_size;
+  GOOGLE_SAFE_CONCURRENT_WRITES_END();
+  return total_size;
+}
+
+void Update::CheckTypeAndMergeFrom(
+    const ::google::protobuf::MessageLite& from) {
+  MergeFrom(*::google::protobuf::down_cast<const Update*>(&from));
+}
+
+void Update::MergeFrom(const Update& from) {
+  GOOGLE_CHECK_NE(&from, this);
+  if (from._has_bits_[0 / 32] & (0xffu << (0 % 32))) {
+    if (from.has_action()) {
+      set_action(from.action());
+    }
+    if (from.has_id()) {
+      set_id(from.id());
+    }
+    if (from.has_storage_idx()) {
+      set_storage_idx(from.storage_idx());
+    }
+    if (from.has_storage_name()) {
+      set_storage_name(from.storage_name());
+    }
+    if (from.has_buffer()) {
+      set_buffer(from.buffer());
+    }
+  }
+}
+
+void Update::CopyFrom(const Update& from) {
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+bool Update::IsInitialized() const {
+  
+  return true;
+}
+
+void Update::Swap(Update* other) {
+  if (other != this) {
+    std::swap(action_, other->action_);
+    std::swap(id_, other->id_);
+    std::swap(storage_idx_, other->storage_idx_);
+    std::swap(storage_name_, other->storage_name_);
+    std::swap(buffer_, other->buffer_);
+    std::swap(_has_bits_[0], other->_has_bits_[0]);
+    std::swap(_cached_size_, other->_cached_size_);
+  }
+}
+
+::std::string Update::GetTypeName() const {
+  return "Db.Proto.Update";
 }
 
 
@@ -519,163 +838,248 @@ void Rows::Swap(Rows* other) {
 // ===================================================================
 
 #ifndef _MSC_VER
-const int Update::kActionFieldNumber;
-const int Update::kIdFieldNumber;
-const int Update::kStorageIdxFieldNumber;
-const int Update::kStorageNameFieldNumber;
-const int Update::kBufferFieldNumber;
 #endif  // !_MSC_VER
 
-Update::Update()
+Data::Data()
   : ::google::protobuf::MessageLite() {
   SharedCtor();
 }
 
-void Update::InitAsDefaultInstance() {
+void Data::InitAsDefaultInstance() {
 }
 
-Update::Update(const Update& from)
+Data::Data(const Data& from)
   : ::google::protobuf::MessageLite() {
   SharedCtor();
   MergeFrom(from);
 }
 
-void Update::SharedCtor() {
+void Data::SharedCtor() {
   _cached_size_ = 0;
-  action_ = 0;
-  id_ = GOOGLE_LONGLONG(0);
-  storage_idx_ = 0;
-  storage_name_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
-  buffer_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
 }
 
-Update::~Update() {
+Data::~Data() {
   SharedDtor();
 }
 
-void Update::SharedDtor() {
-  if (storage_name_ != &::google::protobuf::internal::kEmptyString) {
-    delete storage_name_;
-  }
-  if (buffer_ != &::google::protobuf::internal::kEmptyString) {
-    delete buffer_;
-  }
+void Data::SharedDtor() {
   if (this != default_instance_) {
   }
 }
 
-void Update::SetCachedSize(int size) const {
+void Data::SetCachedSize(int size) const {
   GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
   _cached_size_ = size;
   GOOGLE_SAFE_CONCURRENT_WRITES_END();
 }
-const Update& Update::default_instance() {
+const Data& Data::default_instance() {
   if (default_instance_ == NULL) protobuf_AddDesc_proto_2fRequest_2eproto();  return *default_instance_;
 }
 
-Update* Update::default_instance_ = NULL;
+Data* Data::default_instance_ = NULL;
 
-Update* Update::New() const {
-  return new Update;
+Data* Data::New() const {
+  return new Data;
 }
 
-void Update::Clear() {
-  if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
-    action_ = 0;
-    id_ = GOOGLE_LONGLONG(0);
-    storage_idx_ = 0;
-    if (has_storage_name()) {
-      if (storage_name_ != &::google::protobuf::internal::kEmptyString) {
-        storage_name_->clear();
-      }
+void Data::Clear() {
+  ::memset(_has_bits_, 0, sizeof(_has_bits_));
+}
+
+bool Data::MergePartialFromCodedStream(
+    ::google::protobuf::io::CodedInputStream* input) {
+#define DO_(EXPRESSION) if (!(EXPRESSION)) return false
+  ::google::protobuf::uint32 tag;
+  while ((tag = input->ReadTag()) != 0) {
+    if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+        ::google::protobuf::internal::WireFormatLite::WIRETYPE_END_GROUP) {
+      return true;
     }
-    if (has_buffer()) {
-      if (buffer_ != &::google::protobuf::internal::kEmptyString) {
-        buffer_->clear();
-      }
+    DO_(::google::protobuf::internal::WireFormatLite::SkipField(input, tag));
+  }
+  return true;
+#undef DO_
+}
+
+void Data::SerializeWithCachedSizes(
+    ::google::protobuf::io::CodedOutputStream* output) const {
+}
+
+int Data::ByteSize() const {
+  int total_size = 0;
+  
+  GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
+  _cached_size_ = total_size;
+  GOOGLE_SAFE_CONCURRENT_WRITES_END();
+  return total_size;
+}
+
+void Data::CheckTypeAndMergeFrom(
+    const ::google::protobuf::MessageLite& from) {
+  MergeFrom(*::google::protobuf::down_cast<const Data*>(&from));
+}
+
+void Data::MergeFrom(const Data& from) {
+  GOOGLE_CHECK_NE(&from, this);
+}
+
+void Data::CopyFrom(const Data& from) {
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+bool Data::IsInitialized() const {
+  
+  return true;
+}
+
+void Data::Swap(Data* other) {
+  if (other != this) {
+    std::swap(_cached_size_, other->_cached_size_);
+  }
+}
+
+::std::string Data::GetTypeName() const {
+  return "Db.Proto.Data";
+}
+
+
+// ===================================================================
+
+bool WriteAhead_Type_IsValid(int value) {
+  switch(value) {
+    case 0:
+    case 1:
+    case 2:
+    case 3:
+    case 4:
+      return true;
+    default:
+      return false;
+  }
+}
+
+#ifndef _MSC_VER
+const WriteAhead_Type WriteAhead::kNone;
+const WriteAhead_Type WriteAhead::kUpdate;
+const WriteAhead_Type WriteAhead::kFix;
+const WriteAhead_Type WriteAhead::kCommit;
+const WriteAhead_Type WriteAhead::kRollback;
+const WriteAhead_Type WriteAhead::Type_MIN;
+const WriteAhead_Type WriteAhead::Type_MAX;
+const int WriteAhead::Type_ARRAYSIZE;
+#endif  // _MSC_VER
+#ifndef _MSC_VER
+const int WriteAhead::kSequenceFieldNumber;
+const int WriteAhead::kUpdateIdFieldNumber;
+const int WriteAhead::kUpdateBodyFieldNumber;
+#endif  // !_MSC_VER
+
+WriteAhead::WriteAhead()
+  : ::google::protobuf::MessageLite() {
+  SharedCtor();
+}
+
+void WriteAhead::InitAsDefaultInstance() {
+  updatebody_ = const_cast< ::Db::Proto::Update*>(&::Db::Proto::Update::default_instance());
+}
+
+WriteAhead::WriteAhead(const WriteAhead& from)
+  : ::google::protobuf::MessageLite() {
+  SharedCtor();
+  MergeFrom(from);
+}
+
+void WriteAhead::SharedCtor() {
+  _cached_size_ = 0;
+  sequence_ = GOOGLE_LONGLONG(0);
+  updateid_ = GOOGLE_LONGLONG(0);
+  updatebody_ = NULL;
+  ::memset(_has_bits_, 0, sizeof(_has_bits_));
+}
+
+WriteAhead::~WriteAhead() {
+  SharedDtor();
+}
+
+void WriteAhead::SharedDtor() {
+  if (this != default_instance_) {
+    delete updatebody_;
+  }
+}
+
+void WriteAhead::SetCachedSize(int size) const {
+  GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
+  _cached_size_ = size;
+  GOOGLE_SAFE_CONCURRENT_WRITES_END();
+}
+const WriteAhead& WriteAhead::default_instance() {
+  if (default_instance_ == NULL) protobuf_AddDesc_proto_2fRequest_2eproto();  return *default_instance_;
+}
+
+WriteAhead* WriteAhead::default_instance_ = NULL;
+
+WriteAhead* WriteAhead::New() const {
+  return new WriteAhead;
+}
+
+void WriteAhead::Clear() {
+  if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
+    sequence_ = GOOGLE_LONGLONG(0);
+    updateid_ = GOOGLE_LONGLONG(0);
+    if (has_updatebody()) {
+      if (updatebody_ != NULL) updatebody_->::Db::Proto::Update::Clear();
     }
   }
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
 }
 
-bool Update::MergePartialFromCodedStream(
+bool WriteAhead::MergePartialFromCodedStream(
     ::google::protobuf::io::CodedInputStream* input) {
 #define DO_(EXPRESSION) if (!(EXPRESSION)) return false
   ::google::protobuf::uint32 tag;
   while ((tag = input->ReadTag()) != 0) {
     switch (::google::protobuf::internal::WireFormatLite::GetTagFieldNumber(tag)) {
-      // optional .Db.Proto.Actions action = 1;
+      // optional int64 sequence = 1;
       case 1: {
         if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
             ::google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT) {
-          int value;
           DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
-                   int, ::google::protobuf::internal::WireFormatLite::TYPE_ENUM>(
-                 input, &value)));
-          if (Db::Proto::Actions_IsValid(value)) {
-            set_action(static_cast< Db::Proto::Actions >(value));
-          }
+                   ::google::protobuf::int64, ::google::protobuf::internal::WireFormatLite::TYPE_INT64>(
+                 input, &sequence_)));
+          set_has_sequence();
         } else {
           goto handle_uninterpreted;
         }
-        if (input->ExpectTag(16)) goto parse_id;
+        if (input->ExpectTag(16)) goto parse_updateId;
         break;
       }
       
-      // optional int64 id = 2;
+      // optional int64 updateId = 2;
       case 2: {
         if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
             ::google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT) {
-         parse_id:
+         parse_updateId:
           DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
                    ::google::protobuf::int64, ::google::protobuf::internal::WireFormatLite::TYPE_INT64>(
-                 input, &id_)));
-          set_has_id();
+                 input, &updateid_)));
+          set_has_updateid();
         } else {
           goto handle_uninterpreted;
         }
-        if (input->ExpectTag(24)) goto parse_storage_idx;
+        if (input->ExpectTag(26)) goto parse_updateBody;
         break;
       }
       
-      // optional int32 storage_idx = 3;
+      // optional .Db.Proto.Update updateBody = 3;
       case 3: {
         if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
-            ::google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT) {
-         parse_storage_idx:
-          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
-                   ::google::protobuf::int32, ::google::protobuf::internal::WireFormatLite::TYPE_INT32>(
-                 input, &storage_idx_)));
-          set_has_storage_idx();
-        } else {
-          goto handle_uninterpreted;
-        }
-        if (input->ExpectTag(34)) goto parse_storage_name;
-        break;
-      }
-      
-      // optional string storage_name = 4;
-      case 4: {
-        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
             ::google::protobuf::internal::WireFormatLite::WIRETYPE_LENGTH_DELIMITED) {
-         parse_storage_name:
-          DO_(::google::protobuf::internal::WireFormatLite::ReadString(
-                input, this->mutable_storage_name()));
-        } else {
-          goto handle_uninterpreted;
-        }
-        if (input->ExpectTag(138)) goto parse_buffer;
-        break;
-      }
-      
-      // optional bytes buffer = 17;
-      case 17: {
-        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
-            ::google::protobuf::internal::WireFormatLite::WIRETYPE_LENGTH_DELIMITED) {
-         parse_buffer:
-          DO_(::google::protobuf::internal::WireFormatLite::ReadBytes(
-                input, this->mutable_buffer()));
+         parse_updateBody:
+          DO_(::google::protobuf::internal::WireFormatLite::ReadMessageNoVirtual(
+               input, mutable_updatebody()));
         } else {
           goto handle_uninterpreted;
         }
@@ -698,74 +1102,49 @@ bool Update::MergePartialFromCodedStream(
 #undef DO_
 }
 
-void Update::SerializeWithCachedSizes(
+void WriteAhead::SerializeWithCachedSizes(
     ::google::protobuf::io::CodedOutputStream* output) const {
-  // optional .Db.Proto.Actions action = 1;
-  if (has_action()) {
-    ::google::protobuf::internal::WireFormatLite::WriteEnum(
-      1, this->action(), output);
+  // optional int64 sequence = 1;
+  if (has_sequence()) {
+    ::google::protobuf::internal::WireFormatLite::WriteInt64(1, this->sequence(), output);
   }
   
-  // optional int64 id = 2;
-  if (has_id()) {
-    ::google::protobuf::internal::WireFormatLite::WriteInt64(2, this->id(), output);
+  // optional int64 updateId = 2;
+  if (has_updateid()) {
+    ::google::protobuf::internal::WireFormatLite::WriteInt64(2, this->updateid(), output);
   }
   
-  // optional int32 storage_idx = 3;
-  if (has_storage_idx()) {
-    ::google::protobuf::internal::WireFormatLite::WriteInt32(3, this->storage_idx(), output);
-  }
-  
-  // optional string storage_name = 4;
-  if (has_storage_name()) {
-    ::google::protobuf::internal::WireFormatLite::WriteString(
-      4, this->storage_name(), output);
-  }
-  
-  // optional bytes buffer = 17;
-  if (has_buffer()) {
-    ::google::protobuf::internal::WireFormatLite::WriteBytes(
-      17, this->buffer(), output);
+  // optional .Db.Proto.Update updateBody = 3;
+  if (has_updatebody()) {
+    ::google::protobuf::internal::WireFormatLite::WriteMessage(
+      3, this->updatebody(), output);
   }
   
 }
 
-int Update::ByteSize() const {
+int WriteAhead::ByteSize() const {
   int total_size = 0;
   
   if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
-    // optional .Db.Proto.Actions action = 1;
-    if (has_action()) {
-      total_size += 1 +
-        ::google::protobuf::internal::WireFormatLite::EnumSize(this->action());
-    }
-    
-    // optional int64 id = 2;
-    if (has_id()) {
+    // optional int64 sequence = 1;
+    if (has_sequence()) {
       total_size += 1 +
         ::google::protobuf::internal::WireFormatLite::Int64Size(
-          this->id());
+          this->sequence());
     }
     
-    // optional int32 storage_idx = 3;
-    if (has_storage_idx()) {
+    // optional int64 updateId = 2;
+    if (has_updateid()) {
       total_size += 1 +
-        ::google::protobuf::internal::WireFormatLite::Int32Size(
-          this->storage_idx());
+        ::google::protobuf::internal::WireFormatLite::Int64Size(
+          this->updateid());
     }
     
-    // optional string storage_name = 4;
-    if (has_storage_name()) {
+    // optional .Db.Proto.Update updateBody = 3;
+    if (has_updatebody()) {
       total_size += 1 +
-        ::google::protobuf::internal::WireFormatLite::StringSize(
-          this->storage_name());
-    }
-    
-    // optional bytes buffer = 17;
-    if (has_buffer()) {
-      total_size += 2 +
-        ::google::protobuf::internal::WireFormatLite::BytesSize(
-          this->buffer());
+        ::google::protobuf::internal::WireFormatLite::MessageSizeNoVirtual(
+          this->updatebody());
     }
     
   }
@@ -775,57 +1154,49 @@ int Update::ByteSize() const {
   return total_size;
 }
 
-void Update::CheckTypeAndMergeFrom(
+void WriteAhead::CheckTypeAndMergeFrom(
     const ::google::protobuf::MessageLite& from) {
-  MergeFrom(*::google::protobuf::down_cast<const Update*>(&from));
+  MergeFrom(*::google::protobuf::down_cast<const WriteAhead*>(&from));
 }
 
-void Update::MergeFrom(const Update& from) {
+void WriteAhead::MergeFrom(const WriteAhead& from) {
   GOOGLE_CHECK_NE(&from, this);
   if (from._has_bits_[0 / 32] & (0xffu << (0 % 32))) {
-    if (from.has_action()) {
-      set_action(from.action());
+    if (from.has_sequence()) {
+      set_sequence(from.sequence());
     }
-    if (from.has_id()) {
-      set_id(from.id());
+    if (from.has_updateid()) {
+      set_updateid(from.updateid());
     }
-    if (from.has_storage_idx()) {
-      set_storage_idx(from.storage_idx());
-    }
-    if (from.has_storage_name()) {
-      set_storage_name(from.storage_name());
-    }
-    if (from.has_buffer()) {
-      set_buffer(from.buffer());
+    if (from.has_updatebody()) {
+      mutable_updatebody()->::Db::Proto::Update::MergeFrom(from.updatebody());
     }
   }
 }
 
-void Update::CopyFrom(const Update& from) {
+void WriteAhead::CopyFrom(const WriteAhead& from) {
   if (&from == this) return;
   Clear();
   MergeFrom(from);
 }
 
-bool Update::IsInitialized() const {
+bool WriteAhead::IsInitialized() const {
   
   return true;
 }
 
-void Update::Swap(Update* other) {
+void WriteAhead::Swap(WriteAhead* other) {
   if (other != this) {
-    std::swap(action_, other->action_);
-    std::swap(id_, other->id_);
-    std::swap(storage_idx_, other->storage_idx_);
-    std::swap(storage_name_, other->storage_name_);
-    std::swap(buffer_, other->buffer_);
+    std::swap(sequence_, other->sequence_);
+    std::swap(updateid_, other->updateid_);
+    std::swap(updatebody_, other->updatebody_);
     std::swap(_has_bits_[0], other->_has_bits_[0]);
     std::swap(_cached_size_, other->_cached_size_);
   }
 }
 
-::std::string Update::GetTypeName() const {
-  return "Db.Proto.Update";
+::std::string WriteAhead::GetTypeName() const {
+  return "Db.Proto.WriteAhead";
 }
 
 

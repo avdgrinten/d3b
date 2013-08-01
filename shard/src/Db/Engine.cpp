@@ -127,17 +127,18 @@ Error Engine::cleanup(trid_type trid) {
 }
 
 Error Engine::allocId(int storage, id_type *out_id) {
-	if(storage == -1)
+/*	if(storage == -1)
 		throw std::runtime_error("Illegal storage specified");
 	StorageDriver *driver = p_storage[storage];
 	if(driver == nullptr)
 		throw std::runtime_error("Illegal storage specified");
-	return driver->allocId(out_id);
+	return driver->allocId(out_id);*/
+	return Error(true);
 }
 
 Error Engine::insert(int storage, id_type id,
 		const void *document, Linux::size_type length) {
-	if(storage == -1)
+/*	if(storage == -1)
 		throw std::runtime_error("Illegal storage specified");
 	StorageDriver *driver = p_storage[storage];
 	driver->insert(id, document, length);
@@ -145,13 +146,13 @@ Error Engine::insert(int storage, id_type id,
 	std::cout << "Inserting '" << std::string((const char*)document, length) << "'" << std::endl;
 	
 	for(int i = 1; i < p_views.size(); i++)
-		p_views[i]->onInsert(storage, id, document, length);
+		p_views[i]->onInsert(storage, id, document, length);*/
 	return Error(true);
 }
 
 Error Engine::update(int storage, id_type id,
 		const void *document, Linux::size_type length) {
-	if(storage == -1)
+/*	if(storage == -1)
 		throw std::runtime_error("Illegal storage specified");
 
 	for(int i = 1; i < p_views.size(); i++)
@@ -163,7 +164,7 @@ Error Engine::update(int storage, id_type id,
 	std::cout << "Update '" << std::string((const char*)document, length) << "'" << std::endl;
 	
 	for(int i = 1; i < p_views.size(); i++)
-		p_views[i]->onInsert(storage, id, document, length);
+		p_views[i]->onInsert(storage, id, document, length);*/
 	return Error(true);
 }
 

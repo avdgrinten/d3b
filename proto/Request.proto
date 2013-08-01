@@ -2,18 +2,6 @@
 package Db.Proto;
 option optimize_for = LITE_RUNTIME;
 
-message Query {
-	optional string view_name = 2;
-	repeated bytes keys = 3;
-	optional bytes from_key = 4;
-	optional bytes to_key = 5;
-	optional uint32 limit = 6;
-}
-
-message Rows {
-	repeated bytes data = 1;
-}
-
 enum Actions {
 	kActNone = 0;
 	kActInsert = 1;
@@ -26,5 +14,35 @@ message Update {
 	optional int32 storage_idx = 3;
 	optional string storage_name = 4;
 	optional bytes buffer = 17;
+}
+
+message Query {
+	optional string view_name = 2;
+	repeated bytes keys = 3;
+	optional bytes from_key = 4;
+	optional bytes to_key = 5;
+	optional uint32 limit = 6;
+}
+
+message Rows {
+	repeated bytes data = 1;
+}
+
+message Data {
+	
+}
+
+message WriteAhead {
+	enum Type {
+		kNone = 0;
+		kUpdate = 1;
+		kFix = 2;
+		kCommit = 3;
+		kRollback = 4;
+	}
+
+	optional int64 sequence = 1;
+	optional int64 updateId = 2;
+	optional Update updateBody = 3;
 }
 

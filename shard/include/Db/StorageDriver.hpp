@@ -32,13 +32,31 @@ public:
 	virtual Proto::StorageConfig writeConfig() = 0;
 	virtual void readConfig(const Proto::StorageConfig &config) = 0;
 
-	virtual Error allocId(id_type *out_id) = 0;
-	
-	virtual Error insert(id_type id,
-			const void *document, Linux::size_type length) = 0;
-	virtual Error update(id_type id,
-			const void *document, Linux::size_type length) = 0;
-	
+	/* checks whether an update is accepted. fills in
+		additional details like the allocated id for insert
+		requests */
+	virtual void updateAccept(Proto::Update &update,
+			std::function<void(Error)> callback) = 0;
+	/* validates an update against the current state.
+		returning success means that it is okay to commit the update
+		in the current state. */
+	virtual void updateValidate(Proto::Update &update,
+			std::function<void(Error)> callback) = 0;
+	/* validates an update against another update.
+		returning success mean that it is okay to commit the update
+		after the other update was commited. */
+	virtual void updateConflicts(Proto::Update &update,
+			Proto::Update &predecessor,
+			std::function<void(Error)> callback) = 0;
+
+	/* commits an update to the storage */
+	virtual void processUpdate(Proto::Update &update,
+			std::function<void(Error)> callback) = 0;
+	/* processes a query */
+	virtual void processQuery(Proto::Query &query,
+			std::function<void(Proto::Data &)> on_data,
+			std::function<void(Error)> callback) = 0;
+
 	virtual Linux::size_type length(id_type id) = 0;
 	virtual void fetch(id_type id, void *buffer) = 0;
 	
@@ -56,9 +74,32 @@ public:
 		return p_path;
 	}
 
+	void submitUpdate(Proto::Update &update,
+			std::function<void(Error)> callback);
+	void submitFix(Proto::Update &update,
+			std::function<void(Error)> callback);
+	void submitCommit(Proto::Update &update,
+			std::function<void(Error)> callback);
+	
+	void process();
+
 protected:
 	std::string p_identifier;
 	std::string p_path;
+
+private:
+	struct Queued {
+		enum Type {
+			kNone, kUpdate, kFix, kCommit
+		};
+		
+		Type type;
+		Proto::Update *update;
+		std::function<void(Proto::Data &)> onData;
+		std::function<void(Error)> callback;
+	};
+	
+	std::deque<Queued> p_submitQueue;
 };
 
 class StorageRegistry {

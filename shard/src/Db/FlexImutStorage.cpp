@@ -36,27 +36,57 @@ void FlexImutStorage::readConfig(const Proto::StorageConfig &config) {
 	
 }
 
-Error FlexImutStorage::allocId(id_type *out_id) {
-	DataStore::Object object = p_docStore.createObject();
-	*out_id = p_docStore.objectLid(object);
-	return Error(true);
+void FlexImutStorage::updateAccept(Proto::Update &update,
+		std::function<void(Error)> callback) {
+	if(update.action() == Proto::kActInsert) {
+		DataStore::Object object = p_docStore.createObject();
+		update.set_id(p_docStore.objectLid(object));
+		
+		callback(Error(true));
+	}else{
+		throw std::logic_error("Illegal update");
+	}
 }
 
-Error FlexImutStorage::insert(id_type id,
+void FlexImutStorage::updateValidate(Proto::Update &update,
+		std::function<void(Error)> callback) {
+	/* TODO */
+	callback(Error(true));
+}
+void FlexImutStorage::updateConflicts(Proto::Update &update,
+		Proto::Update &predecessor,
+		std::function<void(Error)> callback) {
+	/* TODO */
+	callback(Error(true));
+}
+
+void FlexImutStorage::processUpdate(Proto::Update &update,
+		std::function<void(Error)> callback) {
+	if(update.action() == Proto::kActInsert) {
+		if(!update.has_id() || !update.has_buffer())
+			throw std::logic_error("Incomplete kActInsert update");
+		DataStore::Object object = p_docStore.getObject(update.id());
+		p_docStore.allocObject(object, update.buffer().size());
+		p_docStore.writeObject(object, 0, update.buffer().size(),
+				update.buffer().data());
+		callback(Error(true));
+	}else{
+		throw std::logic_error("Illegal update");
+	}
+}
+void FlexImutStorage::processQuery(Proto::Query &query,
+		std::function<void(Proto::Data &)> on_data,
+		std::function<void(Error)> callback) {
+	throw std::runtime_error("processQuery() called");
+}
+
+/*Error FlexImutStorage::update(id_type id,
 		const void *document, Linux::size_type length) {
 	DataStore::Object object = p_docStore.getObject(id);
 	p_docStore.allocObject(object, length);
 	p_docStore.writeObject(object, 0, length, document);
 	return Error(true);
-}
-
-Error FlexImutStorage::update(id_type id,
-		const void *document, Linux::size_type length) {
-	DataStore::Object object = p_docStore.getObject(id);
-	p_docStore.allocObject(object, length);
-	p_docStore.writeObject(object, 0, length, document);
-	return Error(true);
-}
+}*/
 
 Linux::size_type FlexImutStorage::length(id_type id) {
 	DataStore::Object object = p_docStore.getObject(id);

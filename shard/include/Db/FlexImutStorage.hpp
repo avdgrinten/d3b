@@ -20,11 +20,21 @@ public:
 	virtual Proto::StorageConfig writeConfig();
 	virtual void readConfig(const Proto::StorageConfig &config);
 
-	virtual Error allocId(id_type *out_id);	
-	virtual Error insert(id_type id,
-			const void *document, Linux::size_type length);
-	virtual Error update(id_type id,
-			const void *document, Linux::size_type length);
+	virtual void updateAccept(Proto::Update &update,
+			std::function<void(Error)> callback);
+	virtual void updateValidate(Proto::Update &update,
+			std::function<void(Error)> callback);
+	virtual void updateConflicts(Proto::Update &update,
+			Proto::Update &predecessor,
+			std::function<void(Error)> callback);
+
+	virtual void processUpdate(Proto::Update &update,
+			std::function<void(Error)> callback);
+	virtual void processQuery(Proto::Query &query,
+			std::function<void(Proto::Data &)> on_data,
+			std::function<void(Error)> callback);
+
+
 	virtual Linux::size_type length(id_type id);
 	virtual void fetch(id_type id, void *buffer);
 

@@ -100,8 +100,11 @@ public:
 	class File {
 	public:
 		void openSync(const std::string &path, int mode);
+		void readSync(const size_type size, const void *buffer);
+		void writeSync(const size_type size, const void *buffer);
 		void pwriteSync(const off_type position, const size_type size, const void *buffer);
 		void preadSync(const off_type position, const size_type size, void *buffer);
+		void fsyncSync();
 		void closeSync();
 		size_type lengthSync();
 

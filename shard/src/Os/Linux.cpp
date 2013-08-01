@@ -43,6 +43,11 @@ void Linux::File::closeSync() {
 		throw std::runtime_error("Could not close file");
 }
 
+void Linux::File::writeSync(Linux::size_type size, const void *buffer) {
+	if(::write(p_fileFd, buffer, size) == -1)
+		throw std::runtime_error("write() failed");
+}
+
 void Linux::File::pwriteSync(Linux::off_type offset,
 		Linux::size_type size, const void *buffer) {
 	if(pwrite(p_fileFd, buffer, size, offset) == -1)
