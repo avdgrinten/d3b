@@ -4,23 +4,20 @@
 namespace Async {
 
 typedef std::function<void()> Callback;
-typedef std::function<void(Callback)> Worker;
 
 template<typename Callback, int i, typename... Functors>
 struct p_staticSeries;
 
 template<typename Callback, typename... Functors>
 struct p_staticSeriesTail {
-	static void invoke(std::tuple<Functors...> functors,
-			Callback callback) {
+	static void invoke(std::tuple<Functors...> functors, Callback callback) {
 		callback();
 	}
 };
 
 template<typename Callback, int i, typename... Functors>
 struct p_staticSeriesItem {
-	static void invoke(std::tuple<Functors...> functors,
-			Callback callback) {
+	static void invoke(std::tuple<Functors...> functors, Callback callback) {
 		auto functor = std::get<i>(functors);
 		functor([functors, callback] () {
 			p_staticSeries<Callback, i + 1, Functors...>::invoke(functors, callback);
@@ -42,6 +39,18 @@ struct p_staticSeries {
 template<typename... Functors, typename Callback>
 void staticSeries(std::tuple<Functors...> functors, Callback callback) {
 	p_staticSeries<Callback, 0, Functors...>::invoke(functors, callback);
+}
+
+template<typename Iterator, typename Functor, typename Callback>
+void eachSeries(Iterator begin, Iterator end,
+		Functor functor, Callback callback) {
+	if(begin == end) {
+		callback();
+		return;
+	}
+	functor(*begin, [begin, end, functor, callback]() {
+		eachSeries(std::next(begin), end, functor, callback);
+	});
 }
 
 template<typename Iterator, typename Callback>

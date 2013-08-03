@@ -8,7 +8,6 @@
 #include "Async.h"
 #include "Db/StorageDriver.hpp"
 #include "Db/ViewDriver.hpp"
-#include "Db/Transact.hpp"
 #include "Db/Engine.hpp"
 
 #include "Db/FlexImutStorage.hpp"
@@ -57,6 +56,7 @@ int main(int argc, char **argv) {
 		std::cout << "Server is running!" << std::endl;
 		while(true) {
 			osIntf->processIO();
+			engine->process();
 		}
 	}
 }

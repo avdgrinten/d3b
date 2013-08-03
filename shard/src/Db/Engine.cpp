@@ -1,10 +1,11 @@
 
 #include <iostream>
+#include <functional>
 
+#include "Async.h"
 #include "Os/Linux.h"
 #include "Db/StorageDriver.hpp"
 #include "Db/ViewDriver.hpp"
-#include "Db/Transact.hpp"
 #include "Db/Engine.hpp"
 
 namespace Db {
@@ -12,8 +13,7 @@ namespace Db {
 StorageRegistry globStorageRegistry;
 ViewRegistry globViewRegistry;
 
-Engine::Engine() {
-	p_transactManager = new TransactManager(this);
+Engine::Engine() : p_nextTransactId(1) {
 	p_storage.push_back(nullptr);
 	p_views.push_back(nullptr);
 }
@@ -106,80 +106,90 @@ void Engine::unlinkView(int view) {
 	p_writeConfig();
 }
 
-std::tuple<Error, trid_type> Engine::transaction
-		(std::function<void(TransactState)> callback) {
-	return p_transactManager->transaction(callback);
-}
-Error Engine::submit(trid_type trid, const Proto::Update &update) {
-	p_transactManager->submit(trid, update);
-}
-Error Engine::fix(trid_type trid) {
-	p_transactManager->fix(trid);
-}
-Error Engine::commit(trid_type trid) {
-	p_transactManager->commit(trid);
-}
-Error Engine::rollback(trid_type trid) {
-	p_transactManager->rollback(trid);
-}
-Error Engine::cleanup(trid_type trid) {
-	p_transactManager->cleanup(trid);
-}
+void Engine::beginTransact(std::function<void(Error, trid_type)> callback) {
+	trid_type trid = p_nextTransactId++;
 
-Error Engine::allocId(int storage, id_type *out_id) {
-/*	if(storage == -1)
-		throw std::runtime_error("Illegal storage specified");
-	StorageDriver *driver = p_storage[storage];
-	if(driver == nullptr)
-		throw std::runtime_error("Illegal storage specified");
-	return driver->allocId(out_id);*/
-	return Error(true);
-}
-
-Error Engine::insert(int storage, id_type id,
-		const void *document, Linux::size_type length) {
-/*	if(storage == -1)
-		throw std::runtime_error("Illegal storage specified");
-	StorageDriver *driver = p_storage[storage];
-	driver->insert(id, document, length);
-
-	std::cout << "Inserting '" << std::string((const char*)document, length) << "'" << std::endl;
+	Transaction *transaction = new Transaction;
+	p_transacts.insert(std::make_pair(trid, transaction));
 	
-	for(int i = 1; i < p_views.size(); i++)
-		p_views[i]->onInsert(storage, id, document, length);*/
-	return Error(true);
+	callback(Error(true), trid);
 }
-
-Error Engine::update(int storage, id_type id,
-		const void *document, Linux::size_type length) {
-/*	if(storage == -1)
-		throw std::runtime_error("Illegal storage specified");
-
-	for(int i = 1; i < p_views.size(); i++)
-		p_views[i]->onRemove(storage, id);
-
-	StorageDriver *driver = p_storage[storage];
-	driver->update(id, document, length);
-
-	std::cout << "Update '" << std::string((const char*)document, length) << "'" << std::endl;
+void Engine::update(trid_type trid, Proto::Update *update,
+		std::function<void(Error)> callback) {
+	/* TODO: move this to process() ? */
+	auto transact_it = p_transacts.find(trid);
+	if(transact_it == p_transacts.end())
+		throw std::runtime_error("Illegal transaction");
 	
-	for(int i = 1; i < p_views.size(); i++)
-		p_views[i]->onInsert(storage, id, document, length);*/
-	return Error(true);
-}
+	/* remember the update objects as we will need them
+		during commit */
+	Transaction *transaction = transact_it->second;
+	transaction->updates.push_back(update);
 
-Linux::size_type Engine::length(int storage, id_type id) {
+	/* TODO: write updates to the write-ahead log */
+
+	/* submit each update to its associated storage */	
+	int storage = getStorage(update->storage_name());
 	if(storage == -1)
 		throw std::runtime_error("Illegal storage specified");
+
 	StorageDriver *driver = p_storage[storage];
-	return driver->length(id);
+	driver->submitUpdate(update, callback);
+}
+void Engine::commit(trid_type trid,
+		std::function<void(Error)> callback) {
+	/* TODO: move this to process() ? */
+	auto transact_it = p_transacts.find(trid);
+	if(transact_it == p_transacts.end())
+		throw std::runtime_error("Illegal transaction");
+	
+	/* TODO: write commit to the write-ahead log */
+	
+	/* commit each update to its associated storage */
+	Transaction *transaction = transact_it->second;
+	Async::eachSeries(transaction->updates.begin(),
+			transaction->updates.end(),
+			[=] (Proto::Update *update, std::function<void()> each_callback) {
+		int storage = getStorage(update->storage_name());
+		if(storage == -1)
+			throw std::runtime_error("Illegal storage specified");
+
+		StorageDriver *driver = p_storage[storage];
+		driver->submitCommit(update, [=](Error error) { each_callback(); });
+	}, [=]() { callback(Error(true)); }); /*FIXME: proper error value */
 }
 
-void Engine::fetch(int storage, id_type id, void *buffer) {
-	if(storage == -1)
-		throw std::runtime_error("Illegal storage specified");
-	StorageDriver *driver = p_storage[storage];
-	return driver->fetch(id, buffer);
+void Engine::process() {
+	for(int i = 1; i < p_storage.size(); i++) {
+		if(p_storage[i] == nullptr)
+			continue;
+		while(p_storage[i]->queuePending())
+			p_storage[i]->processQueue();
+	}
+}
+
+void Engine::onUpdate(Proto::Update *update,
+		std::function<void(Error)> callback) {
+	Async::eachSeries(p_views.begin(), p_views.end(),
+			[=](ViewDriver *driver, std::function<void()> each_cb) {
+		if(driver == nullptr)
+			return each_cb();
+		driver->onUpdate(update, [=](Error error) { each_cb(); });
+	}, [=]() { callback(Error(true)); }); /* FIXME: proper error value */
+}
+
+void Engine::fetch(Proto::Fetch *fetch,
+		std::function<void(Proto::FetchData &)> on_data,
+		std::function<void(Error)> callback) {
+	if(!fetch->has_storage_idx()) {
+		int storage = getStorage(fetch->storage_name());
+		if(storage == -1)
+			throw std::runtime_error("Illegal storage specified");
+		fetch->set_storage_idx(storage);
+	}
+	
+	StorageDriver *driver = p_storage[fetch->storage_idx()];
+	driver->submitFetch(fetch, on_data, callback);
 }
 
 Error Engine::query(const Proto::Query &request,

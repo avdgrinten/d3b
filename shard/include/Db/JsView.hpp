@@ -24,9 +24,8 @@ public:
 	virtual Proto::ViewConfig writeConfig();
 	virtual void readConfig(const Proto::ViewConfig &config);
 	
-	virtual void onInsert(int storage, id_type id,
-			const void *document, Linux::size_type length);
-	virtual void onRemove(int storage, id_type id);
+	virtual void onUpdate(Proto::Update *update,
+			std::function<void(Error)> callback);
 
 	virtual void query(const Proto::Query &request,
 			std::function<void(const Proto::Rows &)> report,
@@ -35,7 +34,12 @@ public:
 private:
 	std::string p_scriptFile;
 	std::string p_storageName;
-	
+
+	void p_onInsert(id_type id, const void *document,
+			Linux::size_type length,
+			std::function<void(Error)> callback);
+	void p_onRemove(id_type id, std::function<void(Error)> callback);
+
 	int p_storage;
 	DataStore p_keyStore;
 	Btree<id_type> p_orderTree;

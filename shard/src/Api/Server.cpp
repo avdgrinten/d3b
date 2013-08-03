@@ -9,7 +9,6 @@
 #include "Async.h"
 #include "Db/StorageDriver.hpp"
 #include "Db/ViewDriver.hpp"
-#include "Db/Transact.hpp"
 #include "Db/Engine.hpp"
 
 #include "proto/Api.pb.h"
@@ -83,13 +82,20 @@ void Server::Connection::p_processMessage(Async::Callback callback) {
 			return;
 		}
 
-		engine->query(request.query(),
-				[this, seq_number] (const Db::Proto::Rows &rows) {
+		struct control_struct {
+			Db::Proto::Query query;
+		};
+		control_struct *control = new control_struct;
+		control->query = request.query();
+
+		engine->query(control->query, [=] (const Db::Proto::Rows &rows) {
 			Proto::SrRows response;
 			for(int i = 0; i < rows.data_size(); i++)
 				response.add_row_data(rows.data(i));
 			p_postResponse(Proto::kSrRows, seq_number, response);
-		}, [this, seq_number] () {
+		}, [=] () {
+			delete control;
+			
 			Proto::SrFin response;
 			p_postResponse(Proto::kSrFin, seq_number, response);
 		});
@@ -106,28 +112,42 @@ void Server::Connection::p_processMessage(Async::Callback callback) {
 		
 		struct control_struct {
 			Db::trid_type trid;
+			std::vector<Db::Proto::Update> updates;
 		};
 		control_struct *control = new control_struct;
-		std::tuple<Error, Db::trid_type> result = engine->transaction
-				([this, control, seq_number] (Db::TransactState state) {
-			Db::Engine *engine = p_server->getEngine();
-			if(state == Db::kStFixSuccess) {
-				engine->commit(control->trid);
-			}else if(state == Db::kStFixFailure) {
-				std::cout << "FixFailure" << std::endl;
-				engine->cleanup(control->trid);
-			}else if(state == Db::kStCommit) {
-				Proto::SrFin response;
-				p_postResponse(Proto::kSrFin, seq_number, response);
-				engine->cleanup(control->trid);
-			}else if(state == Db::kStCleanup) {
-				delete control;
-			}else throw std::logic_error("Unexpected state update");
-		});
-		control->trid = std::get<1>(result);
 		for(int i = 0; i < request.updates_size(); i++)
-			engine->submit(control->trid, request.updates(i));
-		engine->fix(control->trid);
+			control->updates.push_back(request.updates(i));
+std::cout << "Lentgh: " << control->updates.size() << std::endl;
+		Connection *self = this;
+
+		Async::staticSeries(std::make_tuple(
+			[=](Async::Callback tr_callback) {
+				engine->beginTransact([=](Error error, Db::trid_type trid) {
+					control->trid = trid;
+					tr_callback();
+				});
+			},
+			[=](Async::Callback tr_callback) {
+				Async::eachSeries(control->updates.begin(),
+						control->updates.end(), [=](Db::Proto::Update &update,
+							std::function<void()> each_callback) {
+					engine->update(control->trid, &update,
+							[each_callback](Error error) {
+						std::cout << "submitting single update" << std::endl;
+						each_callback();
+					});
+				}, tr_callback);
+			},
+			[=](Async::Callback tr_callback) {
+				engine->commit(control->trid, [=](Error error) {
+					tr_callback();
+				});
+			}
+		), [=]() {
+			std::cout << "Update commited" << std::endl;
+			Proto::SrFin fin_resp;
+			p_postResponse(Proto::kSrFin, seq_number, fin_resp);
+		});
 	}else if(p_curPacket.opcode == Proto::kCqCreateStorage) {
 		Proto::CqCreateStorage request;
 		if(!request.ParseFromArray(p_curBuffer, p_curPacket.length)) {

@@ -28,17 +28,27 @@ message Rows {
 	repeated bytes data = 1;
 }
 
-message Data {
-	
+message Fetch {
+	enum Type {
+		kNone = 0;
+		kDocument = 1;
+	};
+	optional Type type = 1;
+	optional int64 id = 2;
+	optional int32 storage_idx = 3;
+	optional string storage_name = 4;
+}
+message FetchData {
+	optional int64 id = 1;
+	optional bytes buffer = 2;
 }
 
 message WriteAhead {
 	enum Type {
 		kNone = 0;
 		kUpdate = 1;
-		kFix = 2;
-		kCommit = 3;
-		kRollback = 4;
+		kCommit = 2;
+		kRollback = 3;
 	}
 
 	optional int64 sequence = 1;

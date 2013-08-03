@@ -46,6 +46,14 @@ public:
 		~Seq() {
 			delete[] p_buffer;
 		}
+		Seq(Seq &&other) :
+				p_tree(other.p_tree), p_buffer(other.p_buffer),
+				p_block(other.p_block), p_entry(other.p_entry) {
+			other.p_buffer = nullptr;
+			other.p_block = 0;
+			other.p_entry = 0;
+		}
+		Seq(const Seq &other) = delete;
 		
 		Ref position() {
 			return Ref(p_block, p_entry);

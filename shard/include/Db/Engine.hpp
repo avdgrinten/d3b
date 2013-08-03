@@ -2,10 +2,12 @@
 #include <cstdint>
 #include <string>
 #include <vector>
+#include <unordered_map>
 
 namespace Db {
 
 typedef int64_t id_type;
+typedef int64_t trid_type;
 
 class Engine {
 public:
@@ -22,26 +24,30 @@ public:
 	int getView(const std::string &view);
 	void unlinkView(int view);
 
-	/* transaction interface */
-	std::tuple<Error, trid_type> transaction
-			(std::function<void(TransactState)> callback);
-	Error submit(trid_type trid, const Proto::Update &update);
-	Error fix(trid_type trid);
-	Error commit(trid_type trid);
-	Error rollback(trid_type trid);
-	Error cleanup(trid_type trid);
+	void beginTransact(std::function<void(Error, trid_type)> callback);
+	void releaseTransact(trid_type trid, 
+		std::function<void(Error)> callback);
+	void update(trid_type trid, Proto::Update *update,
+		std::function<void(Error)> callback);
+	void commit(trid_type trid,
+		std::function<void(Error)> callback);
+	void rollback(trid_type trid,
+		std::function<void(Error)> callback);
 
-	Error allocId(int storage, id_type *out_id);
-	Error insert(int storage, id_type id,
-			const void *document, Linux::size_type length);
-	Error update(int storage, id_type id,
-			const void *document, Linux::size_type length);
-	Linux::size_type length(int storage, id_type id);
-	void fetch(int storage, id_type id, void *buffer);
+	void fetch(Proto::Fetch *fetch,
+			std::function<void(Proto::FetchData &)> on_data,
+			std::function<void(Error)> callback);
 	
 	Error query(const Proto::Query &request,
 			std::function<void(const Proto::Rows&)> report,
 			std::function<void()> callback);
+	
+	/* called by storages when data is commited to the database.
+		StorageDriver calls this automatically, do not call it yourself */
+	void onUpdate(Proto::Update *update,
+		std::function<void(Error)> callback);
+	
+	void process();
 	
 	inline void setPath(const std::string &path) {
 		p_path = path;
@@ -51,7 +57,12 @@ public:
 	}
 	
 private:
-	TransactManager *p_transactManager;
+	struct Transaction {
+		std::vector<Proto::Update*> updates;
+	};
+
+	trid_type p_nextTransactId;
+	std::unordered_map<trid_type, Transaction*> p_transacts;
 	
 	std::string p_path;
 	std::vector<StorageDriver*> p_storage;

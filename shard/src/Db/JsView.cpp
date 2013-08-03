@@ -6,9 +6,9 @@
 #include <iostream>
 
 #include "Os/Linux.h"
+#include "Async.h"
 #include "Db/StorageDriver.hpp"
 #include "Db/ViewDriver.hpp"
-#include "Db/Transact.hpp"
 #include "Db/Engine.hpp"
 
 #include "Db/JsView.hpp"
@@ -144,8 +144,21 @@ void JsView::readConfig(const Proto::ViewConfig &config) {
 	p_scriptFile = config.script_file();
 }
 
-void JsView::onInsert(int storage, id_type id,
-		const void *document, Linux::size_type length) {
+void JsView::onUpdate(Proto::Update *update,
+		std::function<void(Error)> callback) {
+	if(update->action() == Proto::Actions::kActInsert) {
+		p_onInsert(update->id(), update->buffer().data(),
+			update->buffer().size(), callback);
+	}else if(update->action() == Proto::Actions::kActUpdate) {
+		p_onRemove(update->id(), callback);
+		p_onInsert(update->id(), update->buffer().data(),
+			update->buffer().size(), callback);
+	}else throw std::logic_error("Illegal update type");
+}
+
+void JsView::p_onInsert(id_type id,
+		const void *document, Linux::size_type length,
+		std::function<void(Error)> callback) {
 	v8::Context::Scope context_scope(p_context);
 	v8::HandleScope handle_scope;
 	
@@ -177,14 +190,16 @@ void JsView::onInsert(int storage, id_type id,
 		v8::Local<v8::Value> result = p_compare(key_a, key);
 		return result->Int32Value();
 	});
+	callback(Error(true));
 }
-void JsView::onRemove(int storage, id_type id) {
-	v8::Context::Scope context_scope(p_context);
+void JsView::p_onRemove(id_type id,
+		std::function<void(Error)> callback) {
+	/*v8::Context::Scope context_scope(p_context);
 	v8::HandleScope handle_scope;
 
 	Linux::size_type length = getEngine()->length(p_storage, id);
 	char *document = new char[length];
-	getEngine()->fetch(p_storage, id, document);
+//	getEngine()->fetch(p_storage, id, document); FIXME
 	
 	v8::Local<v8::Value> extracted = p_extractDoc(id, document, length);
 	v8::Local<v8::Value> key = p_keyOf(extracted);
@@ -206,7 +221,7 @@ void JsView::onRemove(int storage, id_type id) {
 	Btree<id_type>::Seq seq = p_orderTree.sequence(ref);
 
 	/* advance the sequence position until we reach
-			the specified document id */	
+			the specified document id *//*
 	while(true) {
 		if(!seq.valid())
 			throw std::runtime_error("Specified document not in tree");
@@ -220,9 +235,10 @@ void JsView::onRemove(int storage, id_type id) {
 		++seq;
 	}
 	
-	/* set the id to zero to remove the document */
+	// set the id to zero to remove the document
 	id_type write_id = 0;
 	seq.setValue(&write_id);
+	callback(Error(true));*/
 }
 
 void JsView::query(const Proto::Query &request,
@@ -256,56 +272,70 @@ void JsView::query(const Proto::Query &request,
 		begin_ref = p_orderTree.refToFirst();
 	}
 
-	Btree<id_type>::Seq sequence = p_orderTree.sequence(begin_ref);
-
-	int count = 0;
-	int cur_size = 0;
-	Proto::Rows rows;
-	while(sequence.valid()) {
+	struct control_struct {
+		Btree<id_type>::Seq sequence;
+		Proto::Fetch fetch;
+		Proto::Rows rows;
+		int count;
+		
+		control_struct(Btree<id_type>::Seq &&sequence)
+				: sequence(std::move(sequence)) { }
+	};
+	control_struct *control = new control_struct(
+		p_orderTree.sequence(begin_ref));
+	control->count = 0;
+	
+	Async::whilst([=]() -> bool {
+		if(!control->sequence.valid())
+			return false;
+		if(request.has_limit() && control->count == request.limit())
+			return false;
+		return true;
+	}, [=](std::function<void()> elem_cb) {
 		id_type read_id;
-		sequence.getValue(&read_id);
+		control->sequence.getValue(&read_id);
 		id_type id = OS::fromLe(read_id);
 
-		/* skip removed documents */
+		// skip removed documents
 		if(id == 0) {
-			++sequence;
-			continue;
+			++control->sequence;
+			return elem_cb();
 		}
 		
-		int doc_length = getEngine()->length(p_storage, id);
-		char *doc_buffer = new char[doc_length];
-		getEngine()->fetch(p_storage, id, doc_buffer);
-
-		v8::Local<v8::Value> extracted = p_extractDoc(id,
-				doc_buffer, doc_length);
-		delete[] (char*)doc_buffer;
-		
-		if(!end_key.IsEmpty()) {
-			v8::Local<v8::Value> key = p_keyOf(extracted);
-			if(p_compare(key, end_key)->Int32Value() > 0)
-				break;
-		}
-		
-		v8::Local<v8::Value> rpt_value = p_report(extracted);
-		v8::String::Utf8Value rpt_utf8(rpt_value);
-		rows.add_data(*rpt_utf8, rpt_utf8.length());
-		
-		if(rows.data_size() >= 1000) {
-			report(rows);
-			rows.clear_data();
-		}
-		
-		++sequence;
-		++count;
-		if(request.has_limit() && count == request.limit())
-			break;
-	}
-	if(rows.data_size() > 0) {
-		report(rows);
-		rows.clear_data();
-	}
-	
-	callback();
+		control->fetch.set_id(id);
+		control->fetch.set_storage_idx(p_storage);
+		getEngine()->fetch(&control->fetch, [=](Proto::FetchData &data) {
+			v8::Context::Scope context_scope(p_context);
+			v8::HandleScope handle_scope;
+			
+			v8::Local<v8::Value> extracted = p_extractDoc(id,
+					data.buffer().data(), data.buffer().length());
+			
+			/* FIXME:
+			if(!end_key.IsEmpty()) {
+				v8::Local<v8::Value> key = p_keyOf(extracted);
+				if(p_compare(key, end_key)->Int32Value() > 0)
+					break;
+			}*/
+			
+			v8::Local<v8::Value> rpt_value = p_report(extracted);
+			v8::String::Utf8Value rpt_utf8(rpt_value);
+			control->rows.add_data(*rpt_utf8, rpt_utf8.length());
+		}, [=](Error error) {
+			if(control->rows.data_size() >= 1000) {
+				report(control->rows);
+				control->rows.clear_data();
+			}
+			++control->sequence;
+			++control->count;
+			elem_cb();
+		});
+	}, [=] {
+		if(control->rows.data_size() > 0)
+			report(control->rows);
+		delete control;
+		callback();
+	});
 }
 
 void JsView::p_setupJs() {

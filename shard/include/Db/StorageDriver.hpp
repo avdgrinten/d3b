@@ -26,6 +26,8 @@ public:
 		std::string p_identifier;
 	};
 
+	StorageDriver(Engine *engine) : p_engine(engine) { };
+
 	virtual void createStorage() = 0;
 	virtual void loadStorage() = 0;
 
@@ -35,30 +37,31 @@ public:
 	/* checks whether an update is accepted. fills in
 		additional details like the allocated id for insert
 		requests */
-	virtual void updateAccept(Proto::Update &update,
+	virtual void updateAccept(Proto::Update *update,
 			std::function<void(Error)> callback) = 0;
 	/* validates an update against the current state.
 		returning success means that it is okay to commit the update
 		in the current state. */
-	virtual void updateValidate(Proto::Update &update,
+	virtual void updateValidate(Proto::Update *update,
 			std::function<void(Error)> callback) = 0;
 	/* validates an update against another update.
 		returning success mean that it is okay to commit the update
 		after the other update was commited. */
-	virtual void updateConflicts(Proto::Update &update,
+	virtual void updateConflicts(Proto::Update *update,
 			Proto::Update &predecessor,
 			std::function<void(Error)> callback) = 0;
 
 	/* commits an update to the storage */
-	virtual void processUpdate(Proto::Update &update,
+	virtual void processUpdate(Proto::Update *update,
 			std::function<void(Error)> callback) = 0;
 	/* processes a query */
-	virtual void processQuery(Proto::Query &query,
-			std::function<void(Proto::Data &)> on_data,
+	virtual void processFetch(Proto::Fetch *fetch,
+			std::function<void(Proto::FetchData &)> on_data,
 			std::function<void(Error)> callback) = 0;
 
-	virtual Linux::size_type length(id_type id) = 0;
-	virtual void fetch(id_type id, void *buffer) = 0;
+	inline Engine *getEngine() {
+		return p_engine;
+	}
 	
 	inline void setIdentifier(const std::string &identifier) {
 		p_identifier = identifier;
@@ -74,28 +77,32 @@ public:
 		return p_path;
 	}
 
-	void submitUpdate(Proto::Update &update,
+	void submitUpdate(Proto::Update *update,
 			std::function<void(Error)> callback);
-	void submitFix(Proto::Update &update,
+	void submitCommit(Proto::Update *update,
 			std::function<void(Error)> callback);
-	void submitCommit(Proto::Update &update,
+	void submitFetch(Proto::Fetch *fetch,
+			std::function<void(Proto::FetchData &)> on_data,
 			std::function<void(Error)> callback);
 	
-	void process();
+	bool queuePending();
+	void processQueue();
 
 protected:
+	Engine *p_engine;
 	std::string p_identifier;
 	std::string p_path;
 
 private:
 	struct Queued {
 		enum Type {
-			kNone, kUpdate, kFix, kCommit
+			kNone, kUpdate, kCommit, kFetch
 		};
 		
 		Type type;
 		Proto::Update *update;
-		std::function<void(Proto::Data &)> onData;
+		Proto::Fetch *fetch;
+		std::function<void(Proto::FetchData &)> onFetchData;
 		std::function<void(Error)> callback;
 	};
 	

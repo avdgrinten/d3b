@@ -263,7 +263,7 @@ Linux::Linux() {
 
 void Linux::processIO() {
 	epoll_event events[16];
-	int n = epoll_wait(p_epollFd, events, 16, -1);
+	int n = epoll_wait(p_epollFd, events, 16, 10);
 	if(n == -1)
 		throw std::runtime_error("epoll_wait() failed");
 
