@@ -47,6 +47,10 @@ void Linux::File::writeSync(Linux::size_type size, const void *buffer) {
 	if(::write(p_fileFd, buffer, size) == -1)
 		throw std::runtime_error("write() failed");
 }
+void Linux::File::readSync(Linux::size_type size, void *buffer) {
+	if(::read(p_fileFd, buffer, size) == -1)
+		throw std::runtime_error("write() failed");
+}
 
 void Linux::File::pwriteSync(Linux::off_type offset,
 		Linux::size_type size, const void *buffer) {
@@ -65,6 +69,15 @@ Linux::size_type Linux::File::lengthSync() {
 	if(fstat(p_fileFd, &result) == -1)
 		throw std::runtime_error("stat() failed");
 	return result.st_size;
+}
+
+void Linux::File::fsyncSync() {
+	if(::fsync(p_fileFd) == -1)
+		throw std::runtime_error("fsync() failed");
+}
+void Linux::File::fdatasyncSync() {
+	if(::fdatasync(p_fileFd) == -1)
+		throw std::runtime_error("fsync() failed");
 }
 
 std::unique_ptr<Linux::File> Linux::createFile() {

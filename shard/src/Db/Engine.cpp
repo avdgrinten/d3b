@@ -24,10 +24,19 @@ void Engine::createConfig() {
 	osIntf->mkDir(p_path + "/storage");
 	osIntf->mkDir(p_path + "/views");
 	osIntf->mkDir(p_path + "/extern");
+	
+	p_writeAhead.setPath(p_path);
+	p_writeAhead.setIdentifier("transact");
+	p_writeAhead.createLog();
+	
 	p_writeConfig();
 }
 
 void Engine::loadConfig() {
+	p_writeAhead.setPath(p_path);
+	p_writeAhead.setIdentifier("transact");
+	p_writeAhead.loadLog();
+	
 	std::unique_ptr<Linux::File> file = osIntf->createFile();
 	file->openSync(p_path + "/config", Linux::FileMode::read);
 	Linux::size_type length = file->lengthSync();
@@ -112,51 +121,66 @@ void Engine::beginTransact(std::function<void(Error, trid_type)> callback) {
 	Transaction *transaction = new Transaction;
 	p_transacts.insert(std::make_pair(trid, transaction));
 	
-	callback(Error(true), trid);
+	Proto::WriteAhead walog;
+	walog.set_type(Proto::WriteAhead::kTransact);
+	walog.set_transact_id(trid);
+
+	p_writeAhead.submit(walog, [=](Error error) {
+		callback(Error(true), trid);
+	});
 }
 void Engine::update(trid_type trid, Proto::Update *update,
 		std::function<void(Error)> callback) {
-	/* TODO: move this to process() ? */
-	auto transact_it = p_transacts.find(trid);
-	if(transact_it == p_transacts.end())
-		throw std::runtime_error("Illegal transaction");
-	
-	/* remember the update objects as we will need them
-		during commit */
-	Transaction *transaction = transact_it->second;
-	transaction->updates.push_back(update);
+	Proto::WriteAhead walog;
+	walog.set_type(Proto::WriteAhead::kUpdate);
+	walog.set_transact_id(trid);
+//	*walog.mutable_update() = *update;
 
-	/* TODO: write updates to the write-ahead log */
+	p_writeAhead.submit(walog, [=](Error error) {
+		/* TODO: move this to process() ? */
+		auto transact_it = p_transacts.find(trid);
+		if(transact_it == p_transacts.end())
+			throw std::runtime_error("Illegal transaction");
+		
+		/* remember the update objects as we will need them
+			during commit */
+		Transaction *transaction = transact_it->second;
+		transaction->updates.push_back(update);
 
-	/* submit each update to its associated storage */	
-	int storage = getStorage(update->storage_name());
-	if(storage == -1)
-		throw std::runtime_error("Illegal storage specified");
-
-	StorageDriver *driver = p_storage[storage];
-	driver->submitUpdate(update, callback);
-}
-void Engine::commit(trid_type trid,
-		std::function<void(Error)> callback) {
-	/* TODO: move this to process() ? */
-	auto transact_it = p_transacts.find(trid);
-	if(transact_it == p_transacts.end())
-		throw std::runtime_error("Illegal transaction");
-	
-	/* TODO: write commit to the write-ahead log */
-	
-	/* commit each update to its associated storage */
-	Transaction *transaction = transact_it->second;
-	Async::eachSeries(transaction->updates.begin(),
-			transaction->updates.end(),
-			[=] (Proto::Update *update, std::function<void()> each_callback) {
+		/* submit each update to its associated storage */	
 		int storage = getStorage(update->storage_name());
 		if(storage == -1)
 			throw std::runtime_error("Illegal storage specified");
 
 		StorageDriver *driver = p_storage[storage];
-		driver->submitCommit(update, [=](Error error) { each_callback(); });
-	}, [=]() { callback(Error(true)); }); /*FIXME: proper error value */
+		driver->submitUpdate(update, callback);
+	});
+}
+void Engine::commit(trid_type trid,
+		std::function<void(Error)> callback) {
+	Proto::WriteAhead walog;
+	walog.set_type(Proto::WriteAhead::kCommit);
+	walog.set_transact_id(trid);
+
+	p_writeAhead.submit(walog, [=](Error error) {
+		/* TODO: move this to process() ? */
+		auto transact_it = p_transacts.find(trid);
+		if(transact_it == p_transacts.end())
+			throw std::runtime_error("Illegal transaction");
+	
+		/* commit each update to its associated storage */
+		Transaction *transaction = transact_it->second;
+		Async::eachSeries(transaction->updates.begin(),
+				transaction->updates.end(),
+				[=] (Proto::Update *update, std::function<void()> each_callback) {
+			int storage = getStorage(update->storage_name());
+			if(storage == -1)
+				throw std::runtime_error("Illegal storage specified");
+
+			StorageDriver *driver = p_storage[storage];
+			driver->submitCommit(update, [=](Error error) { each_callback(); });
+		}, [=]() { callback(Error(true)); }); /*FIXME: proper error value */
+	});
 }
 
 void Engine::process() {

@@ -1334,6 +1334,7 @@ bool WriteAhead_Type_IsValid(int value) {
     case 1:
     case 2:
     case 3:
+    case 4:
       return true;
     default:
       return false;
@@ -1342,6 +1343,7 @@ bool WriteAhead_Type_IsValid(int value) {
 
 #ifndef _MSC_VER
 const WriteAhead_Type WriteAhead::kNone;
+const WriteAhead_Type WriteAhead::kTransact;
 const WriteAhead_Type WriteAhead::kUpdate;
 const WriteAhead_Type WriteAhead::kCommit;
 const WriteAhead_Type WriteAhead::kRollback;
@@ -1350,9 +1352,10 @@ const WriteAhead_Type WriteAhead::Type_MAX;
 const int WriteAhead::Type_ARRAYSIZE;
 #endif  // _MSC_VER
 #ifndef _MSC_VER
+const int WriteAhead::kTypeFieldNumber;
 const int WriteAhead::kSequenceFieldNumber;
-const int WriteAhead::kUpdateIdFieldNumber;
-const int WriteAhead::kUpdateBodyFieldNumber;
+const int WriteAhead::kTransactIdFieldNumber;
+const int WriteAhead::kUpdateFieldNumber;
 #endif  // !_MSC_VER
 
 WriteAhead::WriteAhead()
@@ -1361,7 +1364,7 @@ WriteAhead::WriteAhead()
 }
 
 void WriteAhead::InitAsDefaultInstance() {
-  updatebody_ = const_cast< ::Db::Proto::Update*>(&::Db::Proto::Update::default_instance());
+  update_ = const_cast< ::Db::Proto::Update*>(&::Db::Proto::Update::default_instance());
 }
 
 WriteAhead::WriteAhead(const WriteAhead& from)
@@ -1372,9 +1375,10 @@ WriteAhead::WriteAhead(const WriteAhead& from)
 
 void WriteAhead::SharedCtor() {
   _cached_size_ = 0;
+  type_ = 0;
   sequence_ = GOOGLE_LONGLONG(0);
-  updateid_ = GOOGLE_LONGLONG(0);
-  updatebody_ = NULL;
+  transact_id_ = GOOGLE_LONGLONG(0);
+  update_ = NULL;
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
 }
 
@@ -1384,7 +1388,7 @@ WriteAhead::~WriteAhead() {
 
 void WriteAhead::SharedDtor() {
   if (this != default_instance_) {
-    delete updatebody_;
+    delete update_;
   }
 }
 
@@ -1405,10 +1409,11 @@ WriteAhead* WriteAhead::New() const {
 
 void WriteAhead::Clear() {
   if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
+    type_ = 0;
     sequence_ = GOOGLE_LONGLONG(0);
-    updateid_ = GOOGLE_LONGLONG(0);
-    if (has_updatebody()) {
-      if (updatebody_ != NULL) updatebody_->::Db::Proto::Update::Clear();
+    transact_id_ = GOOGLE_LONGLONG(0);
+    if (has_update()) {
+      if (update_ != NULL) update_->::Db::Proto::Update::Clear();
     }
   }
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
@@ -1420,10 +1425,29 @@ bool WriteAhead::MergePartialFromCodedStream(
   ::google::protobuf::uint32 tag;
   while ((tag = input->ReadTag()) != 0) {
     switch (::google::protobuf::internal::WireFormatLite::GetTagFieldNumber(tag)) {
-      // optional int64 sequence = 1;
+      // optional .Db.Proto.WriteAhead.Type type = 1;
       case 1: {
         if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
             ::google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT) {
+          int value;
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   int, ::google::protobuf::internal::WireFormatLite::TYPE_ENUM>(
+                 input, &value)));
+          if (::Db::Proto::WriteAhead_Type_IsValid(value)) {
+            set_type(static_cast< ::Db::Proto::WriteAhead_Type >(value));
+          }
+        } else {
+          goto handle_uninterpreted;
+        }
+        if (input->ExpectTag(16)) goto parse_sequence;
+        break;
+      }
+      
+      // optional int64 sequence = 2;
+      case 2: {
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT) {
+         parse_sequence:
           DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
                    ::google::protobuf::int64, ::google::protobuf::internal::WireFormatLite::TYPE_INT64>(
                  input, &sequence_)));
@@ -1431,33 +1455,33 @@ bool WriteAhead::MergePartialFromCodedStream(
         } else {
           goto handle_uninterpreted;
         }
-        if (input->ExpectTag(16)) goto parse_updateId;
+        if (input->ExpectTag(24)) goto parse_transact_id;
         break;
       }
       
-      // optional int64 updateId = 2;
-      case 2: {
+      // optional int64 transact_id = 3;
+      case 3: {
         if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
             ::google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT) {
-         parse_updateId:
+         parse_transact_id:
           DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
                    ::google::protobuf::int64, ::google::protobuf::internal::WireFormatLite::TYPE_INT64>(
-                 input, &updateid_)));
-          set_has_updateid();
+                 input, &transact_id_)));
+          set_has_transact_id();
         } else {
           goto handle_uninterpreted;
         }
-        if (input->ExpectTag(26)) goto parse_updateBody;
+        if (input->ExpectTag(34)) goto parse_update;
         break;
       }
       
-      // optional .Db.Proto.Update updateBody = 3;
-      case 3: {
+      // optional .Db.Proto.Update update = 4;
+      case 4: {
         if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
             ::google::protobuf::internal::WireFormatLite::WIRETYPE_LENGTH_DELIMITED) {
-         parse_updateBody:
+         parse_update:
           DO_(::google::protobuf::internal::WireFormatLite::ReadMessageNoVirtual(
-               input, mutable_updatebody()));
+               input, mutable_update()));
         } else {
           goto handle_uninterpreted;
         }
@@ -1482,20 +1506,26 @@ bool WriteAhead::MergePartialFromCodedStream(
 
 void WriteAhead::SerializeWithCachedSizes(
     ::google::protobuf::io::CodedOutputStream* output) const {
-  // optional int64 sequence = 1;
+  // optional .Db.Proto.WriteAhead.Type type = 1;
+  if (has_type()) {
+    ::google::protobuf::internal::WireFormatLite::WriteEnum(
+      1, this->type(), output);
+  }
+  
+  // optional int64 sequence = 2;
   if (has_sequence()) {
-    ::google::protobuf::internal::WireFormatLite::WriteInt64(1, this->sequence(), output);
+    ::google::protobuf::internal::WireFormatLite::WriteInt64(2, this->sequence(), output);
   }
   
-  // optional int64 updateId = 2;
-  if (has_updateid()) {
-    ::google::protobuf::internal::WireFormatLite::WriteInt64(2, this->updateid(), output);
+  // optional int64 transact_id = 3;
+  if (has_transact_id()) {
+    ::google::protobuf::internal::WireFormatLite::WriteInt64(3, this->transact_id(), output);
   }
   
-  // optional .Db.Proto.Update updateBody = 3;
-  if (has_updatebody()) {
+  // optional .Db.Proto.Update update = 4;
+  if (has_update()) {
     ::google::protobuf::internal::WireFormatLite::WriteMessage(
-      3, this->updatebody(), output);
+      4, this->update(), output);
   }
   
 }
@@ -1504,25 +1534,31 @@ int WriteAhead::ByteSize() const {
   int total_size = 0;
   
   if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
-    // optional int64 sequence = 1;
+    // optional .Db.Proto.WriteAhead.Type type = 1;
+    if (has_type()) {
+      total_size += 1 +
+        ::google::protobuf::internal::WireFormatLite::EnumSize(this->type());
+    }
+    
+    // optional int64 sequence = 2;
     if (has_sequence()) {
       total_size += 1 +
         ::google::protobuf::internal::WireFormatLite::Int64Size(
           this->sequence());
     }
     
-    // optional int64 updateId = 2;
-    if (has_updateid()) {
+    // optional int64 transact_id = 3;
+    if (has_transact_id()) {
       total_size += 1 +
         ::google::protobuf::internal::WireFormatLite::Int64Size(
-          this->updateid());
+          this->transact_id());
     }
     
-    // optional .Db.Proto.Update updateBody = 3;
-    if (has_updatebody()) {
+    // optional .Db.Proto.Update update = 4;
+    if (has_update()) {
       total_size += 1 +
         ::google::protobuf::internal::WireFormatLite::MessageSizeNoVirtual(
-          this->updatebody());
+          this->update());
     }
     
   }
@@ -1540,14 +1576,17 @@ void WriteAhead::CheckTypeAndMergeFrom(
 void WriteAhead::MergeFrom(const WriteAhead& from) {
   GOOGLE_CHECK_NE(&from, this);
   if (from._has_bits_[0 / 32] & (0xffu << (0 % 32))) {
+    if (from.has_type()) {
+      set_type(from.type());
+    }
     if (from.has_sequence()) {
       set_sequence(from.sequence());
     }
-    if (from.has_updateid()) {
-      set_updateid(from.updateid());
+    if (from.has_transact_id()) {
+      set_transact_id(from.transact_id());
     }
-    if (from.has_updatebody()) {
-      mutable_updatebody()->::Db::Proto::Update::MergeFrom(from.updatebody());
+    if (from.has_update()) {
+      mutable_update()->::Db::Proto::Update::MergeFrom(from.update());
     }
   }
 }
@@ -1565,9 +1604,10 @@ bool WriteAhead::IsInitialized() const {
 
 void WriteAhead::Swap(WriteAhead* other) {
   if (other != this) {
+    std::swap(type_, other->type_);
     std::swap(sequence_, other->sequence_);
-    std::swap(updateid_, other->updateid_);
-    std::swap(updatebody_, other->updatebody_);
+    std::swap(transact_id_, other->transact_id_);
+    std::swap(update_, other->update_);
     std::swap(_has_bits_[0], other->_has_bits_[0]);
     std::swap(_cached_size_, other->_cached_size_);
   }

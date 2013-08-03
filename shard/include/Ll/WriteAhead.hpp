@@ -14,7 +14,7 @@ public:
 	void loadLog();
 	
 	void submit(Db::Proto::WriteAhead &message,
-			std::function<void()> callback);
+			std::function<void(Error)> callback);
 
 private:
 	std::string p_path;

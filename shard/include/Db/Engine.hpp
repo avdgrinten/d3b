@@ -4,6 +4,8 @@
 #include <vector>
 #include <unordered_map>
 
+#include "Ll/WriteAhead.hpp"
+
 namespace Db {
 
 typedef int64_t id_type;
@@ -63,6 +65,8 @@ private:
 
 	trid_type p_nextTransactId;
 	std::unordered_map<trid_type, Transaction*> p_transacts;
+
+	Ll::WriteAhead p_writeAhead;
 	
 	std::string p_path;
 	std::vector<StorageDriver*> p_storage;

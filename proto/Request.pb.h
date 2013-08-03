@@ -50,9 +50,10 @@ const int Fetch_Type_Type_ARRAYSIZE = Fetch_Type_Type_MAX + 1;
 
 enum WriteAhead_Type {
   WriteAhead_Type_kNone = 0,
-  WriteAhead_Type_kUpdate = 1,
-  WriteAhead_Type_kCommit = 2,
-  WriteAhead_Type_kRollback = 3
+  WriteAhead_Type_kTransact = 1,
+  WriteAhead_Type_kUpdate = 2,
+  WriteAhead_Type_kCommit = 3,
+  WriteAhead_Type_kRollback = 4
 };
 bool WriteAhead_Type_IsValid(int value);
 const WriteAhead_Type WriteAhead_Type_Type_MIN = WriteAhead_Type_kNone;
@@ -634,6 +635,7 @@ class WriteAhead : public ::google::protobuf::MessageLite {
   
   typedef WriteAhead_Type Type;
   static const Type kNone = WriteAhead_Type_kNone;
+  static const Type kTransact = WriteAhead_Type_kTransact;
   static const Type kUpdate = WriteAhead_Type_kUpdate;
   static const Type kCommit = WriteAhead_Type_kCommit;
   static const Type kRollback = WriteAhead_Type_kRollback;
@@ -649,43 +651,53 @@ class WriteAhead : public ::google::protobuf::MessageLite {
   
   // accessors -------------------------------------------------------
   
-  // optional int64 sequence = 1;
+  // optional .Db.Proto.WriteAhead.Type type = 1;
+  inline bool has_type() const;
+  inline void clear_type();
+  static const int kTypeFieldNumber = 1;
+  inline ::Db::Proto::WriteAhead_Type type() const;
+  inline void set_type(::Db::Proto::WriteAhead_Type value);
+  
+  // optional int64 sequence = 2;
   inline bool has_sequence() const;
   inline void clear_sequence();
-  static const int kSequenceFieldNumber = 1;
+  static const int kSequenceFieldNumber = 2;
   inline ::google::protobuf::int64 sequence() const;
   inline void set_sequence(::google::protobuf::int64 value);
   
-  // optional int64 updateId = 2;
-  inline bool has_updateid() const;
-  inline void clear_updateid();
-  static const int kUpdateIdFieldNumber = 2;
-  inline ::google::protobuf::int64 updateid() const;
-  inline void set_updateid(::google::protobuf::int64 value);
+  // optional int64 transact_id = 3;
+  inline bool has_transact_id() const;
+  inline void clear_transact_id();
+  static const int kTransactIdFieldNumber = 3;
+  inline ::google::protobuf::int64 transact_id() const;
+  inline void set_transact_id(::google::protobuf::int64 value);
   
-  // optional .Db.Proto.Update updateBody = 3;
-  inline bool has_updatebody() const;
-  inline void clear_updatebody();
-  static const int kUpdateBodyFieldNumber = 3;
-  inline const ::Db::Proto::Update& updatebody() const;
-  inline ::Db::Proto::Update* mutable_updatebody();
-  inline ::Db::Proto::Update* release_updatebody();
+  // optional .Db.Proto.Update update = 4;
+  inline bool has_update() const;
+  inline void clear_update();
+  static const int kUpdateFieldNumber = 4;
+  inline const ::Db::Proto::Update& update() const;
+  inline ::Db::Proto::Update* mutable_update();
+  inline ::Db::Proto::Update* release_update();
   
   // @@protoc_insertion_point(class_scope:Db.Proto.WriteAhead)
  private:
+  inline void set_has_type();
+  inline void clear_has_type();
   inline void set_has_sequence();
   inline void clear_has_sequence();
-  inline void set_has_updateid();
-  inline void clear_has_updateid();
-  inline void set_has_updatebody();
-  inline void clear_has_updatebody();
+  inline void set_has_transact_id();
+  inline void clear_has_transact_id();
+  inline void set_has_update();
+  inline void clear_has_update();
   
   ::google::protobuf::int64 sequence_;
-  ::google::protobuf::int64 updateid_;
-  ::Db::Proto::Update* updatebody_;
+  ::google::protobuf::int64 transact_id_;
+  ::Db::Proto::Update* update_;
+  int type_;
   
   mutable int _cached_size_;
-  ::google::protobuf::uint32 _has_bits_[(3 + 31) / 32];
+  ::google::protobuf::uint32 _has_bits_[(4 + 31) / 32];
   
   friend void  protobuf_AddDesc_proto_2fRequest_2eproto();
   friend void protobuf_AssignDesc_proto_2fRequest_2eproto();
@@ -1393,15 +1405,38 @@ inline ::std::string* FetchData::release_buffer() {
 
 // WriteAhead
 
-// optional int64 sequence = 1;
-inline bool WriteAhead::has_sequence() const {
+// optional .Db.Proto.WriteAhead.Type type = 1;
+inline bool WriteAhead::has_type() const {
   return (_has_bits_[0] & 0x00000001u) != 0;
 }
-inline void WriteAhead::set_has_sequence() {
+inline void WriteAhead::set_has_type() {
   _has_bits_[0] |= 0x00000001u;
 }
-inline void WriteAhead::clear_has_sequence() {
+inline void WriteAhead::clear_has_type() {
   _has_bits_[0] &= ~0x00000001u;
+}
+inline void WriteAhead::clear_type() {
+  type_ = 0;
+  clear_has_type();
+}
+inline ::Db::Proto::WriteAhead_Type WriteAhead::type() const {
+  return static_cast< ::Db::Proto::WriteAhead_Type >(type_);
+}
+inline void WriteAhead::set_type(::Db::Proto::WriteAhead_Type value) {
+  GOOGLE_DCHECK(::Db::Proto::WriteAhead_Type_IsValid(value));
+  set_has_type();
+  type_ = value;
+}
+
+// optional int64 sequence = 2;
+inline bool WriteAhead::has_sequence() const {
+  return (_has_bits_[0] & 0x00000002u) != 0;
+}
+inline void WriteAhead::set_has_sequence() {
+  _has_bits_[0] |= 0x00000002u;
+}
+inline void WriteAhead::clear_has_sequence() {
+  _has_bits_[0] &= ~0x00000002u;
 }
 inline void WriteAhead::clear_sequence() {
   sequence_ = GOOGLE_LONGLONG(0);
@@ -1415,54 +1450,54 @@ inline void WriteAhead::set_sequence(::google::protobuf::int64 value) {
   sequence_ = value;
 }
 
-// optional int64 updateId = 2;
-inline bool WriteAhead::has_updateid() const {
-  return (_has_bits_[0] & 0x00000002u) != 0;
-}
-inline void WriteAhead::set_has_updateid() {
-  _has_bits_[0] |= 0x00000002u;
-}
-inline void WriteAhead::clear_has_updateid() {
-  _has_bits_[0] &= ~0x00000002u;
-}
-inline void WriteAhead::clear_updateid() {
-  updateid_ = GOOGLE_LONGLONG(0);
-  clear_has_updateid();
-}
-inline ::google::protobuf::int64 WriteAhead::updateid() const {
-  return updateid_;
-}
-inline void WriteAhead::set_updateid(::google::protobuf::int64 value) {
-  set_has_updateid();
-  updateid_ = value;
-}
-
-// optional .Db.Proto.Update updateBody = 3;
-inline bool WriteAhead::has_updatebody() const {
+// optional int64 transact_id = 3;
+inline bool WriteAhead::has_transact_id() const {
   return (_has_bits_[0] & 0x00000004u) != 0;
 }
-inline void WriteAhead::set_has_updatebody() {
+inline void WriteAhead::set_has_transact_id() {
   _has_bits_[0] |= 0x00000004u;
 }
-inline void WriteAhead::clear_has_updatebody() {
+inline void WriteAhead::clear_has_transact_id() {
   _has_bits_[0] &= ~0x00000004u;
 }
-inline void WriteAhead::clear_updatebody() {
-  if (updatebody_ != NULL) updatebody_->::Db::Proto::Update::Clear();
-  clear_has_updatebody();
+inline void WriteAhead::clear_transact_id() {
+  transact_id_ = GOOGLE_LONGLONG(0);
+  clear_has_transact_id();
 }
-inline const ::Db::Proto::Update& WriteAhead::updatebody() const {
-  return updatebody_ != NULL ? *updatebody_ : *default_instance_->updatebody_;
+inline ::google::protobuf::int64 WriteAhead::transact_id() const {
+  return transact_id_;
 }
-inline ::Db::Proto::Update* WriteAhead::mutable_updatebody() {
-  set_has_updatebody();
-  if (updatebody_ == NULL) updatebody_ = new ::Db::Proto::Update;
-  return updatebody_;
+inline void WriteAhead::set_transact_id(::google::protobuf::int64 value) {
+  set_has_transact_id();
+  transact_id_ = value;
 }
-inline ::Db::Proto::Update* WriteAhead::release_updatebody() {
-  clear_has_updatebody();
-  ::Db::Proto::Update* temp = updatebody_;
-  updatebody_ = NULL;
+
+// optional .Db.Proto.Update update = 4;
+inline bool WriteAhead::has_update() const {
+  return (_has_bits_[0] & 0x00000008u) != 0;
+}
+inline void WriteAhead::set_has_update() {
+  _has_bits_[0] |= 0x00000008u;
+}
+inline void WriteAhead::clear_has_update() {
+  _has_bits_[0] &= ~0x00000008u;
+}
+inline void WriteAhead::clear_update() {
+  if (update_ != NULL) update_->::Db::Proto::Update::Clear();
+  clear_has_update();
+}
+inline const ::Db::Proto::Update& WriteAhead::update() const {
+  return update_ != NULL ? *update_ : *default_instance_->update_;
+}
+inline ::Db::Proto::Update* WriteAhead::mutable_update() {
+  set_has_update();
+  if (update_ == NULL) update_ = new ::Db::Proto::Update;
+  return update_;
+}
+inline ::Db::Proto::Update* WriteAhead::release_update() {
+  clear_has_update();
+  ::Db::Proto::Update* temp = update_;
+  update_ = NULL;
   return temp;
 }
 
