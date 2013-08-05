@@ -28,8 +28,8 @@ private:
 		
 		void p_postResponse(int opcode, int seq_number,
 				const google::protobuf::MessageLite &reponse);
-		void p_readMessage(Async::Callback callback);
-		void p_processMessage(Async::Callback callback);
+		void p_readMessage(std::function<void(Error)> callback);
+		void p_processMessage();
 		
 		Server *p_server;
 		Linux::SockStream *p_sockStream;

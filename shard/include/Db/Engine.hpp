@@ -40,9 +40,9 @@ public:
 			std::function<void(Proto::FetchData &)> on_data,
 			std::function<void(Error)> callback);
 	
-	Error query(const Proto::Query &request,
-			std::function<void(const Proto::Rows&)> report,
-			std::function<void()> callback);
+	Error query(Proto::Query *request,
+			std::function<void(Proto::Rows &)> report,
+			std::function<void(Error)> callback);
 	
 	/* called by storages when data is commited to the database.
 		StorageDriver calls this automatically, do not call it yourself */
@@ -59,6 +59,23 @@ public:
 	}
 	
 private:
+	/* ------- request and update queue -------- */
+	struct Queued {
+		enum Type {
+			kNone, kUpdate, kCommit, kFetch
+		};
+		
+		Type type;
+		trid_type trid;
+		Proto::Update *update;
+		Proto::Fetch *fetch;
+		std::function<void(Proto::FetchData &)> onFetchData;
+		std::function<void(Error)> callback;
+	};
+	
+	std::deque<Queued> p_submitQueue;
+	
+	/* --------- active transactions -------- */
 	struct Transaction {
 		std::vector<Proto::Update*> updates;
 	};

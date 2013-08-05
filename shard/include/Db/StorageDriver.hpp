@@ -84,29 +84,11 @@ public:
 	void submitFetch(Proto::Fetch *fetch,
 			std::function<void(Proto::FetchData &)> on_data,
 			std::function<void(Error)> callback);
-	
-	bool queuePending();
-	void processQueue();
 
 protected:
 	Engine *p_engine;
 	std::string p_identifier;
 	std::string p_path;
-
-private:
-	struct Queued {
-		enum Type {
-			kNone, kUpdate, kCommit, kFetch
-		};
-		
-		Type type;
-		Proto::Update *update;
-		Proto::Fetch *fetch;
-		std::function<void(Proto::FetchData &)> onFetchData;
-		std::function<void(Error)> callback;
-	};
-	
-	std::deque<Queued> p_submitQueue;
 };
 
 class StorageRegistry {

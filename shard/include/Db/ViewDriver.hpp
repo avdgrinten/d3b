@@ -31,12 +31,12 @@ public:
 	virtual Proto::ViewConfig writeConfig() = 0;
 	virtual void readConfig(const Proto::ViewConfig &config) = 0;
 
-	virtual void onUpdate(Proto::Update *update,
+	virtual void processUpdate(Proto::Update *update,
 		std::function<void(Error)> callback) = 0;
-	
-	virtual void query(const Proto::Query &request,
-			std::function<void(const Proto::Rows&)> report,
-			std::function<void()> callback) = 0;
+
+	virtual void processQuery(Proto::Query *request,
+			std::function<void(Proto::Rows &)> report,
+			std::function<void(Error)> callback) = 0;
 
 	inline Engine *getEngine() {
 		return p_engine;

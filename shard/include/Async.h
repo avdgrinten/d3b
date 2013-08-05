@@ -11,7 +11,7 @@ struct p_staticSeries;
 template<typename Callback, typename... Functors>
 struct p_staticSeriesTail {
 	static void invoke(std::tuple<Functors...> functors, Callback callback) {
-		callback();
+		callback(Error(true));
 	}
 };
 
@@ -19,7 +19,9 @@ template<typename Callback, int i, typename... Functors>
 struct p_staticSeriesItem {
 	static void invoke(std::tuple<Functors...> functors, Callback callback) {
 		auto functor = std::get<i>(functors);
-		functor([functors, callback] () {
+		functor([functors, callback] (Error error) {
+			if(!error.ok())
+				return callback(error);
 			p_staticSeries<Callback, i + 1, Functors...>::invoke(functors, callback);
 		});
 	}
@@ -42,13 +44,15 @@ void staticSeries(std::tuple<Functors...> functors, Callback callback) {
 }
 
 template<typename Iterator, typename Functor, typename Callback>
-void eachSeries(Iterator begin, Iterator end,
-		Functor functor, Callback callback) {
+void eachSeries(Iterator begin, Iterator end, Functor functor,
+		Callback callback) {
 	if(begin == end) {
-		callback();
+		callback(Error(true));
 		return;
 	}
-	functor(*begin, [begin, end, functor, callback]() {
+	functor(*begin, [begin, end, functor, callback](Error error) {
+		if(!error.ok())
+			return callback(error);
 		eachSeries(std::next(begin), end, functor, callback);
 	});
 }
@@ -88,18 +92,23 @@ void whilst(Test test, Functor functor,
 	struct Control {
 		Control(Test test, Functor functor, Callback callback)
 				: p_test(test), p_functor(functor), p_callback(callback) {
-			p_recurse = [this] () { (*this)(); };
+			p_recurse = [this] (Error error) {
+				if(!error.ok())
+					return p_callback(error);
+				(*this)();
+			};
 		}
 
 		void operator() () {
 			if(!p_test()) {
-				p_callback();
+				p_callback(Error(true));
+				delete this;
 			}else{
 				p_functor(p_recurse);
 			}
 		}
 		
-		std::function<void()> p_recurse;
+		std::function<void(Error)> p_recurse;
 		Test p_test;
 		Functor p_functor;
 		Callback p_callback;

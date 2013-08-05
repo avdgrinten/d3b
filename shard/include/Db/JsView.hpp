@@ -24,12 +24,12 @@ public:
 	virtual Proto::ViewConfig writeConfig();
 	virtual void readConfig(const Proto::ViewConfig &config);
 	
-	virtual void onUpdate(Proto::Update *update,
+	virtual void processUpdate(Proto::Update *update,
 			std::function<void(Error)> callback);
 
-	virtual void query(const Proto::Query &request,
-			std::function<void(const Proto::Rows &)> report,
-			std::function<void()> callback);
+	virtual void processQuery(Proto::Query *request,
+			std::function<void(Proto::Rows &)> report,
+			std::function<void(Error)> callback);
 
 private:
 	std::string p_scriptFile;

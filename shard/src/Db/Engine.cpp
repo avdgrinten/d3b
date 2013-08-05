@@ -2,8 +2,8 @@
 #include <iostream>
 #include <functional>
 
-#include "Async.h"
 #include "Os/Linux.h"
+#include "Async.h"
 #include "Db/StorageDriver.hpp"
 #include "Db/ViewDriver.hpp"
 #include "Db/Engine.hpp"
@@ -146,14 +146,22 @@ void Engine::update(trid_type trid, Proto::Update *update,
 			during commit */
 		Transaction *transaction = transact_it->second;
 		transaction->updates.push_back(update);
+		
+		if(!update->has_storage_idx()) {
+			int storage = getStorage(update->storage_name());
+			if(storage == -1)
+				throw std::runtime_error("Illegal storage specified");
+			update->set_storage_idx(storage);
+		}
 
-		/* submit each update to its associated storage */	
-		int storage = getStorage(update->storage_name());
-		if(storage == -1)
-			throw std::runtime_error("Illegal storage specified");
-
-		StorageDriver *driver = p_storage[storage];
-		driver->submitUpdate(update, callback);
+		/* submit the update to the processing queue */
+		// TODO: check whether specified storage is valid?
+		Queued queued;
+		queued.type = Queued::kUpdate;
+		queued.trid = trid;
+		queued.update = update;
+		queued.callback = callback;
+		p_submitQueue.push_back(queued);
 	});
 }
 void Engine::commit(trid_type trid,
@@ -163,43 +171,58 @@ void Engine::commit(trid_type trid,
 	walog.set_transact_id(trid);
 
 	p_writeAhead.submit(walog, [=](Error error) {
-		/* TODO: move this to process() ? */
-		auto transact_it = p_transacts.find(trid);
-		if(transact_it == p_transacts.end())
-			throw std::runtime_error("Illegal transaction");
-	
-		/* commit each update to its associated storage */
-		Transaction *transaction = transact_it->second;
-		Async::eachSeries(transaction->updates.begin(),
-				transaction->updates.end(),
-				[=] (Proto::Update *update, std::function<void()> each_callback) {
-			int storage = getStorage(update->storage_name());
-			if(storage == -1)
-				throw std::runtime_error("Illegal storage specified");
-
-			StorageDriver *driver = p_storage[storage];
-			driver->submitCommit(update, [=](Error error) { each_callback(); });
-		}, [=]() { callback(Error(true)); }); /*FIXME: proper error value */
+		/* submit the commit to the processing queue */
+		Queued queued;
+		queued.type = Queued::kCommit;
+		queued.trid = trid;
+		queued.callback = callback;
+		p_submitQueue.push_back(queued);
 	});
 }
 
 void Engine::process() {
-	for(int i = 1; i < p_storage.size(); i++) {
-		if(p_storage[i] == nullptr)
-			continue;
-		while(p_storage[i]->queuePending())
-			p_storage[i]->processQueue();
+	while(!p_submitQueue.empty()) {
+		Queued queued = p_submitQueue.front();
+		p_submitQueue.pop_front();
+		if(queued.type == Queued::kUpdate) {
+			std::cout << "process update" << std::endl;
+			StorageDriver *driver = p_storage[queued.update->storage_idx()];
+			driver->updateAccept(queued.update, queued.callback);
+			/* TODO: fix the update */
+		}else if(queued.type == Queued::kCommit) {
+			std::cout << "process commit" << std::endl;
+			auto transact_it = p_transacts.find(queued.trid);
+			if(transact_it == p_transacts.end())
+				throw std::runtime_error("Illegal transaction");
+			Transaction *transaction = transact_it->second;
+			
+			Async::eachSeries(transaction->updates.begin(), transaction->updates.end(),
+					[=] (Proto::Update *update, std::function<void(Error)> each_cb) {
+				Async::staticSeries(std::make_tuple(
+					[=](std::function<void(Error)> cb) {
+						StorageDriver *driver = p_storage[update->storage_idx()];
+						driver->processUpdate(update, cb);
+					},
+					[=](std::function<void(Error)> cb) {
+						onUpdate(update, cb);
+					}
+				), each_cb);
+			}, queued.callback);
+		}else if(queued.type == Queued::kFetch) {
+			StorageDriver *driver = p_storage[queued.fetch->storage_idx()];
+			driver->processFetch(queued.fetch, queued.onFetchData, queued.callback);
+		}else throw std::logic_error("Queued item has illegal type");
 	}
 }
 
 void Engine::onUpdate(Proto::Update *update,
 		std::function<void(Error)> callback) {
 	Async::eachSeries(p_views.begin(), p_views.end(),
-			[=](ViewDriver *driver, std::function<void()> each_cb) {
+			[=](ViewDriver *driver, std::function<void(Error)> each_cb) {
 		if(driver == nullptr)
-			return each_cb();
-		driver->onUpdate(update, [=](Error error) { each_cb(); });
-	}, [=]() { callback(Error(true)); }); /* FIXME: proper error value */
+			return each_cb(Error(true));
+		driver->processUpdate(update, each_cb);
+	}, callback);
 }
 
 void Engine::fetch(Proto::Fetch *fetch,
@@ -212,20 +235,24 @@ void Engine::fetch(Proto::Fetch *fetch,
 		fetch->set_storage_idx(storage);
 	}
 	
-	StorageDriver *driver = p_storage[fetch->storage_idx()];
-	driver->submitFetch(fetch, on_data, callback);
+	Queued queued;
+	queued.type = Queued::kFetch;
+	queued.fetch = fetch;
+	queued.onFetchData = on_data;
+	queued.callback = callback;
+	p_submitQueue.push_back(queued);
 }
 
-Error Engine::query(const Proto::Query &request,
-		std::function<void(const Proto::Rows&)> report,
-		std::function<void()> callback) {
+Error Engine::query(Proto::Query *request,
+		std::function<void(Proto::Rows &)> on_data,
+		std::function<void(Error)> callback) {
 	int view = -1;
-	if(request.has_view_name())
-		view = getView(request.view_name());
+	if(request->has_view_name())
+		view = getView(request->view_name());
 	if(view == -1)
 		return Error(kErrIllegalView);
 	ViewDriver *driver = p_views[view];
-	driver->query(request, report, callback);
+	driver->processQuery(request, on_data, callback);
 }
 
 StorageDriver *Engine::p_setupStorage(const Proto::StorageConfig &config) {

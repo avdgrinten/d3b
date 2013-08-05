@@ -88,7 +88,7 @@ void FlexImutStorage::processFetch(Proto::Fetch *fetch,
 	on_data(result);
 	
 	delete[] buffer;
-	callback(Error(false));
+	callback(Error(true));
 }
 
 FlexImutStorage::Factory::Factory()

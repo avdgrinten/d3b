@@ -4,6 +4,8 @@ var child_process = require('child_process');
 var async = require('async');
 var d3b = require('../client-nodejs/d3b');
 
+var showServerOutput = false;
+
 function setupPath(path, callback) {
 	child_process.exec('mkdir ' + path, { },
 			function(error, stdout, stderr) {
@@ -41,8 +43,11 @@ D3bInstance.prototype.setup = function(callback) {
 			});
 		},
 		function(callback) {
+			var opts = { };
+			if(showServerOutput)
+				opts.stdio = 'inherit';
 			self.$process = child_process.spawn('shard/shard',
-				[ '--path', self.$path ] /*, { stdio: 'inherit' }*/);
+				[ '--path', self.$path ], opts);
 			self.$process.on('exit', function() {
 				self.$exited = true;
 			});

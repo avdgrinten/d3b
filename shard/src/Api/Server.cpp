@@ -42,31 +42,34 @@ void Server::Connection::p_postResponse(int opcode, int seq_number,
 	});
 }
 
-void Server::Connection::p_readMessage(Async::Callback callback) {
+void Server::Connection::p_readMessage(std::function<void(Error)> callback) {
 	Async::staticSeries(std::make_tuple(
-		[this](Async::Callback callback) {
-			p_sockStream->read(sizeof(PacketHead), &p_rawHead, callback);
+		[this](std::function<void(Error)> msg_callback) {
+			p_sockStream->read(sizeof(PacketHead), &p_rawHead,
+				[=]() { msg_callback(Error(true)); });
 		},
-		[this](Async::Callback callback) {
+		[this](std::function<void(Error)> msg_callback) {
 			p_curPacket.opcode = OS::fromLeU32(p_rawHead.opcode);
 			p_curPacket.length = OS::fromLeU32(p_rawHead.length);
 			p_curPacket.seqNumber = OS::fromLeU32(p_rawHead.seqNumber);
 			
 			p_curBuffer = new char[p_curPacket.length];
-			p_sockStream->read(p_curPacket.length, p_curBuffer, callback);
+			p_sockStream->read(p_curPacket.length, p_curBuffer,
+				[=]() { msg_callback(Error(true)); });
 		},
-		[this](Async::Callback callback) {
-			p_processMessage(callback);
+		[this](std::function<void(Error)> msg_callback) {
+			p_processMessage();
+			msg_callback(Error(true));
 		},
-		[this](Async::Callback callback) {
+		[this](std::function<void(Error)> msg_callback) {
 			delete[] p_curBuffer;
 			p_curBuffer = nullptr;
-			callback();
+			msg_callback(Error(true));
 		}
 	), callback);
 }
 
-void Server::Connection::p_processMessage(Async::Callback callback) {
+void Server::Connection::p_processMessage() {
 	uint32_t seq_number = p_curPacket.seqNumber;
 	//std::cout << "Message: " << p_curPacket.opcode << std::endl;
 
@@ -78,7 +81,6 @@ void Server::Connection::p_processMessage(Async::Callback callback) {
 			response.set_success(false);
 			response.set_err_code(Proto::kErrIllegalRequest);
 			p_postResponse(Proto::kSrFin, seq_number, response);
-			callback();
 			return;
 		}
 
@@ -88,12 +90,12 @@ void Server::Connection::p_processMessage(Async::Callback callback) {
 		control_struct *control = new control_struct;
 		control->query = request.query();
 
-		engine->query(control->query, [=] (const Db::Proto::Rows &rows) {
+		engine->query(&control->query, [=] (const Db::Proto::Rows &rows) {
 			Proto::SrRows response;
 			for(int i = 0; i < rows.data_size(); i++)
 				response.add_row_data(rows.data(i));
 			p_postResponse(Proto::kSrRows, seq_number, response);
-		}, [=] () {
+		}, [=] (Error error) { /*FIXME: don't ignore error value */
 			delete control;
 			
 			Proto::SrFin response;
@@ -106,7 +108,6 @@ void Server::Connection::p_processMessage(Async::Callback callback) {
 			response.set_success(false);
 			response.set_err_code(Proto::kErrIllegalRequest);
 			p_postResponse(Proto::kSrFin, seq_number, response);
-			callback();
 			return;
 		}
 		
@@ -121,29 +122,25 @@ std::cout << "Lentgh: " << control->updates.size() << std::endl;
 		Connection *self = this;
 
 		Async::staticSeries(std::make_tuple(
-			[=](Async::Callback tr_callback) {
+			[=](std::function<void(Error)> tr_callback) {
 				engine->beginTransact([=](Error error, Db::trid_type trid) {
+					if(!error.ok())
+						return tr_callback(error);
 					control->trid = trid;
-					tr_callback();
+					tr_callback(Error(true));
 				});
 			},
-			[=](Async::Callback tr_callback) {
+			[=](std::function<void(Error)> tr_callback) {
 				Async::eachSeries(control->updates.begin(),
 						control->updates.end(), [=](Db::Proto::Update &update,
-							std::function<void()> each_callback) {
-					engine->update(control->trid, &update,
-							[each_callback](Error error) {
-						std::cout << "submitting single update" << std::endl;
-						each_callback();
-					});
+							std::function<void(Error)> each_callback) {
+					engine->update(control->trid, &update, each_callback);
 				}, tr_callback);
 			},
-			[=](Async::Callback tr_callback) {
-				engine->commit(control->trid, [=](Error error) {
-					tr_callback();
-				});
+			[=](std::function<void(Error)> tr_callback) {
+				engine->commit(control->trid, tr_callback);
 			}
-		), [=]() {
+		), [=](Error error) {
 			std::cout << "Update commited" << std::endl;
 			Proto::SrFin fin_resp;
 			p_postResponse(Proto::kSrFin, seq_number, fin_resp);
@@ -155,7 +152,6 @@ std::cout << "Lentgh: " << control->updates.size() << std::endl;
 			response.set_success(false);
 			response.set_err_code(Proto::kErrIllegalRequest);
 			p_postResponse(Proto::kSrFin, seq_number, response);
-			callback();
 			return;
 		}
 
@@ -170,7 +166,6 @@ std::cout << "Lentgh: " << control->updates.size() << std::endl;
 			response.set_success(false);
 			response.set_err_code(Proto::kErrIllegalRequest);
 			p_postResponse(Proto::kSrFin, seq_number, response);
-			callback();
 			return;
 		}
 
@@ -185,7 +180,6 @@ std::cout << "Lentgh: " << control->updates.size() << std::endl;
 			response.set_success(false);
 			response.set_err_code(Proto::kErrIllegalRequest);
 			p_postResponse(Proto::kSrFin, seq_number, response);
-			callback();
 			return;
 		}
 		
@@ -201,7 +195,6 @@ std::cout << "Lentgh: " << control->updates.size() << std::endl;
 			response.set_success(false);
 			response.set_err_code(Proto::kErrIllegalRequest);
 			p_postResponse(Proto::kSrFin, seq_number, response);
-			callback();
 			return;
 		}
 		
@@ -217,7 +210,6 @@ std::cout << "Lentgh: " << control->updates.size() << std::endl;
 			response.set_success(false);
 			response.set_err_code(Proto::kErrIllegalRequest);
 			p_postResponse(Proto::kSrFin, seq_number, response);
-			callback();
 			return;
 		}
 		
@@ -236,7 +228,6 @@ std::cout << "Lentgh: " << control->updates.size() << std::endl;
 			response.set_success(false);
 			response.set_err_code(Proto::kErrIllegalRequest);
 			p_postResponse(Proto::kSrFin, seq_number, response);
-			callback();
 			return;
 		}
 		
@@ -262,7 +253,6 @@ std::cout << "Lentgh: " << control->updates.size() << std::endl;
 		response.set_err_code(Proto::kErrIllegalRequest);
 		p_postResponse(Proto::kSrFin, seq_number, response);
 	}
-	callback();
 }
 
 Server::Server(Db::Engine *engine) :p_engine(engine) {
@@ -281,9 +271,9 @@ void Server::p_onConnect(Linux::SockStream *stream) {
 	Connection *connection = new Connection(this, stream);
 	
 	Async::whilst([] () { return true; },
-		[connection](Async::Callback callback) {
+		[connection](std::function<void(Error)> callback) {
 			connection->p_readMessage(callback);
-		} , []() {
+		} , [](Error error) {
 			printf("fin\n");
 		});
 }

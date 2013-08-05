@@ -144,7 +144,7 @@ void JsView::readConfig(const Proto::ViewConfig &config) {
 	p_scriptFile = config.script_file();
 }
 
-void JsView::onUpdate(Proto::Update *update,
+void JsView::processUpdate(Proto::Update *update,
 		std::function<void(Error)> callback) {
 	if(update->action() == Proto::Actions::kActInsert) {
 		p_onInsert(update->id(), update->buffer().data(),
@@ -241,21 +241,21 @@ void JsView::p_onRemove(id_type id,
 	callback(Error(true));*/
 }
 
-void JsView::query(const Proto::Query &request,
-		std::function<void(const Proto::Rows&)> report,
-		std::function<void()> callback) {	
+void JsView::processQuery(Proto::Query *request,
+		std::function<void(Proto::Rows &)> report,
+		std::function<void(Error)> callback) {	
 	v8::Context::Scope context_scope(p_context);
 	v8::HandleScope handle_scope;
 
 	v8::Handle<v8::Value> end_key;
-	if(request.has_to_key())
-		end_key = p_extractKey(request.to_key().c_str(),
-				request.to_key().size());
+	if(request->has_to_key())
+		end_key = p_extractKey(request->to_key().c_str(),
+				request->to_key().size());
 	
 	Btree<id_type>::Ref begin_ref;
-	if(request.has_from_key()) {
-		v8::Handle<v8::Value> begin_key = p_extractKey(request.from_key().c_str(),
-				request.from_key().size());
+	if(request->has_from_key()) {
+		v8::Handle<v8::Value> begin_key = p_extractKey(request->from_key().c_str(),
+				request->from_key().size());
 		begin_ref = p_orderTree.findNext([this, begin_key] (id_type keyid_a) -> int {
 			auto object_a = p_keyStore.getObject(keyid_a);
 			auto length_a = p_keyStore.objectLength(object_a);
@@ -288,10 +288,10 @@ void JsView::query(const Proto::Query &request,
 	Async::whilst([=]() -> bool {
 		if(!control->sequence.valid())
 			return false;
-		if(request.has_limit() && control->count == request.limit())
+		if(request->has_limit() && control->count == request->limit())
 			return false;
 		return true;
-	}, [=](std::function<void()> elem_cb) {
+	}, [=](std::function<void(Error)> elem_cb) {
 		id_type read_id;
 		control->sequence.getValue(&read_id);
 		id_type id = OS::fromLe(read_id);
@@ -299,7 +299,7 @@ void JsView::query(const Proto::Query &request,
 		// skip removed documents
 		if(id == 0) {
 			++control->sequence;
-			return elem_cb();
+			return elem_cb(Error(true));
 		}
 		
 		control->fetch.set_id(id);
@@ -322,19 +322,24 @@ void JsView::query(const Proto::Query &request,
 			v8::String::Utf8Value rpt_utf8(rpt_value);
 			control->rows.add_data(*rpt_utf8, rpt_utf8.length());
 		}, [=](Error error) {
+			if(!error.ok())
+				return elem_cb(error);
+
 			if(control->rows.data_size() >= 1000) {
 				report(control->rows);
 				control->rows.clear_data();
 			}
 			++control->sequence;
 			++control->count;
-			elem_cb();
+			elem_cb(Error(true));
 		});
-	}, [=] {
+	}, [=] (Error error) {
+		if(!error.ok())
+			return callback(error);
 		if(control->rows.data_size() > 0)
 			report(control->rows);
 		delete control;
-		callback();
+		callback(Error(true));
 	});
 }
 
