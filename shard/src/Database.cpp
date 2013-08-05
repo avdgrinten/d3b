@@ -48,16 +48,20 @@ int main(int argc, char **argv) {
 	}else{
 		engine->loadConfig();
 	}
+	
+	/* NOTE: for now all methods called during --create
+		are synchronous. if we change that in the future
+		we have to run osIntf->processIO() also in the
+		--create case */
+	engine->process();
 
 	if(!opts.count("create")) {
 		Api::Server *server = new Api::Server(engine);
 		server->start();
 
 		std::cout << "Server is running!" << std::endl;
-		while(true) {
+		while(true)
 			osIntf->processIO();
-			engine->process();
-		}
 	}
 }
 

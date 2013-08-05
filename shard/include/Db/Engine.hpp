@@ -73,7 +73,10 @@ private:
 		std::function<void(Error)> callback;
 	};
 	
+	std::unique_ptr<Linux::EventFd> p_eventFd;
 	std::deque<Queued> p_submitQueue;
+
+	void p_processQueue(std::function<void(Error)> callback);
 	
 	/* --------- active transactions -------- */
 	struct Transaction {

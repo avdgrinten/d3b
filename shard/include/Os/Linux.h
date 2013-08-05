@@ -5,6 +5,7 @@
 #include <stdexcept>
 
 #include <queue>
+#include <stack>
 
 enum ErrorCode {
 	kErrSuccess = 1,
@@ -149,6 +150,19 @@ public:
 		
 		std::function<void(SockStream*)> p_onConnect;
 	};
+
+	class EventFd {
+	public:
+		EventFd();
+		void onEvent(std::function<void()> on_event);
+		void fire();
+		void install();
+		void uninstall();
+		
+	private:
+		int p_eventFd;
+		std::function<void()> p_epollFunctor;
+	};
 	
 	bool fileExists(const std::string &path);
 	void mkDir(const std::string &path);
@@ -156,12 +170,15 @@ public:
 	
 	std::unique_ptr<File> createFile();
 	std::unique_ptr<SockServer> createSockServer();
+	std::unique_ptr<EventFd> createEventFd();
 	
 	Linux();
 	
+	void nextTick(std::function<void()> callback);
 	void processIO();
 
 private:
+	std::stack<std::function<void()>> p_tickStack;
 	int p_epollFd;
 };
 

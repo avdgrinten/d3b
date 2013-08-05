@@ -8,6 +8,7 @@
 #include <sys/stat.h>
 #include <sys/socket.h>
 #include <sys/epoll.h>
+#include <sys/eventfd.h>
 #include <netinet/in.h>
 
 #include <iostream>
@@ -82,6 +83,10 @@ void Linux::File::fdatasyncSync() {
 
 std::unique_ptr<Linux::File> Linux::createFile() {
 	return std::unique_ptr<Linux::File>(new Linux::File());
+}
+
+std::unique_ptr<Linux::EventFd> Linux::createEventFd() {
+	return std::unique_ptr<Linux::EventFd>(new Linux::EventFd());
 }
 
 /* ------------------------------------------------------------------- */
@@ -253,6 +258,44 @@ void Linux::SockStream::p_epollProcess(int events) {
 }
 
 /* ------------------------------------------------------------------- */
+Linux::EventFd::EventFd() {
+	p_eventFd = eventfd(0, 0);
+	if(p_eventFd == -1)
+		throw std::runtime_error("eventfd() failed");
+}
+
+void Linux::EventFd::onEvent(std::function<void()> on_event) {
+	p_epollFunctor = [=]() {
+		uint64_t value;
+		if(::read(p_eventFd, &value, 8) != 8)
+			throw std::runtime_error("Could not read eventfd");
+		on_event();
+	};
+}
+
+void Linux::EventFd::fire() {
+	uint64_t value = 1;
+	if(::write(p_eventFd, &value, 8) != 8)
+		throw std::runtime_error("Could not write eventfd");
+}
+
+void Linux::EventFd::install() {
+	epoll_event event;
+	event.data.ptr = &p_epollFunctor;
+	event.events = EPOLLIN;
+	if(epoll_ctl(osIntf->p_epollFd, EPOLL_CTL_ADD, p_eventFd, &event) == - 1)
+		throw std::runtime_error("epoll_ctl() failed");
+}
+
+void Linux::EventFd::uninstall() {
+	epoll_event event;
+	event.events = EPOLLIN;
+	if(epoll_ctl(osIntf->p_epollFd, EPOLL_CTL_DEL, p_eventFd, &event) == - 1)
+		throw std::runtime_error("epoll_ctl() failed");
+}
+
+
+/* ------------------------------------------------------------------- */
 
 bool Linux::fileExists(const std::string &path) {
 	if(access(path.c_str(), F_OK) == 0)
@@ -274,9 +317,19 @@ Linux::Linux() {
 		throw std::runtime_error("epoll_create() failed");
 }
 
+void Linux::nextTick(std::function<void()> callback) {
+	p_tickStack.push(callback);
+}
+
 void Linux::processIO() {
+	while(!p_tickStack.empty()) {
+		std::function<void()> callback = p_tickStack.top();
+		p_tickStack.pop();
+		callback();
+	}
+	
 	epoll_event events[16];
-	int n = epoll_wait(p_epollFd, events, 16, 10);
+	int n = epoll_wait(p_epollFd, events, 16, -1);
 	if(n == -1)
 		throw std::runtime_error("epoll_wait() failed");
 

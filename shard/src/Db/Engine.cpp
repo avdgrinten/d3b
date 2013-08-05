@@ -16,6 +16,8 @@ ViewRegistry globViewRegistry;
 Engine::Engine() : p_nextTransactId(1) {
 	p_storage.push_back(nullptr);
 	p_views.push_back(nullptr);
+
+	p_eventFd = osIntf->createEventFd();
 }
 
 void Engine::createConfig() {
@@ -162,6 +164,7 @@ void Engine::update(trid_type trid, Proto::Update *update,
 		queued.update = update;
 		queued.callback = callback;
 		p_submitQueue.push_back(queued);
+		p_eventFd->fire();
 	});
 }
 void Engine::commit(trid_type trid,
@@ -177,42 +180,79 @@ void Engine::commit(trid_type trid,
 		queued.trid = trid;
 		queued.callback = callback;
 		p_submitQueue.push_back(queued);
+		p_eventFd->fire();
 	});
 }
 
 void Engine::process() {
-	while(!p_submitQueue.empty()) {
-		Queued queued = p_submitQueue.front();
-		p_submitQueue.pop_front();
-		if(queued.type == Queued::kUpdate) {
-			std::cout << "process update" << std::endl;
-			StorageDriver *driver = p_storage[queued.update->storage_idx()];
-			driver->updateAccept(queued.update, queued.callback);
-			/* TODO: fix the update */
-		}else if(queued.type == Queued::kCommit) {
-			std::cout << "process commit" << std::endl;
-			auto transact_it = p_transacts.find(queued.trid);
-			if(transact_it == p_transacts.end())
-				throw std::runtime_error("Illegal transaction");
-			Transaction *transaction = transact_it->second;
-			
-			Async::eachSeries(transaction->updates.begin(), transaction->updates.end(),
-					[=] (Proto::Update *update, std::function<void(Error)> each_cb) {
-				Async::staticSeries(std::make_tuple(
-					[=](std::function<void(Error)> cb) {
-						StorageDriver *driver = p_storage[update->storage_idx()];
-						driver->processUpdate(update, cb);
-					},
-					[=](std::function<void(Error)> cb) {
-						onUpdate(update, cb);
-					}
-				), each_cb);
-			}, queued.callback);
-		}else if(queued.type == Queued::kFetch) {
-			StorageDriver *driver = p_storage[queued.fetch->storage_idx()];
-			driver->processFetch(queued.fetch, queued.onFetchData, queued.callback);
-		}else throw std::logic_error("Queued item has illegal type");
-	}
+	Async::whilst([=]() -> bool { return true; },
+			[=](std::function<void(Error)> main_cb) {
+		Async::staticSeries(std::make_tuple(
+			[=](std::function<void(Error)> ser_cb) {
+				p_processQueue(ser_cb);
+			},
+			[=](std::function<void(Error)> ser_cb) {
+				p_eventFd->onEvent([=]() {
+					p_processQueue(ser_cb);
+				});
+				p_eventFd->install();
+			},
+			[=](std::function<void(Error)> ser_cb) {
+				p_eventFd->uninstall();
+				ser_cb(Error(true));
+			}
+		), [=](Error error) {
+			main_cb(error);
+		});
+	}, [=](Error error) {
+		std::cout << "fin" << std::endl;
+	});
+}
+
+void Engine::p_processQueue(std::function<void(Error)> callback) {
+	Async::whilst([=]() -> bool { return !p_submitQueue.empty(); },
+		[=](std::function<void(Error)> main_cb) {
+			Queued queued = p_submitQueue.front();
+			p_submitQueue.pop_front();
+			if(queued.type == Queued::kUpdate) {
+				std::cout << "process update" << std::endl;
+				StorageDriver *driver = p_storage[queued.update->storage_idx()];
+				driver->updateAccept(queued.update, [=](Error error) {
+					queued.callback(error);
+					osIntf->nextTick([=]() { main_cb(Error(true)); });
+				});
+				/* TODO: fix the update */
+			}else if(queued.type == Queued::kCommit) {
+				std::cout << "process commit" << std::endl;
+				auto transact_it = p_transacts.find(queued.trid);
+				if(transact_it == p_transacts.end())
+					throw std::runtime_error("Illegal transaction");
+				Transaction *transaction = transact_it->second;
+				
+				Async::eachSeries(transaction->updates.begin(), transaction->updates.end(),
+						[=] (Proto::Update *update, std::function<void(Error)> each_cb) {
+					Async::staticSeries(std::make_tuple(
+						[=](std::function<void(Error)> cb) {
+							StorageDriver *driver = p_storage[update->storage_idx()];
+							driver->processUpdate(update, cb);
+						},
+						[=](std::function<void(Error)> cb) {
+							onUpdate(update, cb);
+						}
+					), each_cb);
+				}, [=](Error error) {
+					queued.callback(error);
+					osIntf->nextTick([=]() { main_cb(Error(true)); });
+				});
+			}else if(queued.type == Queued::kFetch) {
+				StorageDriver *driver = p_storage[queued.fetch->storage_idx()];
+				driver->processFetch(queued.fetch, queued.onFetchData,
+					[=](Error error) {
+						queued.callback(error);
+						osIntf->nextTick([=]() { main_cb(Error(true)); });
+					});
+			}else throw std::logic_error("Queued item has illegal type");
+		}, callback);
 }
 
 void Engine::onUpdate(Proto::Update *update,
@@ -241,6 +281,7 @@ void Engine::fetch(Proto::Fetch *fetch,
 	queued.onFetchData = on_data;
 	queued.callback = callback;
 	p_submitQueue.push_back(queued);
+	p_eventFd->fire();
 }
 
 Error Engine::query(Proto::Query *request,
