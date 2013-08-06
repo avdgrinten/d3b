@@ -150,9 +150,15 @@ void JsView::processUpdate(Proto::Update *update,
 		p_onInsert(update->id(), update->buffer().data(),
 			update->buffer().size(), callback);
 	}else if(update->action() == Proto::Actions::kActUpdate) {
-		p_onRemove(update->id(), callback);
-		p_onInsert(update->id(), update->buffer().data(),
-			update->buffer().size(), callback);
+		Async::staticSeries(std::make_tuple(
+			[=](std::function<void(Error)> ser_cb) {
+				p_onRemove(update->id(), ser_cb);
+			},
+			[=](std::function<void(Error)> ser_cb) {
+				p_onInsert(update->id(), update->buffer().data(),
+					update->buffer().size(), ser_cb);
+			}
+		), callback);
 	}else throw std::logic_error("Illegal update type");
 }
 
@@ -194,51 +200,57 @@ void JsView::p_onInsert(id_type id,
 }
 void JsView::p_onRemove(id_type id,
 		std::function<void(Error)> callback) {
-	/*v8::Context::Scope context_scope(p_context);
-	v8::HandleScope handle_scope;
+	Proto::Fetch *fetch = new Proto::Fetch;
+	fetch->set_id(id);
+	fetch->set_storage_idx(p_storage);
+	
+	getEngine()->fetch(fetch, [=](Proto::FetchData &data) {
+		v8::Context::Scope context_scope(p_context);
+		v8::HandleScope handle_scope;
+		
+		v8::Local<v8::Value> extracted = p_extractDoc(id,
+			data.buffer().data(), data.buffer().size());
+		v8::Local<v8::Value> key = p_keyOf(extracted);
+		
+		Btree<id_type>::Ref ref = p_orderTree.findNext
+				([this, key] (id_type keyid_a) -> int {
+			auto object_a = p_keyStore.getObject(keyid_a);
+			auto length_a = p_keyStore.objectLength(object_a);
+			char *buf_a = new char[length_a];
+			p_keyStore.readObject(object_a, 0, length_a, buf_a);
+			
+			v8::Local<v8::Value> ser_a = v8::String::New(buf_a, length_a);
+			delete[] buf_a;
+			v8::Local<v8::Value> key_a = p_deserializeKey(ser_a);
+			v8::Local<v8::Value> result = p_compare(key_a, key);
+			return result->Int32Value();
+		}, nullptr, nullptr);
+		
+		Btree<id_type>::Seq seq = p_orderTree.sequence(ref);
 
-	Linux::size_type length = getEngine()->length(p_storage, id);
-	char *document = new char[length];
-//	getEngine()->fetch(p_storage, id, document); FIXME
-	
-	v8::Local<v8::Value> extracted = p_extractDoc(id, document, length);
-	v8::Local<v8::Value> key = p_keyOf(extracted);
-	
-	Btree<id_type>::Ref ref = p_orderTree.findNext
-			([this, key] (id_type keyid_a) -> int {
-		auto object_a = p_keyStore.getObject(keyid_a);
-		auto length_a = p_keyStore.objectLength(object_a);
-		char *buf_a = new char[length_a];
-		p_keyStore.readObject(object_a, 0, length_a, buf_a);
+		/* advance the sequence position until we reach
+				the specified document id */
+		while(true) {
+			if(!seq.valid())
+				throw std::runtime_error("Specified document not in tree");
+			
+			id_type read_id;
+			seq.getValue(&read_id);
+			id_type cur_id = OS::fromLe(read_id);
+			
+			if(cur_id == id)
+				break;
+			++seq;
+		}
 		
-		v8::Local<v8::Value> ser_a = v8::String::New(buf_a, length_a);
-		delete[] buf_a;
-		v8::Local<v8::Value> key_a = p_deserializeKey(ser_a);
-		v8::Local<v8::Value> result = p_compare(key_a, key);
-		return result->Int32Value();
-	}, nullptr, nullptr);
+		// set the id to zero to remove the document
+		id_type write_id = 0;
+		seq.setValue(&write_id);
+	}, [=](Error error) {
+		delete fetch;
+		callback(error);
+	});
 	
-	Btree<id_type>::Seq seq = p_orderTree.sequence(ref);
-
-	/* advance the sequence position until we reach
-			the specified document id *//*
-	while(true) {
-		if(!seq.valid())
-			throw std::runtime_error("Specified document not in tree");
-		
-		id_type read_id;
-		seq.getValue(&read_id);
-		id_type cur_id = OS::fromLe(read_id);
-		
-		if(cur_id == id)
-			break;
-		++seq;
-	}
-	
-	// set the id to zero to remove the document
-	id_type write_id = 0;
-	seq.setValue(&write_id);
-	callback(Error(true));*/
 }
 
 void JsView::processQuery(Proto::Query *request,

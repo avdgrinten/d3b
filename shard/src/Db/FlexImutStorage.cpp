@@ -42,6 +42,8 @@ void FlexImutStorage::updateAccept(Proto::Update *update,
 		update->set_id(p_docStore.objectLid(object));
 		
 		callback(Error(true));
+	}else if(update->action() == Proto::kActUpdate) {
+		callback(Error(true));
 	}else{
 		throw std::logic_error("Illegal update");
 	}
@@ -64,6 +66,14 @@ void FlexImutStorage::processUpdate(Proto::Update *update,
 	if(update->action() == Proto::kActInsert) {
 		if(!update->has_id() || !update->has_buffer())
 			throw std::logic_error("Incomplete kActInsert update");
+		DataStore::Object object = p_docStore.getObject(update->id());
+		p_docStore.allocObject(object, update->buffer().size());
+		p_docStore.writeObject(object, 0, update->buffer().size(),
+				update->buffer().data());
+		callback(Error(true));
+	}else if(update->action() == Proto::kActUpdate) {
+		if(!update->has_id() || !update->has_buffer())
+			throw std::logic_error("Incomplete kActUpdate update");
 		DataStore::Object object = p_docStore.getObject(update->id());
 		p_docStore.allocObject(object, update->buffer().size());
 		p_docStore.writeObject(object, 0, update->buffer().size(),
