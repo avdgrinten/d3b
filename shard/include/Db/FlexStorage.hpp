@@ -3,7 +3,7 @@
 
 namespace Db {
 
-class FlexImutStorage : public StorageDriver {
+class FlexStorage : public StorageDriver {
 public:
 	class Factory : public StorageDriver::Factory {
 	public:
@@ -12,7 +12,7 @@ public:
 		virtual StorageDriver *newDriver(Engine *engine);
 	};
 	
-	FlexImutStorage(Engine *engine);
+	FlexStorage(Engine *engine);
 
 	virtual void createStorage();
 	virtual void loadStorage();

@@ -10,7 +10,7 @@
 #include "Db/ViewDriver.hpp"
 #include "Db/Engine.hpp"
 
-#include "Db/FlexImutStorage.hpp"
+#include "Db/FlexStorage.hpp"
 #include "Db/JsView.hpp"
 
 #include "Api/Server.hpp"
@@ -18,7 +18,7 @@
 namespace po = boost::program_options;
 
 int main(int argc, char **argv) {
-	Db::globStorageRegistry.addDriver(new Db::FlexImutStorage::Factory);
+	Db::globStorageRegistry.addDriver(new Db::FlexStorage::Factory);
 	Db::globViewRegistry.addDriver(new Db::JsView::Factory);
 
 	po::options_description desc("Options");

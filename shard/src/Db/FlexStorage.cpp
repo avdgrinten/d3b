@@ -7,35 +7,35 @@
 #include "Db/ViewDriver.hpp"
 #include "Db/Engine.hpp"
 
-#include "Db/FlexImutStorage.hpp"
+#include "Db/FlexStorage.hpp"
 
 namespace Db {
 
-FlexImutStorage::FlexImutStorage(Engine *engine)
+FlexStorage::FlexStorage(Engine *engine)
 		: StorageDriver(engine), p_docStore("documents") {
 }
 
-void FlexImutStorage::createStorage() {
+void FlexStorage::createStorage() {
 	p_docStore.setPath(this->getPath());
 	p_docStore.createStore();
 }
 
-void FlexImutStorage::loadStorage() {
+void FlexStorage::loadStorage() {
 	p_docStore.setPath(this->getPath());
 	p_docStore.loadStore();
 }
 
-Proto::StorageConfig FlexImutStorage::writeConfig() {
+Proto::StorageConfig FlexStorage::writeConfig() {
 	Proto::StorageConfig config;
-	config.set_driver("FlexImutStorage");
+	config.set_driver("FlexStorage");
 	config.set_identifier(getIdentifier());
 	return config;
 }
-void FlexImutStorage::readConfig(const Proto::StorageConfig &config) {
+void FlexStorage::readConfig(const Proto::StorageConfig &config) {
 	
 }
 
-void FlexImutStorage::updateAccept(Proto::Update *update,
+void FlexStorage::updateAccept(Proto::Update *update,
 		std::function<void(Error)> callback) {
 	if(update->action() == Proto::kActInsert) {
 		DataStore::Object object = p_docStore.createObject();
@@ -49,19 +49,19 @@ void FlexImutStorage::updateAccept(Proto::Update *update,
 	}
 }
 
-void FlexImutStorage::updateValidate(Proto::Update *update,
+void FlexStorage::updateValidate(Proto::Update *update,
 		std::function<void(Error)> callback) {
 	/* TODO */
 	callback(Error(true));
 }
-void FlexImutStorage::updateConflicts(Proto::Update *update,
+void FlexStorage::updateConflicts(Proto::Update *update,
 		Proto::Update &predecessor,
 		std::function<void(Error)> callback) {
 	/* TODO */
 	callback(Error(true));
 }
 
-void FlexImutStorage::processUpdate(Proto::Update *update,
+void FlexStorage::processUpdate(Proto::Update *update,
 		std::function<void(Error)> callback) {
 	if(update->action() == Proto::kActInsert) {
 		if(!update->has_id() || !update->has_buffer())
@@ -83,7 +83,7 @@ void FlexImutStorage::processUpdate(Proto::Update *update,
 		throw std::logic_error("Illegal update");
 	}
 }
-void FlexImutStorage::processFetch(Proto::Fetch *fetch,
+void FlexStorage::processFetch(Proto::Fetch *fetch,
 		std::function<void(Proto::FetchData &)> on_data,
 		std::function<void(Error)> callback) {
 	DataStore::Object object = p_docStore.getObject(fetch->id());
@@ -101,12 +101,12 @@ void FlexImutStorage::processFetch(Proto::Fetch *fetch,
 	callback(Error(true));
 }
 
-FlexImutStorage::Factory::Factory()
-		: StorageDriver::Factory("FlexImutStorage") {
+FlexStorage::Factory::Factory()
+		: StorageDriver::Factory("FlexStorage") {
 }
 
-StorageDriver *FlexImutStorage::Factory::newDriver(Engine *engine) {
-	return new FlexImutStorage(engine);
+StorageDriver *FlexStorage::Factory::newDriver(Engine *engine) {
+	return new FlexStorage(engine);
 }
 
 };

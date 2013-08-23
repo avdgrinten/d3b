@@ -38,7 +38,7 @@ testInsert: function(test) {
 			});
 		},
 		function(callback) {
-			d3bUtil.createStorage(self.client, { driver: 'FlexImutStorage',
+			d3bUtil.createStorage(self.client, { driver: 'FlexStorage',
 					identifier: 'test-storage' }, function() {
 				callback();
 			});
