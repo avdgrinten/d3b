@@ -40,9 +40,10 @@ function Client() {
 
 	this.sequence = 1;
 	this.activeRequests = { };
-}
 
-Client.prototype = new events.EventEmitter;
+	events.EventEmitter.call(this);
+}
+require('util').inherits(Client, events.EventEmitter);
 
 Client.prototype.useSocket = function(socket) {
 	this.p_socket = socket;

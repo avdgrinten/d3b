@@ -5,28 +5,25 @@ var d3bUtil = require('../client-nodejs/d3b-util');
 
 module.exports = {
 
-setUp: function(callback) {
-	this.instance = new common.D3bInstance();
-
-	var self = this;
-	self.instance.setup(callback);
-},
-
-tearDown: function(callback) {
-	this.instance.shutdown(callback);
-},
-
 testConnect: function(test) {
-	var self = this;
+	var instance, client;
+
 	async.series([
 		function(callback) {
-			self.instance.connect(function(client) {
-				self.client = client;
+			instance = new common.D3bInstance();
+			instance.setup(callback);
+		},
+		function(callback) {
+			instance.connect(function(the_client) {
+				client = the_client;
 				callback();
 			});
 		},
 		function(callback) {
-			self.client.close(callback);
+			client.close(callback);
+		},
+		function(callback) {
+			instance.shutdown(callback);
 		}
 	], function() {
 		test.done();
@@ -34,30 +31,38 @@ testConnect: function(test) {
 },
 
 testUpload: function(test) {
+	var instance, client;
+
 	var string = 'Hello world!';
 	
-	var self = this;
 	async.series([
 		function(callback) {
-			self.instance.connect(function(client) {
-				self.client = client;
+			instance = new common.D3bInstance();
+			instance.setup(callback);
+		},
+		function(callback) {
+			instance.connect(function(the_client) {
+				client = the_client;
 				callback();
 			});
 		},
 		function(callback) {
-			d3bUtil.uploadExtern(self.client, { fileName: 'upload.txt',
+			d3bUtil.uploadExtern(client, { fileName: 'upload.txt',
 					buffer: string }, function() {
 				callback();
 			});
 		},
 		function(callback) {
-			d3bUtil.downloadExtern(self.client, { fileName: 'upload.txt' },
+			d3bUtil.downloadExtern(client, { fileName: 'upload.txt' },
 					function(buffer) {
 				test.equal(buffer.toString(), string);
 			}, callback);
 		},
 		function(callback) {
-			self.client.close(callback);
+			client.close(callback);
+		},
+		function(callback) {
+			instance.shutdown(callback);
 		}
 	], function() {
 		test.done();

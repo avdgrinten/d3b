@@ -5,46 +5,40 @@ var d3bUtil = require('../client-nodejs/d3b-util');
 
 module.exports = {
 
-setUp: function(callback) {
-	this.instance = new common.D3bInstance();
-
-	var self = this;
-	self.instance.setup(callback);
-},
-
-tearDown: function(callback) {
-	this.instance.shutdown(callback);
-},
-
 testInsert: function(test) {
+	var instance, client;
+
 	var data = [ ];
 	for(var i = 0; i < 1000; i++) {
 		data.push('item #' + i);
 	}
 
-	var self = this;
 	async.series([
 		function(callback) {
-			self.instance.connect(function(client) {
-				self.client = client;
+			instance = new common.D3bInstance();
+			instance.setup(callback);
+		},
+		function(callback) {
+			instance.connect(function(the_client) {
+				client = the_client;
 				callback();
 			});
 		},
 		function(callback) {
 			var file = require('fs').readFileSync('tests/views/simple-view.js');
-			d3bUtil.uploadExtern(self.client, { fileName: 'simple-view.js',
+			d3bUtil.uploadExtern(client, { fileName: 'simple-view.js',
 					buffer: file }, function() {
 				callback();
 			});
 		},
 		function(callback) {
-			d3bUtil.createStorage(self.client, { driver: 'FlexStorage',
+			d3bUtil.createStorage(client, { driver: 'FlexStorage',
 					identifier: 'test-storage' }, function() {
 				callback();
 			});
 		},
 		function(callback) {
-			d3bUtil.createView(self.client, { driver: 'JsView',
+			d3bUtil.createView(client, { driver: 'JsView',
 					identifier: 'test-view', baseStorage: 'test-storage',
 					scriptFile: 'simple-view.js' }, function() {
 				callback();
@@ -52,7 +46,7 @@ testInsert: function(test) {
 		},
 		function(callback) {
 			async.each(data, function(item, callback) {
-				d3bUtil.insert(self.client, { storageName: 'test-storage',
+				d3bUtil.insert(client, { storageName: 'test-storage',
 						buffer: item }, function() {
 					callback();
 				});
@@ -60,7 +54,7 @@ testInsert: function(test) {
 		},
 		function(callback) {
 			var retrieved = [ ];
-			d3bUtil.query(self.client, { viewName: 'test-view' },
+			d3bUtil.query(client, { viewName: 'test-view' },
 				function(row) {
 					retrieved.push(JSON.parse(row).buffer);
 				}, function() {
@@ -71,7 +65,10 @@ testInsert: function(test) {
 				});
 		},
 		function(callback) {
-			self.client.close(callback);
+			client.close(callback);
+		},
+		function(callback) {
+			instance.shutdown(callback);
 		}
 	], function() {
 		test.done();

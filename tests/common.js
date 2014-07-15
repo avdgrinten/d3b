@@ -6,6 +6,10 @@ var d3b = require('../client-nodejs/d3b');
 
 var showServerOutput = false;
 
+process.on('uncaughtException', function(error) {
+	console.log("Uncaught exception:", error.stack);
+});
+
 function setupPath(path, callback) {
 	child_process.exec('mkdir ' + path, { },
 			function(error, stdout, stderr) {
@@ -43,7 +47,7 @@ D3bInstance.prototype.setup = function(callback) {
 			});
 		},
 		function(callback) {
-			var opts = { };
+			var opts = { stdio: 'ignore' };
 			if(showServerOutput)
 				opts.stdio = 'inherit';
 			self.$process = child_process.spawn('shard/shard',
