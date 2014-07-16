@@ -48,8 +48,9 @@ void Ll::WriteAhead::loadLog() {
 		Db::Proto::WriteAhead message;
 		if(!message.ParseFromArray(buffer, msg_length))
 			throw std::runtime_error("Could not deserialize protobuf");
-		
-		std::cout << "wal: " << message.type() << std::endl;
+
+		//TODO: handle write-ahead log messages
+//		std::cout << "wal: " << message.type() << std::endl;
 		
 		position += 20 + msg_length;
 	}

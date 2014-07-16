@@ -118,7 +118,6 @@ void Server::Connection::p_processMessage() {
 		control_struct *control = new control_struct;
 		for(int i = 0; i < request.updates_size(); i++)
 			control->updates.push_back(request.updates(i));
-std::cout << "Lentgh: " << control->updates.size() << std::endl;
 		Connection *self = this;
 
 		Async::staticSeries(std::make_tuple(
@@ -141,7 +140,6 @@ std::cout << "Lentgh: " << control->updates.size() << std::endl;
 				engine->commit(control->trid, tr_callback);
 			}
 		), [=](Error error) {
-			std::cout << "Update commited" << std::endl;
 			Proto::SrFin fin_resp;
 			p_postResponse(Proto::kSrFin, seq_number, fin_resp);
 		});

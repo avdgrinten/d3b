@@ -215,7 +215,6 @@ void Engine::p_processQueue(std::function<void(Error)> callback) {
 			Queued queued = p_submitQueue.front();
 			p_submitQueue.pop_front();
 			if(queued.type == Queued::kUpdate) {
-				std::cout << "process update" << std::endl;
 				StorageDriver *driver = p_storage[queued.update->storage_idx()];
 				driver->updateAccept(queued.update, [=](Error error) {
 					queued.callback(error);
@@ -223,7 +222,6 @@ void Engine::p_processQueue(std::function<void(Error)> callback) {
 				});
 				/* TODO: fix the update */
 			}else if(queued.type == Queued::kCommit) {
-				std::cout << "process commit" << std::endl;
 				auto transact_it = p_transacts.find(queued.trid);
 				if(transact_it == p_transacts.end())
 					throw std::runtime_error("Illegal transaction");
