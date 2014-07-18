@@ -9,6 +9,16 @@ typedef int64_t id_type;
 
 class Engine;
 
+struct FetchRequest {
+	int storageIndex;
+	id_type documentId;
+};
+
+struct FetchData {
+	id_type documentId;
+	std::string buffer;
+};
+
 class StorageDriver {
 public:
 	class Factory {
@@ -55,8 +65,8 @@ public:
 	virtual void processUpdate(Proto::Update *update,
 			std::function<void(Error)> callback) = 0;
 	/* processes a query */
-	virtual void processFetch(Proto::Fetch *fetch,
-			std::function<void(Proto::FetchData &)> on_data,
+	virtual void processFetch(FetchRequest *fetch,
+			std::function<void(FetchData &)> on_data,
 			std::function<void(Error)> callback) = 0;
 
 	inline Engine *getEngine() {

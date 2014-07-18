@@ -28,21 +28,6 @@ message Rows {
 	repeated bytes data = 1;
 }
 
-message Fetch {
-	enum Type {
-		kNone = 0;
-		kDocument = 1;
-	};
-	optional Type type = 1;
-	optional int64 id = 2;
-	optional int32 storage_idx = 3;
-	optional string storage_name = 4;
-}
-message FetchData {
-	optional int64 id = 1;
-	optional bytes buffer = 2;
-}
-
 message WriteAhead {
 	enum Type {
 		kNone = 0;

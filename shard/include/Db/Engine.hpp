@@ -36,8 +36,8 @@ public:
 	void rollback(trid_type trid,
 		std::function<void(Error)> callback);
 
-	void fetch(Proto::Fetch *fetch,
-			std::function<void(Proto::FetchData &)> on_data,
+	void fetch(FetchRequest *fetch,
+			std::function<void(FetchData &)> on_data,
 			std::function<void(Error)> callback);
 	
 	Error query(Proto::Query *request,
@@ -68,8 +68,8 @@ private:
 		Type type;
 		trid_type trid;
 		Proto::Update *update;
-		Proto::Fetch *fetch;
-		std::function<void(Proto::FetchData &)> onFetchData;
+		FetchRequest *fetch;
+		std::function<void(FetchData &)> onFetchData;
 		std::function<void(Error)> callback;
 	};
 	

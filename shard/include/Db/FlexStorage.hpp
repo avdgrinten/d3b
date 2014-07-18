@@ -30,8 +30,8 @@ public:
 
 	virtual void processUpdate(Proto::Update *update,
 			std::function<void(Error)> callback);
-	virtual void processFetch(Proto::Fetch *fetch,
-			std::function<void(Proto::FetchData &)> on_data,
+	virtual void processFetch(FetchRequest *fetch,
+			std::function<void(FetchData &)> on_data,
 			std::function<void(Error)> callback);
 
 private:

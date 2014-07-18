@@ -243,7 +243,7 @@ void Engine::p_processQueue(std::function<void(Error)> callback) {
 					osIntf->nextTick([=]() { main_cb(Error(true)); });
 				});
 			}else if(queued.type == Queued::kFetch) {
-				StorageDriver *driver = p_storage[queued.fetch->storage_idx()];
+				StorageDriver *driver = p_storage[queued.fetch->storageIndex];
 				driver->processFetch(queued.fetch, queued.onFetchData,
 					[=](Error error) {
 						queued.callback(error);
@@ -263,16 +263,9 @@ void Engine::onUpdate(Proto::Update *update,
 	}, callback);
 }
 
-void Engine::fetch(Proto::Fetch *fetch,
-		std::function<void(Proto::FetchData &)> on_data,
+void Engine::fetch(FetchRequest *fetch,
+		std::function<void(FetchData &)> on_data,
 		std::function<void(Error)> callback) {
-	if(!fetch->has_storage_idx()) {
-		int storage = getStorage(fetch->storage_name());
-		if(storage == -1)
-			throw std::runtime_error("Illegal storage specified");
-		fetch->set_storage_idx(storage);
-	}
-	
 	Queued queued;
 	queued.type = Queued::kFetch;
 	queued.fetch = fetch;

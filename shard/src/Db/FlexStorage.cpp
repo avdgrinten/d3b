@@ -84,18 +84,18 @@ void FlexStorage::processUpdate(Proto::Update *update,
 	}
 }
 
-void FlexStorage::processFetch(Proto::Fetch *fetch,
-		std::function<void(Proto::FetchData &)> on_data,
+void FlexStorage::processFetch(FetchRequest *fetch,
+		std::function<void(FetchData &)> on_data,
 		std::function<void(Error)> callback) {
-	DataStore::Object object = p_docStore.getObject(fetch->id());
+	DataStore::Object object = p_docStore.getObject(fetch->documentId);
 	
 	Linux::size_type length = p_docStore.objectLength(object);
 	char *buffer = new char[length];
 	p_docStore.readObject(object, 0, length, buffer);
 	
-	Proto::FetchData result;
-	result.set_id(fetch->id());
-	result.set_buffer(std::string(buffer, length));
+	FetchData result;
+	result.documentId = fetch->documentId;
+	result.buffer = std::string(buffer, length);
 	on_data(result);
 	
 	delete[] buffer;

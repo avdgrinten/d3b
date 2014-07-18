@@ -200,16 +200,16 @@ void JsView::p_onInsert(id_type id,
 }
 void JsView::p_onRemove(id_type id,
 		std::function<void(Error)> callback) {
-	Proto::Fetch *fetch = new Proto::Fetch;
-	fetch->set_id(id);
-	fetch->set_storage_idx(p_storage);
+	FetchRequest *fetch = new FetchRequest;
+	fetch->storageIndex = p_storage;
+	fetch->documentId = id;
 	
-	getEngine()->fetch(fetch, [=](Proto::FetchData &data) {
+	getEngine()->fetch(fetch, [=](FetchData &data) {
 		v8::Context::Scope context_scope(p_context);
 		v8::HandleScope handle_scope;
 		
 		v8::Local<v8::Value> extracted = p_extractDoc(id,
-			data.buffer().data(), data.buffer().size());
+			data.buffer.data(), data.buffer.size());
 		v8::Local<v8::Value> key = p_keyOf(extracted);
 		
 		Btree<id_type>::Ref ref = p_orderTree.findNext
@@ -250,7 +250,6 @@ void JsView::p_onRemove(id_type id,
 		delete fetch;
 		callback(error);
 	});
-	
 }
 
 void JsView::processQuery(Proto::Query *request,
@@ -286,7 +285,7 @@ void JsView::processQuery(Proto::Query *request,
 
 	struct control_struct {
 		Btree<id_type>::Seq sequence;
-		Proto::Fetch fetch;
+		FetchRequest fetch;
 		Proto::Rows rows;
 		int count;
 		
@@ -314,14 +313,14 @@ void JsView::processQuery(Proto::Query *request,
 			return elem_cb(Error(true));
 		}
 		
-		control->fetch.set_id(id);
-		control->fetch.set_storage_idx(p_storage);
-		getEngine()->fetch(&control->fetch, [=](Proto::FetchData &data) {
+		control->fetch.storageIndex = p_storage;
+		control->fetch.documentId = id;
+		getEngine()->fetch(&control->fetch, [=](FetchData &data) {
 			v8::Context::Scope context_scope(p_context);
 			v8::HandleScope handle_scope;
 			
 			v8::Local<v8::Value> extracted = p_extractDoc(id,
-					data.buffer().data(), data.buffer().length());
+					data.buffer.data(), data.buffer.length());
 			
 			/* FIXME:
 			if(!end_key.IsEmpty()) {
