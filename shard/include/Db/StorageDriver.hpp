@@ -77,14 +77,6 @@ public:
 		return p_path;
 	}
 
-	void submitUpdate(Proto::Update *update,
-			std::function<void(Error)> callback);
-	void submitCommit(Proto::Update *update,
-			std::function<void(Error)> callback);
-	void submitFetch(Proto::Fetch *fetch,
-			std::function<void(Proto::FetchData &)> on_data,
-			std::function<void(Error)> callback);
-
 protected:
 	Engine *p_engine;
 	std::string p_identifier;

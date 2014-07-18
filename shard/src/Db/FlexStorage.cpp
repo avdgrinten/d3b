@@ -83,6 +83,7 @@ void FlexStorage::processUpdate(Proto::Update *update,
 		throw std::logic_error("Illegal update");
 	}
 }
+
 void FlexStorage::processFetch(Proto::Fetch *fetch,
 		std::function<void(Proto::FetchData &)> on_data,
 		std::function<void(Error)> callback) {
