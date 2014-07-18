@@ -41,7 +41,7 @@ public:
 			std::function<void(Error)> callback);
 	
 	Error query(Proto::Query *request,
-			std::function<void(Proto::Rows &)> report,
+			std::function<void(QueryData &)> report,
 			std::function<void(Error)> callback);
 	
 	/* called by storages when data is commited to the database.

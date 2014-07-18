@@ -24,10 +24,6 @@ message Query {
 	optional uint32 limit = 6;
 }
 
-message Rows {
-	repeated bytes data = 1;
-}
-
 message WriteAhead {
 	enum Type {
 		kNone = 0;

@@ -253,7 +253,7 @@ void JsView::p_onRemove(id_type id,
 }
 
 void JsView::processQuery(Proto::Query *request,
-		std::function<void(Proto::Rows &)> report,
+		std::function<void(QueryData &)> report,
 		std::function<void(Error)> callback) {	
 	v8::Context::Scope context_scope(p_context);
 	v8::HandleScope handle_scope;
@@ -286,7 +286,7 @@ void JsView::processQuery(Proto::Query *request,
 	struct control_struct {
 		Btree<id_type>::Seq sequence;
 		FetchRequest fetch;
-		Proto::Rows rows;
+		QueryData rows;
 		int count;
 		
 		control_struct(Btree<id_type>::Seq &&sequence)
@@ -331,14 +331,14 @@ void JsView::processQuery(Proto::Query *request,
 			
 			v8::Local<v8::Value> rpt_value = p_report(extracted);
 			v8::String::Utf8Value rpt_utf8(rpt_value);
-			control->rows.add_data(*rpt_utf8, rpt_utf8.length());
+			control->rows.items.emplace_back(*rpt_utf8, rpt_utf8.length());
 		}, [=](Error error) {
 			if(!error.ok())
 				return elem_cb(error);
 
-			if(control->rows.data_size() >= 1000) {
+			if(control->rows.items.size() >= 1000) {
 				report(control->rows);
-				control->rows.clear_data();
+				control->rows.items.clear();
 			}
 			++control->sequence;
 			++control->count;
@@ -347,7 +347,7 @@ void JsView::processQuery(Proto::Query *request,
 	}, [=] (Error error) {
 		if(!error.ok())
 			return callback(error);
-		if(control->rows.data_size() > 0)
+		if(control->rows.items.size() > 0)
 			report(control->rows);
 		delete control;
 		callback(Error(true));

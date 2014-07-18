@@ -34,7 +34,6 @@ void protobuf_ShutdownFile_proto_2fRequest_2eproto();
 
 class Update;
 class Query;
-class Rows;
 class WriteAhead;
 
 enum WriteAhead_Type {
@@ -303,82 +302,6 @@ class Query : public ::google::protobuf::MessageLite {
   
   void InitAsDefaultInstance();
   static Query* default_instance_;
-};
-// -------------------------------------------------------------------
-
-class Rows : public ::google::protobuf::MessageLite {
- public:
-  Rows();
-  virtual ~Rows();
-  
-  Rows(const Rows& from);
-  
-  inline Rows& operator=(const Rows& from) {
-    CopyFrom(from);
-    return *this;
-  }
-  
-  static const Rows& default_instance();
-  
-  void Swap(Rows* other);
-  
-  // implements Message ----------------------------------------------
-  
-  Rows* New() const;
-  void CheckTypeAndMergeFrom(const ::google::protobuf::MessageLite& from);
-  void CopyFrom(const Rows& from);
-  void MergeFrom(const Rows& from);
-  void Clear();
-  bool IsInitialized() const;
-  
-  int ByteSize() const;
-  bool MergePartialFromCodedStream(
-      ::google::protobuf::io::CodedInputStream* input);
-  void SerializeWithCachedSizes(
-      ::google::protobuf::io::CodedOutputStream* output) const;
-  int GetCachedSize() const { return _cached_size_; }
-  private:
-  void SharedCtor();
-  void SharedDtor();
-  void SetCachedSize(int size) const;
-  public:
-  
-  ::std::string GetTypeName() const;
-  
-  // nested types ----------------------------------------------------
-  
-  // accessors -------------------------------------------------------
-  
-  // repeated bytes data = 1;
-  inline int data_size() const;
-  inline void clear_data();
-  static const int kDataFieldNumber = 1;
-  inline const ::std::string& data(int index) const;
-  inline ::std::string* mutable_data(int index);
-  inline void set_data(int index, const ::std::string& value);
-  inline void set_data(int index, const char* value);
-  inline void set_data(int index, const void* value, size_t size);
-  inline ::std::string* add_data();
-  inline void add_data(const ::std::string& value);
-  inline void add_data(const char* value);
-  inline void add_data(const void* value, size_t size);
-  inline const ::google::protobuf::RepeatedPtrField< ::std::string>& data() const;
-  inline ::google::protobuf::RepeatedPtrField< ::std::string>* mutable_data();
-  
-  // @@protoc_insertion_point(class_scope:Db.Proto.Rows)
- private:
-  
-  ::google::protobuf::RepeatedPtrField< ::std::string> data_;
-  
-  mutable int _cached_size_;
-  ::google::protobuf::uint32 _has_bits_[(1 + 31) / 32];
-  
-  friend void  protobuf_AddDesc_proto_2fRequest_2eproto();
-  friend void protobuf_AssignDesc_proto_2fRequest_2eproto();
-  friend void protobuf_ShutdownFile_proto_2fRequest_2eproto();
-  
-  void InitAsDefaultInstance();
-  static Rows* default_instance_;
 };
 // -------------------------------------------------------------------
 
@@ -928,54 +851,6 @@ inline ::google::protobuf::uint32 Query::limit() const {
 inline void Query::set_limit(::google::protobuf::uint32 value) {
   set_has_limit();
   limit_ = value;
-}
-
-// -------------------------------------------------------------------
-
-// Rows
-
-// repeated bytes data = 1;
-inline int Rows::data_size() const {
-  return data_.size();
-}
-inline void Rows::clear_data() {
-  data_.Clear();
-}
-inline const ::std::string& Rows::data(int index) const {
-  return data_.Get(index);
-}
-inline ::std::string* Rows::mutable_data(int index) {
-  return data_.Mutable(index);
-}
-inline void Rows::set_data(int index, const ::std::string& value) {
-  data_.Mutable(index)->assign(value);
-}
-inline void Rows::set_data(int index, const char* value) {
-  data_.Mutable(index)->assign(value);
-}
-inline void Rows::set_data(int index, const void* value, size_t size) {
-  data_.Mutable(index)->assign(
-    reinterpret_cast<const char*>(value), size);
-}
-inline ::std::string* Rows::add_data() {
-  return data_.Add();
-}
-inline void Rows::add_data(const ::std::string& value) {
-  data_.Add()->assign(value);
-}
-inline void Rows::add_data(const char* value) {
-  data_.Add()->assign(value);
-}
-inline void Rows::add_data(const void* value, size_t size) {
-  data_.Add()->assign(reinterpret_cast<const char*>(value), size);
-}
-inline const ::google::protobuf::RepeatedPtrField< ::std::string>&
-Rows::data() const {
-  return data_;
-}
-inline ::google::protobuf::RepeatedPtrField< ::std::string>*
-Rows::mutable_data() {
-  return &data_;
 }
 
 // -------------------------------------------------------------------

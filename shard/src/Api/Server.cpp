@@ -90,10 +90,10 @@ void Server::Connection::p_processMessage() {
 		control_struct *control = new control_struct;
 		control->query = request.query();
 
-		engine->query(&control->query, [=] (const Db::Proto::Rows &rows) {
+		engine->query(&control->query, [=] (const Db::QueryData &rows) {
 			Proto::SrRows response;
-			for(int i = 0; i < rows.data_size(); i++)
-				response.add_row_data(rows.data(i));
+			for(int i = 0; i < rows.items.size(); i++)
+				response.add_row_data(rows.items[i]);
 			p_postResponse(Proto::kSrRows, seq_number, response);
 		}, [=] (Error error) { /*FIXME: don't ignore error value */
 			delete control;

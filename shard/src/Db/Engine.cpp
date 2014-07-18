@@ -276,7 +276,7 @@ void Engine::fetch(FetchRequest *fetch,
 }
 
 Error Engine::query(Proto::Query *request,
-		std::function<void(Proto::Rows &)> on_data,
+		std::function<void(QueryData &)> on_data,
 		std::function<void(Error)> callback) {
 	int view = -1;
 	if(request->has_view_name())

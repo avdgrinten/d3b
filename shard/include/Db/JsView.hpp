@@ -28,7 +28,7 @@ public:
 			std::function<void(Error)> callback);
 
 	virtual void processQuery(Proto::Query *request,
-			std::function<void(Proto::Rows &)> report,
+			std::function<void(QueryData &)> report,
 			std::function<void(Error)> callback);
 
 private:

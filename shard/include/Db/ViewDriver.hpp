@@ -4,6 +4,10 @@ namespace Db {
 
 class Engine;
 
+struct QueryData {
+	std::vector<std::string> items;
+};
+
 class ViewDriver {
 public:
 	class Factory {
@@ -35,7 +39,7 @@ public:
 		std::function<void(Error)> callback) = 0;
 
 	virtual void processQuery(Proto::Query *request,
-			std::function<void(Proto::Rows &)> report,
+			std::function<void(QueryData &)> report,
 			std::function<void(Error)> callback) = 0;
 
 	inline Engine *getEngine() {

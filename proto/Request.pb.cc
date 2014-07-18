@@ -16,7 +16,6 @@ namespace Proto {
 void protobuf_ShutdownFile_proto_2fRequest_2eproto() {
   delete Update::default_instance_;
   delete Query::default_instance_;
-  delete Rows::default_instance_;
   delete WriteAhead::default_instance_;
 }
 
@@ -28,11 +27,9 @@ void protobuf_AddDesc_proto_2fRequest_2eproto() {
 
   Update::default_instance_ = new Update();
   Query::default_instance_ = new Query();
-  Rows::default_instance_ = new Rows();
   WriteAhead::default_instance_ = new WriteAhead();
   Update::default_instance_->InitAsDefaultInstance();
   Query::default_instance_->InitAsDefaultInstance();
-  Rows::default_instance_->InitAsDefaultInstance();
   WriteAhead::default_instance_->InitAsDefaultInstance();
   ::google::protobuf::internal::OnShutdown(&protobuf_ShutdownFile_proto_2fRequest_2eproto);
 }
@@ -679,156 +676,6 @@ void Query::Swap(Query* other) {
 
 ::std::string Query::GetTypeName() const {
   return "Db.Proto.Query";
-}
-
-
-// ===================================================================
-
-#ifndef _MSC_VER
-const int Rows::kDataFieldNumber;
-#endif  // !_MSC_VER
-
-Rows::Rows()
-  : ::google::protobuf::MessageLite() {
-  SharedCtor();
-}
-
-void Rows::InitAsDefaultInstance() {
-}
-
-Rows::Rows(const Rows& from)
-  : ::google::protobuf::MessageLite() {
-  SharedCtor();
-  MergeFrom(from);
-}
-
-void Rows::SharedCtor() {
-  _cached_size_ = 0;
-  ::memset(_has_bits_, 0, sizeof(_has_bits_));
-}
-
-Rows::~Rows() {
-  SharedDtor();
-}
-
-void Rows::SharedDtor() {
-  if (this != default_instance_) {
-  }
-}
-
-void Rows::SetCachedSize(int size) const {
-  GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
-  _cached_size_ = size;
-  GOOGLE_SAFE_CONCURRENT_WRITES_END();
-}
-const Rows& Rows::default_instance() {
-  if (default_instance_ == NULL) protobuf_AddDesc_proto_2fRequest_2eproto();  return *default_instance_;
-}
-
-Rows* Rows::default_instance_ = NULL;
-
-Rows* Rows::New() const {
-  return new Rows;
-}
-
-void Rows::Clear() {
-  data_.Clear();
-  ::memset(_has_bits_, 0, sizeof(_has_bits_));
-}
-
-bool Rows::MergePartialFromCodedStream(
-    ::google::protobuf::io::CodedInputStream* input) {
-#define DO_(EXPRESSION) if (!(EXPRESSION)) return false
-  ::google::protobuf::uint32 tag;
-  while ((tag = input->ReadTag()) != 0) {
-    switch (::google::protobuf::internal::WireFormatLite::GetTagFieldNumber(tag)) {
-      // repeated bytes data = 1;
-      case 1: {
-        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
-            ::google::protobuf::internal::WireFormatLite::WIRETYPE_LENGTH_DELIMITED) {
-         parse_data:
-          DO_(::google::protobuf::internal::WireFormatLite::ReadBytes(
-                input, this->add_data()));
-        } else {
-          goto handle_uninterpreted;
-        }
-        if (input->ExpectTag(10)) goto parse_data;
-        if (input->ExpectAtEnd()) return true;
-        break;
-      }
-      
-      default: {
-      handle_uninterpreted:
-        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
-            ::google::protobuf::internal::WireFormatLite::WIRETYPE_END_GROUP) {
-          return true;
-        }
-        DO_(::google::protobuf::internal::WireFormatLite::SkipField(input, tag));
-        break;
-      }
-    }
-  }
-  return true;
-#undef DO_
-}
-
-void Rows::SerializeWithCachedSizes(
-    ::google::protobuf::io::CodedOutputStream* output) const {
-  // repeated bytes data = 1;
-  for (int i = 0; i < this->data_size(); i++) {
-    ::google::protobuf::internal::WireFormatLite::WriteBytes(
-      1, this->data(i), output);
-  }
-  
-}
-
-int Rows::ByteSize() const {
-  int total_size = 0;
-  
-  // repeated bytes data = 1;
-  total_size += 1 * this->data_size();
-  for (int i = 0; i < this->data_size(); i++) {
-    total_size += ::google::protobuf::internal::WireFormatLite::BytesSize(
-      this->data(i));
-  }
-  
-  GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
-  _cached_size_ = total_size;
-  GOOGLE_SAFE_CONCURRENT_WRITES_END();
-  return total_size;
-}
-
-void Rows::CheckTypeAndMergeFrom(
-    const ::google::protobuf::MessageLite& from) {
-  MergeFrom(*::google::protobuf::down_cast<const Rows*>(&from));
-}
-
-void Rows::MergeFrom(const Rows& from) {
-  GOOGLE_CHECK_NE(&from, this);
-  data_.MergeFrom(from.data_);
-}
-
-void Rows::CopyFrom(const Rows& from) {
-  if (&from == this) return;
-  Clear();
-  MergeFrom(from);
-}
-
-bool Rows::IsInitialized() const {
-  
-  return true;
-}
-
-void Rows::Swap(Rows* other) {
-  if (other != this) {
-    data_.Swap(&other->data_);
-    std::swap(_has_bits_[0], other->_has_bits_[0]);
-    std::swap(_cached_size_, other->_cached_size_);
-  }
-}
-
-::std::string Rows::GetTypeName() const {
-  return "Db.Proto.Rows";
 }
 
 
