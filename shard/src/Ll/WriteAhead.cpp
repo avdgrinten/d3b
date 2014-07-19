@@ -5,7 +5,7 @@
 
 #include "Os/Linux.h"
 
-#include "proto/Request.pb.h"
+#include "proto/Config.pb.h"
 
 #include "Ll/WriteAhead.hpp"
 

@@ -20,3 +20,18 @@ message ViewConfig {
 	optional string script_file = 129;
 }
 
+message WriteAhead {
+	enum Type {
+		kNone = 0;
+		kTransact = 1;
+		kUpdate = 2;
+		kCommit = 3;
+		kRollback = 4;
+	}
+	
+	optional Type type = 1;
+	optional int64 sequence = 2;
+	optional int64 transact_id = 3;
+//	optional Update update = 4;
+}
+

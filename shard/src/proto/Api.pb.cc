@@ -35,7 +35,6 @@ void protobuf_AddDesc_proto_2fApi_2eproto() {
   GOOGLE_PROTOBUF_VERIFY_VERSION;
 
   ::Db::Proto::protobuf_AddDesc_proto_2fConfig_2eproto();
-  ::Db::Proto::protobuf_AddDesc_proto_2fRequest_2eproto();
   Update::default_instance_ = new Update();
   CqQuery::default_instance_ = new CqQuery();
   CqShortTransact::default_instance_ = new CqShortTransact();

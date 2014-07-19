@@ -1,6 +1,5 @@
 
 import "proto/Config.proto";
-import "proto/Request.proto";
 
 package Api.Proto;
 option optimize_for = LITE_RUNTIME;

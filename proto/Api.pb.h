@@ -23,7 +23,6 @@
 #include <google/protobuf/repeated_field.h>
 #include <google/protobuf/extension_set.h>
 #include "proto/Config.pb.h"
-#include "proto/Request.pb.h"
 // @@protoc_insertion_point(includes)
 
 namespace Api {

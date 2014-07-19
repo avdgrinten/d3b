@@ -17,6 +17,7 @@ void protobuf_ShutdownFile_proto_2fConfig_2eproto() {
   delete Config::default_instance_;
   delete StorageConfig::default_instance_;
   delete ViewConfig::default_instance_;
+  delete WriteAhead::default_instance_;
 }
 
 void protobuf_AddDesc_proto_2fConfig_2eproto() {
@@ -28,9 +29,11 @@ void protobuf_AddDesc_proto_2fConfig_2eproto() {
   Config::default_instance_ = new Config();
   StorageConfig::default_instance_ = new StorageConfig();
   ViewConfig::default_instance_ = new ViewConfig();
+  WriteAhead::default_instance_ = new WriteAhead();
   Config::default_instance_->InitAsDefaultInstance();
   StorageConfig::default_instance_->InitAsDefaultInstance();
   ViewConfig::default_instance_->InitAsDefaultInstance();
+  WriteAhead::default_instance_->InitAsDefaultInstance();
   ::google::protobuf::internal::OnShutdown(&protobuf_ShutdownFile_proto_2fConfig_2eproto);
 }
 
@@ -723,6 +726,260 @@ void ViewConfig::Swap(ViewConfig* other) {
 
 ::std::string ViewConfig::GetTypeName() const {
   return "Db.Proto.ViewConfig";
+}
+
+
+// ===================================================================
+
+bool WriteAhead_Type_IsValid(int value) {
+  switch(value) {
+    case 0:
+    case 1:
+    case 2:
+    case 3:
+    case 4:
+      return true;
+    default:
+      return false;
+  }
+}
+
+#ifndef _MSC_VER
+const WriteAhead_Type WriteAhead::kNone;
+const WriteAhead_Type WriteAhead::kTransact;
+const WriteAhead_Type WriteAhead::kUpdate;
+const WriteAhead_Type WriteAhead::kCommit;
+const WriteAhead_Type WriteAhead::kRollback;
+const WriteAhead_Type WriteAhead::Type_MIN;
+const WriteAhead_Type WriteAhead::Type_MAX;
+const int WriteAhead::Type_ARRAYSIZE;
+#endif  // _MSC_VER
+#ifndef _MSC_VER
+const int WriteAhead::kTypeFieldNumber;
+const int WriteAhead::kSequenceFieldNumber;
+const int WriteAhead::kTransactIdFieldNumber;
+#endif  // !_MSC_VER
+
+WriteAhead::WriteAhead()
+  : ::google::protobuf::MessageLite() {
+  SharedCtor();
+}
+
+void WriteAhead::InitAsDefaultInstance() {
+}
+
+WriteAhead::WriteAhead(const WriteAhead& from)
+  : ::google::protobuf::MessageLite() {
+  SharedCtor();
+  MergeFrom(from);
+}
+
+void WriteAhead::SharedCtor() {
+  _cached_size_ = 0;
+  type_ = 0;
+  sequence_ = GOOGLE_LONGLONG(0);
+  transact_id_ = GOOGLE_LONGLONG(0);
+  ::memset(_has_bits_, 0, sizeof(_has_bits_));
+}
+
+WriteAhead::~WriteAhead() {
+  SharedDtor();
+}
+
+void WriteAhead::SharedDtor() {
+  if (this != default_instance_) {
+  }
+}
+
+void WriteAhead::SetCachedSize(int size) const {
+  GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
+  _cached_size_ = size;
+  GOOGLE_SAFE_CONCURRENT_WRITES_END();
+}
+const WriteAhead& WriteAhead::default_instance() {
+  if (default_instance_ == NULL) protobuf_AddDesc_proto_2fConfig_2eproto();  return *default_instance_;
+}
+
+WriteAhead* WriteAhead::default_instance_ = NULL;
+
+WriteAhead* WriteAhead::New() const {
+  return new WriteAhead;
+}
+
+void WriteAhead::Clear() {
+  if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
+    type_ = 0;
+    sequence_ = GOOGLE_LONGLONG(0);
+    transact_id_ = GOOGLE_LONGLONG(0);
+  }
+  ::memset(_has_bits_, 0, sizeof(_has_bits_));
+}
+
+bool WriteAhead::MergePartialFromCodedStream(
+    ::google::protobuf::io::CodedInputStream* input) {
+#define DO_(EXPRESSION) if (!(EXPRESSION)) return false
+  ::google::protobuf::uint32 tag;
+  while ((tag = input->ReadTag()) != 0) {
+    switch (::google::protobuf::internal::WireFormatLite::GetTagFieldNumber(tag)) {
+      // optional .Db.Proto.WriteAhead.Type type = 1;
+      case 1: {
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT) {
+          int value;
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   int, ::google::protobuf::internal::WireFormatLite::TYPE_ENUM>(
+                 input, &value)));
+          if (::Db::Proto::WriteAhead_Type_IsValid(value)) {
+            set_type(static_cast< ::Db::Proto::WriteAhead_Type >(value));
+          }
+        } else {
+          goto handle_uninterpreted;
+        }
+        if (input->ExpectTag(16)) goto parse_sequence;
+        break;
+      }
+      
+      // optional int64 sequence = 2;
+      case 2: {
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT) {
+         parse_sequence:
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   ::google::protobuf::int64, ::google::protobuf::internal::WireFormatLite::TYPE_INT64>(
+                 input, &sequence_)));
+          set_has_sequence();
+        } else {
+          goto handle_uninterpreted;
+        }
+        if (input->ExpectTag(24)) goto parse_transact_id;
+        break;
+      }
+      
+      // optional int64 transact_id = 3;
+      case 3: {
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT) {
+         parse_transact_id:
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   ::google::protobuf::int64, ::google::protobuf::internal::WireFormatLite::TYPE_INT64>(
+                 input, &transact_id_)));
+          set_has_transact_id();
+        } else {
+          goto handle_uninterpreted;
+        }
+        if (input->ExpectAtEnd()) return true;
+        break;
+      }
+      
+      default: {
+      handle_uninterpreted:
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_END_GROUP) {
+          return true;
+        }
+        DO_(::google::protobuf::internal::WireFormatLite::SkipField(input, tag));
+        break;
+      }
+    }
+  }
+  return true;
+#undef DO_
+}
+
+void WriteAhead::SerializeWithCachedSizes(
+    ::google::protobuf::io::CodedOutputStream* output) const {
+  // optional .Db.Proto.WriteAhead.Type type = 1;
+  if (has_type()) {
+    ::google::protobuf::internal::WireFormatLite::WriteEnum(
+      1, this->type(), output);
+  }
+  
+  // optional int64 sequence = 2;
+  if (has_sequence()) {
+    ::google::protobuf::internal::WireFormatLite::WriteInt64(2, this->sequence(), output);
+  }
+  
+  // optional int64 transact_id = 3;
+  if (has_transact_id()) {
+    ::google::protobuf::internal::WireFormatLite::WriteInt64(3, this->transact_id(), output);
+  }
+  
+}
+
+int WriteAhead::ByteSize() const {
+  int total_size = 0;
+  
+  if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
+    // optional .Db.Proto.WriteAhead.Type type = 1;
+    if (has_type()) {
+      total_size += 1 +
+        ::google::protobuf::internal::WireFormatLite::EnumSize(this->type());
+    }
+    
+    // optional int64 sequence = 2;
+    if (has_sequence()) {
+      total_size += 1 +
+        ::google::protobuf::internal::WireFormatLite::Int64Size(
+          this->sequence());
+    }
+    
+    // optional int64 transact_id = 3;
+    if (has_transact_id()) {
+      total_size += 1 +
+        ::google::protobuf::internal::WireFormatLite::Int64Size(
+          this->transact_id());
+    }
+    
+  }
+  GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
+  _cached_size_ = total_size;
+  GOOGLE_SAFE_CONCURRENT_WRITES_END();
+  return total_size;
+}
+
+void WriteAhead::CheckTypeAndMergeFrom(
+    const ::google::protobuf::MessageLite& from) {
+  MergeFrom(*::google::protobuf::down_cast<const WriteAhead*>(&from));
+}
+
+void WriteAhead::MergeFrom(const WriteAhead& from) {
+  GOOGLE_CHECK_NE(&from, this);
+  if (from._has_bits_[0 / 32] & (0xffu << (0 % 32))) {
+    if (from.has_type()) {
+      set_type(from.type());
+    }
+    if (from.has_sequence()) {
+      set_sequence(from.sequence());
+    }
+    if (from.has_transact_id()) {
+      set_transact_id(from.transact_id());
+    }
+  }
+}
+
+void WriteAhead::CopyFrom(const WriteAhead& from) {
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+bool WriteAhead::IsInitialized() const {
+  
+  return true;
+}
+
+void WriteAhead::Swap(WriteAhead* other) {
+  if (other != this) {
+    std::swap(type_, other->type_);
+    std::swap(sequence_, other->sequence_);
+    std::swap(transact_id_, other->transact_id_);
+    std::swap(_has_bits_[0], other->_has_bits_[0]);
+    std::swap(_cached_size_, other->_cached_size_);
+  }
+}
+
+::std::string WriteAhead::GetTypeName() const {
+  return "Db.Proto.WriteAhead";
 }
 
 

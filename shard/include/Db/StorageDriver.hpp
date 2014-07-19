@@ -1,6 +1,5 @@
 
 #include "proto/Config.pb.h"
-#include "proto/Request.pb.h"
 
 namespace Db {
 
