@@ -5,6 +5,7 @@ var async = require('async');
 var d3b = require('../client-nodejs/d3b');
 
 var showServerOutput = false;
+var useRunningServer = true;
 
 process.on('uncaughtException', function(error) {
 	console.log("Uncaught exception:", error.stack);
@@ -29,6 +30,9 @@ function D3bInstance() {
 
 }
 D3bInstance.prototype.setup = function(callback) {
+	if(useRunningServer)
+		return callback();
+	
 	this.$path = 'testdb';
 
 	var self = this;
@@ -63,6 +67,9 @@ D3bInstance.prototype.setup = function(callback) {
 	], callback);
 };
 D3bInstance.prototype.shutdown = function(callback) {
+	if(useRunningServer)
+		return callback();
+	
 	if(this.$exited) {
 		cleanPath(this.$path, callback);
 	}else{
