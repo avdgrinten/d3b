@@ -23,15 +23,19 @@ public:
 	int getView(const std::string &view);
 	void unlinkView(int view);
 
-	void beginTransact(std::function<void(Error, trid_type)> callback);
-	void releaseTransact(trid_type trid, 
-		std::function<void(Error)> callback);
-	void update(trid_type trid, Mutation *mutation,
-		std::function<void(Error)> callback);
+	// begin a transaction. returns a transaction id
+	void transaction(std::function<void(Error, trid_type)> callback);
+	// add a mutation to an existing transaction
+	void updateMutation(trid_type trid, Mutation *mutation,
+			std::function<void(Error)> callback);
+	// submits the transaction.
+	// after submit() return success commit() is guaranteed to succeed
+	void submit(trid_type trid,
+			std::function<void(Error)> callback);
 	void commit(trid_type trid,
-		std::function<void(Error)> callback);
+			std::function<void(Error)> callback);
 	void rollback(trid_type trid,
-		std::function<void(Error)> callback);
+			std::function<void(Error)> callback);
 
 	void fetch(FetchRequest *fetch,
 			std::function<void(FetchData &)> on_data,
@@ -40,11 +44,6 @@ public:
 	Error query(Proto::Query *request,
 			std::function<void(QueryData &)> report,
 			std::function<void(Error)> callback);
-	
-	/* called by storages when data is commited to the database.
-		StorageDriver calls this automatically, do not call it yourself */
-	void onUpdate(Mutation *mutation,
-		std::function<void(Error)> callback);
 	
 	void process();
 	
@@ -59,14 +58,11 @@ private:
 	/* ------- request and update queue -------- */
 	struct Queued {
 		enum Type {
-			kNone, kUpdate, kCommit, kFetch
+			kTypeNone, kTypeSubmit, kTypeCommit, kTypeRollback
 		};
 		
 		Type type;
 		trid_type trid;
-		Mutation *mutation;
-		FetchRequest *fetch;
-		std::function<void(FetchData &)> onFetchData;
 		std::function<void(Error)> callback;
 	};
 	
@@ -81,7 +77,7 @@ private:
 	};
 
 	trid_type p_nextTransactId;
-	std::unordered_map<trid_type, Transaction*> p_transacts;
+	std::unordered_map<trid_type, Transaction*> p_openTransactions;
 
 	Ll::WriteAhead p_writeAhead;
 	

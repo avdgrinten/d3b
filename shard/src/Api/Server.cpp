@@ -124,7 +124,6 @@ void Server::Connection::p_processMessage() {
 			if(update.action() == Db::Proto::Actions::kActInsert) {
 				mutation.type = Db::Mutation::kTypeInsert;
 				mutation.storageIndex = engine->getStorage(update.storage_name());
-				mutation.documentId = update.id();
 				mutation.buffer = update.buffer();
 			}else if(update.action() == Db::Proto::Actions::kActUpdate) {
 				mutation.type = Db::Mutation::kTypeModify;
@@ -138,7 +137,7 @@ void Server::Connection::p_processMessage() {
 
 		Async::staticSeries(std::make_tuple(
 			[=](std::function<void(Error)> tr_callback) {
-				engine->beginTransact([=](Error error, Db::trid_type trid) {
+				engine->transaction([=](Error error, Db::trid_type trid) {
 					if(!error.ok())
 						return tr_callback(error);
 					control->trid = trid;
@@ -149,8 +148,11 @@ void Server::Connection::p_processMessage() {
 				Async::eachSeries(control->mutations.begin(),
 						control->mutations.end(), [=](Db::Mutation &mutation,
 							std::function<void(Error)> each_callback) {
-					engine->update(control->trid, &mutation, each_callback);
+					engine->updateMutation(control->trid, &mutation, each_callback);
 				}, tr_callback);
+			},
+			[=](std::function<void(Error)> tr_callback) {
+				engine->submit(control->trid, tr_callback);
 			},
 			[=](std::function<void(Error)> tr_callback) {
 				engine->commit(control->trid, tr_callback);

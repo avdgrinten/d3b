@@ -36,48 +36,23 @@ void FlexStorage::readConfig(const Proto::StorageConfig &config) {
 	
 }
 
-void FlexStorage::updateAccept(Mutation *mutation,
-		std::function<void(Error)> callback) {
-	if(mutation->type == Mutation::kTypeInsert) {
-		DataStore::Object object = p_docStore.createObject();
-		mutation->documentId = p_docStore.objectLid(object);
-		
-		callback(Error(true));
-	}else if(mutation->type == Mutation::kTypeModify) {
-		callback(Error(true));
-	}else{
-		throw std::logic_error("Illegal mutation");
-	}
-}
-
-void FlexStorage::updateValidate(Mutation *mutation,
-		std::function<void(Error)> callback) {
-	/* TODO */
-	callback(Error(true));
-}
-void FlexStorage::updateConflicts(Mutation *mutation,
-		Mutation &predecessor,
-		std::function<void(Error)> callback) {
-	/* TODO */
-	callback(Error(true));
-}
-
-void FlexStorage::processUpdate(Mutation *mutation,
-		std::function<void(Error)> callback) {
-	if(mutation->type == Mutation::kTypeInsert) {
-		DataStore::Object object = p_docStore.getObject(mutation->documentId);
-		p_docStore.allocObject(object, mutation->buffer.size());
-		p_docStore.writeObject(object, 0, mutation->buffer.size(),
-				mutation->buffer.data());
-		callback(Error(true));
-	}else if(mutation->type == Mutation::kTypeModify) {
-		DataStore::Object object = p_docStore.getObject(mutation->documentId);
-		p_docStore.allocObject(object, mutation->buffer.size());
-		p_docStore.writeObject(object, 0, mutation->buffer.size(),
-				mutation->buffer.data());
-		callback(Error(true));
-	}else{
-		throw std::logic_error("Illegal mutation");
+void FlexStorage::sequence(std::vector<Mutation *> &mutations) {
+	for(auto it = mutations.begin(); it != mutations.end(); ++it) {
+		Mutation *mutation = *it;
+		if(mutation->type == Mutation::kTypeInsert) {
+			DataStore::Object object = p_docStore.createObject();
+			mutation->documentId = p_docStore.objectLid(object);
+			p_docStore.allocObject(object, mutation->buffer.size());
+			p_docStore.writeObject(object, 0, mutation->buffer.size(),
+					mutation->buffer.data());
+		}else if(mutation->type == Mutation::kTypeModify) {
+			DataStore::Object object = p_docStore.getObject(mutation->documentId);
+			p_docStore.allocObject(object, mutation->buffer.size());
+			p_docStore.writeObject(object, 0, mutation->buffer.size(),
+					mutation->buffer.data());
+		}else{
+			throw std::logic_error("Illegal mutation");
+		}
 	}
 }
 

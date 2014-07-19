@@ -118,64 +118,40 @@ void Engine::unlinkView(int view) {
 	p_writeConfig();
 }
 
-void Engine::beginTransact(std::function<void(Error, trid_type)> callback) {
+void Engine::transaction(std::function<void(Error, trid_type)> callback) {
 	trid_type trid = p_nextTransactId++;
 
 	Transaction *transaction = new Transaction;
-	p_transacts.insert(std::make_pair(trid, transaction));
-	
-	Proto::WriteAhead walog;
-	walog.set_type(Proto::WriteAhead::kTransact);
-	walog.set_transact_id(trid);
-
-	p_writeAhead.submit(walog, [=](Error error) {
-		callback(Error(true), trid);
-	});
+	p_openTransactions.insert(std::make_pair(trid, transaction));
+	callback(Error(true), trid);
 }
-void Engine::update(trid_type trid, Mutation *mutation,
+void Engine::updateMutation(trid_type trid, Mutation *mutation,
 		std::function<void(Error)> callback) {
-	Proto::WriteAhead walog;
-	walog.set_type(Proto::WriteAhead::kUpdate);
-	walog.set_transact_id(trid);
-//	*walog.mutable_update() = *update;
-
-	p_writeAhead.submit(walog, [=](Error error) {
-		/* TODO: move this to process() ? */
-		auto transact_it = p_transacts.find(trid);
-		if(transact_it == p_transacts.end())
-			throw std::runtime_error("Illegal transaction");
+	auto transact_it = p_openTransactions.find(trid);
+	if(transact_it == p_openTransactions.end())
+		throw std::runtime_error("Illegal transaction");
 		
-		/* remember the mutation objects as we will need them
-			during commit */
-		Transaction *transaction = transact_it->second;
-		transaction->mutations.push_back(mutation);
-
-		/* submit the mutation to the processing queue */
-		// TODO: check whether specified storage is valid?
-		Queued queued;
-		queued.type = Queued::kUpdate;
-		queued.trid = trid;
-		queued.mutation = mutation;
-		queued.callback = callback;
-		p_submitQueue.push_back(queued);
-		p_eventFd->fire();
-	});
+	Transaction *transaction = transact_it->second;
+	transaction->mutations.push_back(mutation);
+	callback(Error(true));
+}
+void Engine::submit(trid_type trid,
+		std::function<void(Error)> callback) {
+	Queued queued;
+	queued.type = Queued::kTypeSubmit;
+	queued.trid = trid;
+	queued.callback = callback;
+	p_submitQueue.push_back(queued);
+	p_eventFd->fire();
 }
 void Engine::commit(trid_type trid,
 		std::function<void(Error)> callback) {
-	Proto::WriteAhead walog;
-	walog.set_type(Proto::WriteAhead::kCommit);
-	walog.set_transact_id(trid);
-
-	p_writeAhead.submit(walog, [=](Error error) {
-		/* submit the commit to the processing queue */
-		Queued queued;
-		queued.type = Queued::kCommit;
-		queued.trid = trid;
-		queued.callback = callback;
-		p_submitQueue.push_back(queued);
-		p_eventFd->fire();
-	});
+	Queued queued;
+	queued.type = Queued::kTypeCommit;
+	queued.trid = trid;
+	queued.callback = callback;
+	p_submitQueue.push_back(queued);
+	p_eventFd->fire();
 }
 
 void Engine::process() {
@@ -208,65 +184,44 @@ void Engine::p_processQueue(std::function<void(Error)> callback) {
 		[=](std::function<void(Error)> main_cb) {
 			Queued queued = p_submitQueue.front();
 			p_submitQueue.pop_front();
-			if(queued.type == Queued::kUpdate) {
-				StorageDriver *driver = p_storage[queued.mutation->storageIndex];
-				driver->updateAccept(queued.mutation, [=](Error error) {
-					queued.callback(error);
-					osIntf->nextTick([=]() { main_cb(Error(true)); });
-				});
-				/* TODO: fix the mutation */
-			}else if(queued.type == Queued::kCommit) {
-				auto transact_it = p_transacts.find(queued.trid);
-				if(transact_it == p_transacts.end())
+			if(queued.type == Queued::kTypeSubmit) {
+				queued.callback(Error(true));
+				osIntf->nextTick([=]() { main_cb(Error(true)); });
+			}else if(queued.type == Queued::kTypeCommit) {
+				auto transact_it = p_openTransactions.find(queued.trid);
+				if(transact_it == p_openTransactions.end())
 					throw std::runtime_error("Illegal transaction");
 				Transaction *transaction = transact_it->second;
 				
-				Async::eachSeries(transaction->mutations.begin(), transaction->mutations.end(),
-						[=] (Mutation *mutation, std::function<void(Error)> each_cb) {
-					Async::staticSeries(std::make_tuple(
-						[=](std::function<void(Error)> cb) {
-							StorageDriver *driver = p_storage[mutation->storageIndex];
-							driver->processUpdate(mutation, cb);
-						},
-						[=](std::function<void(Error)> cb) {
-							onUpdate(mutation, cb);
-						}
-					), each_cb);
-				}, [=](Error error) {
-					queued.callback(error);
-					osIntf->nextTick([=]() { main_cb(Error(true)); });
-				});
-			}else if(queued.type == Queued::kFetch) {
-				StorageDriver *driver = p_storage[queued.fetch->storageIndex];
-				driver->processFetch(queued.fetch, queued.onFetchData,
-					[=](Error error) {
-						queued.callback(error);
-						osIntf->nextTick([=]() { main_cb(Error(true)); });
-					});
+				for(auto it = p_storage.begin(); it != p_storage.end(); ++it) {
+					StorageDriver *driver = *it;
+					if(driver == nullptr)
+						continue;
+					driver->sequence(transaction->mutations);
+				}
+				for(auto it = p_views.begin(); it != p_views.end(); ++it) {
+					ViewDriver *driver = *it;
+					if(driver == nullptr)
+						continue;
+					driver->sequence(transaction->mutations);
+				}
+				
+				// commit/rollback always frees the transaction
+				p_openTransactions.erase(transact_it);
+				delete transaction;
+				
+				queued.callback(Error(true));
+
+				osIntf->nextTick([=]() { main_cb(Error(true)); });
 			}else throw std::logic_error("Queued item has illegal type");
 		}, callback);
-}
-
-void Engine::onUpdate(Mutation *mutation,
-		std::function<void(Error)> callback) {
-	Async::eachSeries(p_views.begin(), p_views.end(),
-			[=](ViewDriver *driver, std::function<void(Error)> each_cb) {
-		if(driver == nullptr)
-			return each_cb(Error(true));
-		driver->processUpdate(mutation, each_cb);
-	}, callback);
 }
 
 void Engine::fetch(FetchRequest *fetch,
 		std::function<void(FetchData &)> on_data,
 		std::function<void(Error)> callback) {
-	Queued queued;
-	queued.type = Queued::kFetch;
-	queued.fetch = fetch;
-	queued.onFetchData = on_data;
-	queued.callback = callback;
-	p_submitQueue.push_back(queued);
-	p_eventFd->fire();
+	StorageDriver *driver = p_storage[fetch->storageIndex];
+	driver->processFetch(fetch, on_data, callback);
 }
 
 Error Engine::query(Proto::Query *request,

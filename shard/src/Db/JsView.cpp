@@ -148,22 +148,26 @@ void JsView::readConfig(const Proto::ViewConfig &config) {
 	p_scriptFile = config.script_file();
 }
 
-void JsView::processUpdate(Mutation *mutation,
-		std::function<void(Error)> callback) {
-	if(mutation->type == Mutation::kTypeInsert) {
-		p_onInsert(mutation->documentId, mutation->buffer.data(),
-			mutation->buffer.size(), callback);
-	}else if(mutation->type == Mutation::kTypeModify) {
-		Async::staticSeries(std::make_tuple(
-			[=](std::function<void(Error)> ser_cb) {
-				p_onRemove(mutation->documentId, ser_cb);
-			},
-			[=](std::function<void(Error)> ser_cb) {
-				p_onInsert(mutation->documentId, mutation->buffer.data(),
-					mutation->buffer.size(), ser_cb);
-			}
-		), callback);
-	}else throw std::logic_error("Illegal mutation type");
+void JsView::sequence(std::vector<Mutation *> &mutations) {
+	Async::eachSeries(mutations.begin(), mutations.end(),
+			[this](Mutation *mutation, std::function<void(Error)> callback) {
+		if(mutation->type == Mutation::kTypeInsert) {
+			p_onInsert(mutation->documentId, mutation->buffer.data(),
+				mutation->buffer.size(), callback);
+		}else if(mutation->type == Mutation::kTypeModify) {
+			Async::staticSeries(std::make_tuple(
+				[=](std::function<void(Error)> ser_cb) {
+					p_onRemove(mutation->documentId, ser_cb);
+				},
+				[=](std::function<void(Error)> ser_cb) {
+					p_onInsert(mutation->documentId, mutation->buffer.data(),
+						mutation->buffer.size(), ser_cb);
+				}
+			), callback);
+		}else throw std::logic_error("Illegal mutation type");
+	}, [](Error error) {
+		/* the commit is complete */
+	});
 }
 
 void JsView::p_onInsert(id_type id,

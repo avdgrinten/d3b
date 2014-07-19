@@ -41,26 +41,9 @@ public:
 	virtual Proto::StorageConfig writeConfig() = 0;
 	virtual void readConfig(const Proto::StorageConfig &config) = 0;
 
-	/* checks whether a mutation is accepted. fills in
-		additional details like the allocated id for insert
-		requests */
-	virtual void updateAccept(Mutation *mutation,
-			std::function<void(Error)> callback) = 0;
-	/* validates a mutation against the current state.
-		returning success means that it is okay to commit the mutation
-		in the current state. */
-	virtual void updateValidate(Mutation *mutation,
-			std::function<void(Error)> callback) = 0;
-	/* validates a mutation against another mutation.
-		returning success mean that it is okay to commit the mutation
-		after the other mutation was commited. */
-	virtual void updateConflicts(Mutation *mutation,
-			Mutation &predecessor,
-			std::function<void(Error)> callback) = 0;
+	/* commits a transaction to the storage */
+	virtual void sequence(std::vector<Mutation *> &mutations) = 0;
 
-	/* commits an mutation to the storage */
-	virtual void processUpdate(Mutation *mutation,
-			std::function<void(Error)> callback) = 0;
 	/* processes a query */
 	virtual void processFetch(FetchRequest *fetch,
 			std::function<void(FetchData &)> on_data,
