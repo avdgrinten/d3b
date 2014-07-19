@@ -118,14 +118,14 @@ void Server::Connection::p_processMessage() {
 		};
 		control_struct *control = new control_struct;
 		for(int i = 0; i < request.updates_size(); i++) {
-			const Db::Proto::Update &update = request.updates(i);
+			const Proto::Update &update = request.updates(i);
 
 			Db::Mutation mutation;
-			if(update.action() == Db::Proto::Actions::kActInsert) {
+			if(update.action() == Proto::Actions::kActInsert) {
 				mutation.type = Db::Mutation::kTypeInsert;
 				mutation.storageIndex = engine->getStorage(update.storage_name());
 				mutation.buffer = update.buffer();
-			}else if(update.action() == Db::Proto::Actions::kActUpdate) {
+			}else if(update.action() == Proto::Actions::kActUpdate) {
 				mutation.type = Db::Mutation::kTypeModify;
 				mutation.storageIndex = engine->getStorage(update.storage_name());
 				mutation.documentId = update.id();

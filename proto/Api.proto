@@ -9,6 +9,20 @@ option optimize_for = LITE_RUNTIME;
 // requests send by client
 // -----------------------------------------------------------
 
+enum Actions {
+	kActNone = 0;
+	kActInsert = 1;
+	kActUpdate = 2;
+}
+
+message Update {
+	optional Actions action = 1;
+	optional int64 id = 2;
+	optional int32 storage_idx = 3;
+	optional string storage_name = 4;
+	optional bytes buffer = 17;
+}
+
 enum ClientRequests {
 	kCqQuery = 1;
 	kCqShortTransact = 32;
@@ -27,7 +41,7 @@ message CqQuery {
 }
 
 message CqShortTransact {
-	repeated Db.Proto.Update updates = 2;
+	repeated Update updates = 2;
 };
 
 message CqCreateStorage {

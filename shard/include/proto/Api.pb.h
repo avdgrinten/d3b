@@ -34,6 +34,7 @@ void  protobuf_AddDesc_proto_2fApi_2eproto();
 void protobuf_AssignDesc_proto_2fApi_2eproto();
 void protobuf_ShutdownFile_proto_2fApi_2eproto();
 
+class Update;
 class CqQuery;
 class CqShortTransact;
 class CqCreateStorage;
@@ -45,6 +46,16 @@ class CqDownloadExtern;
 class SrFin;
 class SrRows;
 class SrBlob;
+
+enum Actions {
+  kActNone = 0,
+  kActInsert = 1,
+  kActUpdate = 2
+};
+bool Actions_IsValid(int value);
+const Actions Actions_MIN = kActNone;
+const Actions Actions_MAX = kActUpdate;
+const int Actions_ARRAYSIZE = Actions_MAX + 1;
 
 enum ClientRequests {
   kCqQuery = 1,
@@ -83,6 +94,123 @@ const EnumErrors EnumErrors_MAX = kErrIllegalView;
 const int EnumErrors_ARRAYSIZE = EnumErrors_MAX + 1;
 
 // ===================================================================
+
+class Update : public ::google::protobuf::MessageLite {
+ public:
+  Update();
+  virtual ~Update();
+  
+  Update(const Update& from);
+  
+  inline Update& operator=(const Update& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  
+  static const Update& default_instance();
+  
+  void Swap(Update* other);
+  
+  // implements Message ----------------------------------------------
+  
+  Update* New() const;
+  void CheckTypeAndMergeFrom(const ::google::protobuf::MessageLite& from);
+  void CopyFrom(const Update& from);
+  void MergeFrom(const Update& from);
+  void Clear();
+  bool IsInitialized() const;
+  
+  int ByteSize() const;
+  bool MergePartialFromCodedStream(
+      ::google::protobuf::io::CodedInputStream* input);
+  void SerializeWithCachedSizes(
+      ::google::protobuf::io::CodedOutputStream* output) const;
+  int GetCachedSize() const { return _cached_size_; }
+  private:
+  void SharedCtor();
+  void SharedDtor();
+  void SetCachedSize(int size) const;
+  public:
+  
+  ::std::string GetTypeName() const;
+  
+  // nested types ----------------------------------------------------
+  
+  // accessors -------------------------------------------------------
+  
+  // optional .Api.Proto.Actions action = 1;
+  inline bool has_action() const;
+  inline void clear_action();
+  static const int kActionFieldNumber = 1;
+  inline Api::Proto::Actions action() const;
+  inline void set_action(Api::Proto::Actions value);
+  
+  // optional int64 id = 2;
+  inline bool has_id() const;
+  inline void clear_id();
+  static const int kIdFieldNumber = 2;
+  inline ::google::protobuf::int64 id() const;
+  inline void set_id(::google::protobuf::int64 value);
+  
+  // optional int32 storage_idx = 3;
+  inline bool has_storage_idx() const;
+  inline void clear_storage_idx();
+  static const int kStorageIdxFieldNumber = 3;
+  inline ::google::protobuf::int32 storage_idx() const;
+  inline void set_storage_idx(::google::protobuf::int32 value);
+  
+  // optional string storage_name = 4;
+  inline bool has_storage_name() const;
+  inline void clear_storage_name();
+  static const int kStorageNameFieldNumber = 4;
+  inline const ::std::string& storage_name() const;
+  inline void set_storage_name(const ::std::string& value);
+  inline void set_storage_name(const char* value);
+  inline void set_storage_name(const char* value, size_t size);
+  inline ::std::string* mutable_storage_name();
+  inline ::std::string* release_storage_name();
+  
+  // optional bytes buffer = 17;
+  inline bool has_buffer() const;
+  inline void clear_buffer();
+  static const int kBufferFieldNumber = 17;
+  inline const ::std::string& buffer() const;
+  inline void set_buffer(const ::std::string& value);
+  inline void set_buffer(const char* value);
+  inline void set_buffer(const void* value, size_t size);
+  inline ::std::string* mutable_buffer();
+  inline ::std::string* release_buffer();
+  
+  // @@protoc_insertion_point(class_scope:Api.Proto.Update)
+ private:
+  inline void set_has_action();
+  inline void clear_has_action();
+  inline void set_has_id();
+  inline void clear_has_id();
+  inline void set_has_storage_idx();
+  inline void clear_has_storage_idx();
+  inline void set_has_storage_name();
+  inline void clear_has_storage_name();
+  inline void set_has_buffer();
+  inline void clear_has_buffer();
+  
+  ::google::protobuf::int64 id_;
+  int action_;
+  ::google::protobuf::int32 storage_idx_;
+  ::std::string* storage_name_;
+  ::std::string* buffer_;
+  
+  mutable int _cached_size_;
+  ::google::protobuf::uint32 _has_bits_[(5 + 31) / 32];
+  
+  friend void  protobuf_AddDesc_proto_2fApi_2eproto();
+  friend void protobuf_AssignDesc_proto_2fApi_2eproto();
+  friend void protobuf_ShutdownFile_proto_2fApi_2eproto();
+  
+  void InitAsDefaultInstance();
+  static Update* default_instance_;
+};
+// -------------------------------------------------------------------
 
 class CqQuery : public ::google::protobuf::MessageLite {
  public:
@@ -197,22 +325,22 @@ class CqShortTransact : public ::google::protobuf::MessageLite {
   
   // accessors -------------------------------------------------------
   
-  // repeated .Db.Proto.Update updates = 2;
+  // repeated .Api.Proto.Update updates = 2;
   inline int updates_size() const;
   inline void clear_updates();
   static const int kUpdatesFieldNumber = 2;
-  inline const ::Db::Proto::Update& updates(int index) const;
-  inline ::Db::Proto::Update* mutable_updates(int index);
-  inline ::Db::Proto::Update* add_updates();
-  inline const ::google::protobuf::RepeatedPtrField< ::Db::Proto::Update >&
+  inline const ::Api::Proto::Update& updates(int index) const;
+  inline ::Api::Proto::Update* mutable_updates(int index);
+  inline ::Api::Proto::Update* add_updates();
+  inline const ::google::protobuf::RepeatedPtrField< ::Api::Proto::Update >&
       updates() const;
-  inline ::google::protobuf::RepeatedPtrField< ::Db::Proto::Update >*
+  inline ::google::protobuf::RepeatedPtrField< ::Api::Proto::Update >*
       mutable_updates();
   
   // @@protoc_insertion_point(class_scope:Api.Proto.CqShortTransact)
  private:
   
-  ::google::protobuf::RepeatedPtrField< ::Db::Proto::Update > updates_;
+  ::google::protobuf::RepeatedPtrField< ::Api::Proto::Update > updates_;
   
   mutable int _cached_size_;
   ::google::protobuf::uint32 _has_bits_[(1 + 31) / 32];
@@ -917,6 +1045,193 @@ class SrBlob : public ::google::protobuf::MessageLite {
 
 // ===================================================================
 
+// Update
+
+// optional .Api.Proto.Actions action = 1;
+inline bool Update::has_action() const {
+  return (_has_bits_[0] & 0x00000001u) != 0;
+}
+inline void Update::set_has_action() {
+  _has_bits_[0] |= 0x00000001u;
+}
+inline void Update::clear_has_action() {
+  _has_bits_[0] &= ~0x00000001u;
+}
+inline void Update::clear_action() {
+  action_ = 0;
+  clear_has_action();
+}
+inline Api::Proto::Actions Update::action() const {
+  return static_cast< Api::Proto::Actions >(action_);
+}
+inline void Update::set_action(Api::Proto::Actions value) {
+  GOOGLE_DCHECK(Api::Proto::Actions_IsValid(value));
+  set_has_action();
+  action_ = value;
+}
+
+// optional int64 id = 2;
+inline bool Update::has_id() const {
+  return (_has_bits_[0] & 0x00000002u) != 0;
+}
+inline void Update::set_has_id() {
+  _has_bits_[0] |= 0x00000002u;
+}
+inline void Update::clear_has_id() {
+  _has_bits_[0] &= ~0x00000002u;
+}
+inline void Update::clear_id() {
+  id_ = GOOGLE_LONGLONG(0);
+  clear_has_id();
+}
+inline ::google::protobuf::int64 Update::id() const {
+  return id_;
+}
+inline void Update::set_id(::google::protobuf::int64 value) {
+  set_has_id();
+  id_ = value;
+}
+
+// optional int32 storage_idx = 3;
+inline bool Update::has_storage_idx() const {
+  return (_has_bits_[0] & 0x00000004u) != 0;
+}
+inline void Update::set_has_storage_idx() {
+  _has_bits_[0] |= 0x00000004u;
+}
+inline void Update::clear_has_storage_idx() {
+  _has_bits_[0] &= ~0x00000004u;
+}
+inline void Update::clear_storage_idx() {
+  storage_idx_ = 0;
+  clear_has_storage_idx();
+}
+inline ::google::protobuf::int32 Update::storage_idx() const {
+  return storage_idx_;
+}
+inline void Update::set_storage_idx(::google::protobuf::int32 value) {
+  set_has_storage_idx();
+  storage_idx_ = value;
+}
+
+// optional string storage_name = 4;
+inline bool Update::has_storage_name() const {
+  return (_has_bits_[0] & 0x00000008u) != 0;
+}
+inline void Update::set_has_storage_name() {
+  _has_bits_[0] |= 0x00000008u;
+}
+inline void Update::clear_has_storage_name() {
+  _has_bits_[0] &= ~0x00000008u;
+}
+inline void Update::clear_storage_name() {
+  if (storage_name_ != &::google::protobuf::internal::kEmptyString) {
+    storage_name_->clear();
+  }
+  clear_has_storage_name();
+}
+inline const ::std::string& Update::storage_name() const {
+  return *storage_name_;
+}
+inline void Update::set_storage_name(const ::std::string& value) {
+  set_has_storage_name();
+  if (storage_name_ == &::google::protobuf::internal::kEmptyString) {
+    storage_name_ = new ::std::string;
+  }
+  storage_name_->assign(value);
+}
+inline void Update::set_storage_name(const char* value) {
+  set_has_storage_name();
+  if (storage_name_ == &::google::protobuf::internal::kEmptyString) {
+    storage_name_ = new ::std::string;
+  }
+  storage_name_->assign(value);
+}
+inline void Update::set_storage_name(const char* value, size_t size) {
+  set_has_storage_name();
+  if (storage_name_ == &::google::protobuf::internal::kEmptyString) {
+    storage_name_ = new ::std::string;
+  }
+  storage_name_->assign(reinterpret_cast<const char*>(value), size);
+}
+inline ::std::string* Update::mutable_storage_name() {
+  set_has_storage_name();
+  if (storage_name_ == &::google::protobuf::internal::kEmptyString) {
+    storage_name_ = new ::std::string;
+  }
+  return storage_name_;
+}
+inline ::std::string* Update::release_storage_name() {
+  clear_has_storage_name();
+  if (storage_name_ == &::google::protobuf::internal::kEmptyString) {
+    return NULL;
+  } else {
+    ::std::string* temp = storage_name_;
+    storage_name_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
+    return temp;
+  }
+}
+
+// optional bytes buffer = 17;
+inline bool Update::has_buffer() const {
+  return (_has_bits_[0] & 0x00000010u) != 0;
+}
+inline void Update::set_has_buffer() {
+  _has_bits_[0] |= 0x00000010u;
+}
+inline void Update::clear_has_buffer() {
+  _has_bits_[0] &= ~0x00000010u;
+}
+inline void Update::clear_buffer() {
+  if (buffer_ != &::google::protobuf::internal::kEmptyString) {
+    buffer_->clear();
+  }
+  clear_has_buffer();
+}
+inline const ::std::string& Update::buffer() const {
+  return *buffer_;
+}
+inline void Update::set_buffer(const ::std::string& value) {
+  set_has_buffer();
+  if (buffer_ == &::google::protobuf::internal::kEmptyString) {
+    buffer_ = new ::std::string;
+  }
+  buffer_->assign(value);
+}
+inline void Update::set_buffer(const char* value) {
+  set_has_buffer();
+  if (buffer_ == &::google::protobuf::internal::kEmptyString) {
+    buffer_ = new ::std::string;
+  }
+  buffer_->assign(value);
+}
+inline void Update::set_buffer(const void* value, size_t size) {
+  set_has_buffer();
+  if (buffer_ == &::google::protobuf::internal::kEmptyString) {
+    buffer_ = new ::std::string;
+  }
+  buffer_->assign(reinterpret_cast<const char*>(value), size);
+}
+inline ::std::string* Update::mutable_buffer() {
+  set_has_buffer();
+  if (buffer_ == &::google::protobuf::internal::kEmptyString) {
+    buffer_ = new ::std::string;
+  }
+  return buffer_;
+}
+inline ::std::string* Update::release_buffer() {
+  clear_has_buffer();
+  if (buffer_ == &::google::protobuf::internal::kEmptyString) {
+    return NULL;
+  } else {
+    ::std::string* temp = buffer_;
+    buffer_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
+    return temp;
+  }
+}
+
+// -------------------------------------------------------------------
+
 // CqQuery
 
 // required .Db.Proto.Query query = 2;
@@ -952,27 +1267,27 @@ inline ::Db::Proto::Query* CqQuery::release_query() {
 
 // CqShortTransact
 
-// repeated .Db.Proto.Update updates = 2;
+// repeated .Api.Proto.Update updates = 2;
 inline int CqShortTransact::updates_size() const {
   return updates_.size();
 }
 inline void CqShortTransact::clear_updates() {
   updates_.Clear();
 }
-inline const ::Db::Proto::Update& CqShortTransact::updates(int index) const {
+inline const ::Api::Proto::Update& CqShortTransact::updates(int index) const {
   return updates_.Get(index);
 }
-inline ::Db::Proto::Update* CqShortTransact::mutable_updates(int index) {
+inline ::Api::Proto::Update* CqShortTransact::mutable_updates(int index) {
   return updates_.Mutable(index);
 }
-inline ::Db::Proto::Update* CqShortTransact::add_updates() {
+inline ::Api::Proto::Update* CqShortTransact::add_updates() {
   return updates_.Add();
 }
-inline const ::google::protobuf::RepeatedPtrField< ::Db::Proto::Update >&
+inline const ::google::protobuf::RepeatedPtrField< ::Api::Proto::Update >&
 CqShortTransact::updates() const {
   return updates_;
 }
-inline ::google::protobuf::RepeatedPtrField< ::Db::Proto::Update >*
+inline ::google::protobuf::RepeatedPtrField< ::Api::Proto::Update >*
 CqShortTransact::mutable_updates() {
   return &updates_;
 }

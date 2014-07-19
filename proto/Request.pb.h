@@ -32,7 +32,6 @@ void  protobuf_AddDesc_proto_2fRequest_2eproto();
 void protobuf_AssignDesc_proto_2fRequest_2eproto();
 void protobuf_ShutdownFile_proto_2fRequest_2eproto();
 
-class Update;
 class Query;
 class WriteAhead;
 
@@ -48,134 +47,7 @@ const WriteAhead_Type WriteAhead_Type_Type_MIN = WriteAhead_Type_kNone;
 const WriteAhead_Type WriteAhead_Type_Type_MAX = WriteAhead_Type_kRollback;
 const int WriteAhead_Type_Type_ARRAYSIZE = WriteAhead_Type_Type_MAX + 1;
 
-enum Actions {
-  kActNone = 0,
-  kActInsert = 1,
-  kActUpdate = 2
-};
-bool Actions_IsValid(int value);
-const Actions Actions_MIN = kActNone;
-const Actions Actions_MAX = kActUpdate;
-const int Actions_ARRAYSIZE = Actions_MAX + 1;
-
 // ===================================================================
-
-class Update : public ::google::protobuf::MessageLite {
- public:
-  Update();
-  virtual ~Update();
-  
-  Update(const Update& from);
-  
-  inline Update& operator=(const Update& from) {
-    CopyFrom(from);
-    return *this;
-  }
-  
-  static const Update& default_instance();
-  
-  void Swap(Update* other);
-  
-  // implements Message ----------------------------------------------
-  
-  Update* New() const;
-  void CheckTypeAndMergeFrom(const ::google::protobuf::MessageLite& from);
-  void CopyFrom(const Update& from);
-  void MergeFrom(const Update& from);
-  void Clear();
-  bool IsInitialized() const;
-  
-  int ByteSize() const;
-  bool MergePartialFromCodedStream(
-      ::google::protobuf::io::CodedInputStream* input);
-  void SerializeWithCachedSizes(
-      ::google::protobuf::io::CodedOutputStream* output) const;
-  int GetCachedSize() const { return _cached_size_; }
-  private:
-  void SharedCtor();
-  void SharedDtor();
-  void SetCachedSize(int size) const;
-  public:
-  
-  ::std::string GetTypeName() const;
-  
-  // nested types ----------------------------------------------------
-  
-  // accessors -------------------------------------------------------
-  
-  // optional .Db.Proto.Actions action = 1;
-  inline bool has_action() const;
-  inline void clear_action();
-  static const int kActionFieldNumber = 1;
-  inline Db::Proto::Actions action() const;
-  inline void set_action(Db::Proto::Actions value);
-  
-  // optional int64 id = 2;
-  inline bool has_id() const;
-  inline void clear_id();
-  static const int kIdFieldNumber = 2;
-  inline ::google::protobuf::int64 id() const;
-  inline void set_id(::google::protobuf::int64 value);
-  
-  // optional int32 storage_idx = 3;
-  inline bool has_storage_idx() const;
-  inline void clear_storage_idx();
-  static const int kStorageIdxFieldNumber = 3;
-  inline ::google::protobuf::int32 storage_idx() const;
-  inline void set_storage_idx(::google::protobuf::int32 value);
-  
-  // optional string storage_name = 4;
-  inline bool has_storage_name() const;
-  inline void clear_storage_name();
-  static const int kStorageNameFieldNumber = 4;
-  inline const ::std::string& storage_name() const;
-  inline void set_storage_name(const ::std::string& value);
-  inline void set_storage_name(const char* value);
-  inline void set_storage_name(const char* value, size_t size);
-  inline ::std::string* mutable_storage_name();
-  inline ::std::string* release_storage_name();
-  
-  // optional bytes buffer = 17;
-  inline bool has_buffer() const;
-  inline void clear_buffer();
-  static const int kBufferFieldNumber = 17;
-  inline const ::std::string& buffer() const;
-  inline void set_buffer(const ::std::string& value);
-  inline void set_buffer(const char* value);
-  inline void set_buffer(const void* value, size_t size);
-  inline ::std::string* mutable_buffer();
-  inline ::std::string* release_buffer();
-  
-  // @@protoc_insertion_point(class_scope:Db.Proto.Update)
- private:
-  inline void set_has_action();
-  inline void clear_has_action();
-  inline void set_has_id();
-  inline void clear_has_id();
-  inline void set_has_storage_idx();
-  inline void clear_has_storage_idx();
-  inline void set_has_storage_name();
-  inline void clear_has_storage_name();
-  inline void set_has_buffer();
-  inline void clear_has_buffer();
-  
-  ::google::protobuf::int64 id_;
-  int action_;
-  ::google::protobuf::int32 storage_idx_;
-  ::std::string* storage_name_;
-  ::std::string* buffer_;
-  
-  mutable int _cached_size_;
-  ::google::protobuf::uint32 _has_bits_[(5 + 31) / 32];
-  
-  friend void  protobuf_AddDesc_proto_2fRequest_2eproto();
-  friend void protobuf_AssignDesc_proto_2fRequest_2eproto();
-  friend void protobuf_ShutdownFile_proto_2fRequest_2eproto();
-  
-  void InitAsDefaultInstance();
-  static Update* default_instance_;
-};
-// -------------------------------------------------------------------
 
 class Query : public ::google::protobuf::MessageLite {
  public:
@@ -385,14 +257,6 @@ class WriteAhead : public ::google::protobuf::MessageLite {
   inline ::google::protobuf::int64 transact_id() const;
   inline void set_transact_id(::google::protobuf::int64 value);
   
-  // optional .Db.Proto.Update update = 4;
-  inline bool has_update() const;
-  inline void clear_update();
-  static const int kUpdateFieldNumber = 4;
-  inline const ::Db::Proto::Update& update() const;
-  inline ::Db::Proto::Update* mutable_update();
-  inline ::Db::Proto::Update* release_update();
-  
   // @@protoc_insertion_point(class_scope:Db.Proto.WriteAhead)
  private:
   inline void set_has_type();
@@ -401,16 +265,13 @@ class WriteAhead : public ::google::protobuf::MessageLite {
   inline void clear_has_sequence();
   inline void set_has_transact_id();
   inline void clear_has_transact_id();
-  inline void set_has_update();
-  inline void clear_has_update();
   
   ::google::protobuf::int64 sequence_;
   ::google::protobuf::int64 transact_id_;
-  ::Db::Proto::Update* update_;
   int type_;
   
   mutable int _cached_size_;
-  ::google::protobuf::uint32 _has_bits_[(4 + 31) / 32];
+  ::google::protobuf::uint32 _has_bits_[(3 + 31) / 32];
   
   friend void  protobuf_AddDesc_proto_2fRequest_2eproto();
   friend void protobuf_AssignDesc_proto_2fRequest_2eproto();
@@ -423,193 +284,6 @@ class WriteAhead : public ::google::protobuf::MessageLite {
 
 
 // ===================================================================
-
-// Update
-
-// optional .Db.Proto.Actions action = 1;
-inline bool Update::has_action() const {
-  return (_has_bits_[0] & 0x00000001u) != 0;
-}
-inline void Update::set_has_action() {
-  _has_bits_[0] |= 0x00000001u;
-}
-inline void Update::clear_has_action() {
-  _has_bits_[0] &= ~0x00000001u;
-}
-inline void Update::clear_action() {
-  action_ = 0;
-  clear_has_action();
-}
-inline Db::Proto::Actions Update::action() const {
-  return static_cast< Db::Proto::Actions >(action_);
-}
-inline void Update::set_action(Db::Proto::Actions value) {
-  GOOGLE_DCHECK(Db::Proto::Actions_IsValid(value));
-  set_has_action();
-  action_ = value;
-}
-
-// optional int64 id = 2;
-inline bool Update::has_id() const {
-  return (_has_bits_[0] & 0x00000002u) != 0;
-}
-inline void Update::set_has_id() {
-  _has_bits_[0] |= 0x00000002u;
-}
-inline void Update::clear_has_id() {
-  _has_bits_[0] &= ~0x00000002u;
-}
-inline void Update::clear_id() {
-  id_ = GOOGLE_LONGLONG(0);
-  clear_has_id();
-}
-inline ::google::protobuf::int64 Update::id() const {
-  return id_;
-}
-inline void Update::set_id(::google::protobuf::int64 value) {
-  set_has_id();
-  id_ = value;
-}
-
-// optional int32 storage_idx = 3;
-inline bool Update::has_storage_idx() const {
-  return (_has_bits_[0] & 0x00000004u) != 0;
-}
-inline void Update::set_has_storage_idx() {
-  _has_bits_[0] |= 0x00000004u;
-}
-inline void Update::clear_has_storage_idx() {
-  _has_bits_[0] &= ~0x00000004u;
-}
-inline void Update::clear_storage_idx() {
-  storage_idx_ = 0;
-  clear_has_storage_idx();
-}
-inline ::google::protobuf::int32 Update::storage_idx() const {
-  return storage_idx_;
-}
-inline void Update::set_storage_idx(::google::protobuf::int32 value) {
-  set_has_storage_idx();
-  storage_idx_ = value;
-}
-
-// optional string storage_name = 4;
-inline bool Update::has_storage_name() const {
-  return (_has_bits_[0] & 0x00000008u) != 0;
-}
-inline void Update::set_has_storage_name() {
-  _has_bits_[0] |= 0x00000008u;
-}
-inline void Update::clear_has_storage_name() {
-  _has_bits_[0] &= ~0x00000008u;
-}
-inline void Update::clear_storage_name() {
-  if (storage_name_ != &::google::protobuf::internal::kEmptyString) {
-    storage_name_->clear();
-  }
-  clear_has_storage_name();
-}
-inline const ::std::string& Update::storage_name() const {
-  return *storage_name_;
-}
-inline void Update::set_storage_name(const ::std::string& value) {
-  set_has_storage_name();
-  if (storage_name_ == &::google::protobuf::internal::kEmptyString) {
-    storage_name_ = new ::std::string;
-  }
-  storage_name_->assign(value);
-}
-inline void Update::set_storage_name(const char* value) {
-  set_has_storage_name();
-  if (storage_name_ == &::google::protobuf::internal::kEmptyString) {
-    storage_name_ = new ::std::string;
-  }
-  storage_name_->assign(value);
-}
-inline void Update::set_storage_name(const char* value, size_t size) {
-  set_has_storage_name();
-  if (storage_name_ == &::google::protobuf::internal::kEmptyString) {
-    storage_name_ = new ::std::string;
-  }
-  storage_name_->assign(reinterpret_cast<const char*>(value), size);
-}
-inline ::std::string* Update::mutable_storage_name() {
-  set_has_storage_name();
-  if (storage_name_ == &::google::protobuf::internal::kEmptyString) {
-    storage_name_ = new ::std::string;
-  }
-  return storage_name_;
-}
-inline ::std::string* Update::release_storage_name() {
-  clear_has_storage_name();
-  if (storage_name_ == &::google::protobuf::internal::kEmptyString) {
-    return NULL;
-  } else {
-    ::std::string* temp = storage_name_;
-    storage_name_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
-    return temp;
-  }
-}
-
-// optional bytes buffer = 17;
-inline bool Update::has_buffer() const {
-  return (_has_bits_[0] & 0x00000010u) != 0;
-}
-inline void Update::set_has_buffer() {
-  _has_bits_[0] |= 0x00000010u;
-}
-inline void Update::clear_has_buffer() {
-  _has_bits_[0] &= ~0x00000010u;
-}
-inline void Update::clear_buffer() {
-  if (buffer_ != &::google::protobuf::internal::kEmptyString) {
-    buffer_->clear();
-  }
-  clear_has_buffer();
-}
-inline const ::std::string& Update::buffer() const {
-  return *buffer_;
-}
-inline void Update::set_buffer(const ::std::string& value) {
-  set_has_buffer();
-  if (buffer_ == &::google::protobuf::internal::kEmptyString) {
-    buffer_ = new ::std::string;
-  }
-  buffer_->assign(value);
-}
-inline void Update::set_buffer(const char* value) {
-  set_has_buffer();
-  if (buffer_ == &::google::protobuf::internal::kEmptyString) {
-    buffer_ = new ::std::string;
-  }
-  buffer_->assign(value);
-}
-inline void Update::set_buffer(const void* value, size_t size) {
-  set_has_buffer();
-  if (buffer_ == &::google::protobuf::internal::kEmptyString) {
-    buffer_ = new ::std::string;
-  }
-  buffer_->assign(reinterpret_cast<const char*>(value), size);
-}
-inline ::std::string* Update::mutable_buffer() {
-  set_has_buffer();
-  if (buffer_ == &::google::protobuf::internal::kEmptyString) {
-    buffer_ = new ::std::string;
-  }
-  return buffer_;
-}
-inline ::std::string* Update::release_buffer() {
-  clear_has_buffer();
-  if (buffer_ == &::google::protobuf::internal::kEmptyString) {
-    return NULL;
-  } else {
-    ::std::string* temp = buffer_;
-    buffer_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
-    return temp;
-  }
-}
-
-// -------------------------------------------------------------------
 
 // Query
 
@@ -922,35 +596,6 @@ inline ::google::protobuf::int64 WriteAhead::transact_id() const {
 inline void WriteAhead::set_transact_id(::google::protobuf::int64 value) {
   set_has_transact_id();
   transact_id_ = value;
-}
-
-// optional .Db.Proto.Update update = 4;
-inline bool WriteAhead::has_update() const {
-  return (_has_bits_[0] & 0x00000008u) != 0;
-}
-inline void WriteAhead::set_has_update() {
-  _has_bits_[0] |= 0x00000008u;
-}
-inline void WriteAhead::clear_has_update() {
-  _has_bits_[0] &= ~0x00000008u;
-}
-inline void WriteAhead::clear_update() {
-  if (update_ != NULL) update_->::Db::Proto::Update::Clear();
-  clear_has_update();
-}
-inline const ::Db::Proto::Update& WriteAhead::update() const {
-  return update_ != NULL ? *update_ : *default_instance_->update_;
-}
-inline ::Db::Proto::Update* WriteAhead::mutable_update() {
-  set_has_update();
-  if (update_ == NULL) update_ = new ::Db::Proto::Update;
-  return update_;
-}
-inline ::Db::Proto::Update* WriteAhead::release_update() {
-  clear_has_update();
-  ::Db::Proto::Update* temp = update_;
-  update_ = NULL;
-  return temp;
 }
 
 
