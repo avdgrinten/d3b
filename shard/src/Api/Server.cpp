@@ -7,6 +7,7 @@
 
 #include "Os/Linux.h"
 #include "Async.h"
+#include "Db/Types.hpp"
 #include "Db/StorageDriver.hpp"
 #include "Db/ViewDriver.hpp"
 #include "Db/Engine.hpp"
@@ -113,11 +114,26 @@ void Server::Connection::p_processMessage() {
 		
 		struct control_struct {
 			Db::trid_type trid;
-			std::vector<Db::Proto::Update> updates;
+			std::vector<Db::Mutation> mutations;
 		};
 		control_struct *control = new control_struct;
-		for(int i = 0; i < request.updates_size(); i++)
-			control->updates.push_back(request.updates(i));
+		for(int i = 0; i < request.updates_size(); i++) {
+			const Db::Proto::Update &update = request.updates(i);
+
+			Db::Mutation mutation;
+			if(update.action() == Db::Proto::Actions::kActInsert) {
+				mutation.type = Db::Mutation::kTypeInsert;
+				mutation.storageIndex = engine->getStorage(update.storage_name());
+				mutation.documentId = update.id();
+				mutation.buffer = update.buffer();
+			}else if(update.action() == Db::Proto::Actions::kActUpdate) {
+				mutation.type = Db::Mutation::kTypeModify;
+				mutation.storageIndex = engine->getStorage(update.storage_name());
+				mutation.documentId = update.id();
+				mutation.buffer = update.buffer();
+			}else throw std::runtime_error("Illegal update type");
+			control->mutations.push_back(mutation);
+		}
 		Connection *self = this;
 
 		Async::staticSeries(std::make_tuple(
@@ -130,10 +146,10 @@ void Server::Connection::p_processMessage() {
 				});
 			},
 			[=](std::function<void(Error)> tr_callback) {
-				Async::eachSeries(control->updates.begin(),
-						control->updates.end(), [=](Db::Proto::Update &update,
+				Async::eachSeries(control->mutations.begin(),
+						control->mutations.end(), [=](Db::Mutation &mutation,
 							std::function<void(Error)> each_callback) {
-					engine->update(control->trid, &update, each_callback);
+					engine->update(control->trid, &mutation, each_callback);
 				}, tr_callback);
 			},
 			[=](std::function<void(Error)> tr_callback) {

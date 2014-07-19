@@ -8,9 +8,6 @@
 
 namespace Db {
 
-typedef int64_t id_type;
-typedef int64_t trid_type;
-
 class Engine {
 public:
 	Engine();
@@ -29,7 +26,7 @@ public:
 	void beginTransact(std::function<void(Error, trid_type)> callback);
 	void releaseTransact(trid_type trid, 
 		std::function<void(Error)> callback);
-	void update(trid_type trid, Proto::Update *update,
+	void update(trid_type trid, Mutation *mutation,
 		std::function<void(Error)> callback);
 	void commit(trid_type trid,
 		std::function<void(Error)> callback);
@@ -46,7 +43,7 @@ public:
 	
 	/* called by storages when data is commited to the database.
 		StorageDriver calls this automatically, do not call it yourself */
-	void onUpdate(Proto::Update *update,
+	void onUpdate(Mutation *mutation,
 		std::function<void(Error)> callback);
 	
 	void process();
@@ -67,7 +64,7 @@ private:
 		
 		Type type;
 		trid_type trid;
-		Proto::Update *update;
+		Mutation *mutation;
 		FetchRequest *fetch;
 		std::function<void(FetchData &)> onFetchData;
 		std::function<void(Error)> callback;
@@ -80,7 +77,7 @@ private:
 	
 	/* --------- active transactions -------- */
 	struct Transaction {
-		std::vector<Proto::Update*> updates;
+		std::vector<Mutation*> mutations;
 	};
 
 	trid_type p_nextTransactId;

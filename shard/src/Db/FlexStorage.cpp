@@ -3,6 +3,7 @@
 #include <string>
 
 #include "Os/Linux.h"
+#include "Db/Types.hpp"
 #include "Db/StorageDriver.hpp"
 #include "Db/ViewDriver.hpp"
 #include "Db/Engine.hpp"
@@ -35,52 +36,48 @@ void FlexStorage::readConfig(const Proto::StorageConfig &config) {
 	
 }
 
-void FlexStorage::updateAccept(Proto::Update *update,
+void FlexStorage::updateAccept(Mutation *mutation,
 		std::function<void(Error)> callback) {
-	if(update->action() == Proto::kActInsert) {
+	if(mutation->type == Mutation::kTypeInsert) {
 		DataStore::Object object = p_docStore.createObject();
-		update->set_id(p_docStore.objectLid(object));
+		mutation->documentId = p_docStore.objectLid(object);
 		
 		callback(Error(true));
-	}else if(update->action() == Proto::kActUpdate) {
+	}else if(mutation->type == Mutation::kTypeModify) {
 		callback(Error(true));
 	}else{
-		throw std::logic_error("Illegal update");
+		throw std::logic_error("Illegal mutation");
 	}
 }
 
-void FlexStorage::updateValidate(Proto::Update *update,
+void FlexStorage::updateValidate(Mutation *mutation,
 		std::function<void(Error)> callback) {
 	/* TODO */
 	callback(Error(true));
 }
-void FlexStorage::updateConflicts(Proto::Update *update,
-		Proto::Update &predecessor,
+void FlexStorage::updateConflicts(Mutation *mutation,
+		Mutation &predecessor,
 		std::function<void(Error)> callback) {
 	/* TODO */
 	callback(Error(true));
 }
 
-void FlexStorage::processUpdate(Proto::Update *update,
+void FlexStorage::processUpdate(Mutation *mutation,
 		std::function<void(Error)> callback) {
-	if(update->action() == Proto::kActInsert) {
-		if(!update->has_id() || !update->has_buffer())
-			throw std::logic_error("Incomplete kActInsert update");
-		DataStore::Object object = p_docStore.getObject(update->id());
-		p_docStore.allocObject(object, update->buffer().size());
-		p_docStore.writeObject(object, 0, update->buffer().size(),
-				update->buffer().data());
+	if(mutation->type == Mutation::kTypeInsert) {
+		DataStore::Object object = p_docStore.getObject(mutation->documentId);
+		p_docStore.allocObject(object, mutation->buffer.size());
+		p_docStore.writeObject(object, 0, mutation->buffer.size(),
+				mutation->buffer.data());
 		callback(Error(true));
-	}else if(update->action() == Proto::kActUpdate) {
-		if(!update->has_id() || !update->has_buffer())
-			throw std::logic_error("Incomplete kActUpdate update");
-		DataStore::Object object = p_docStore.getObject(update->id());
-		p_docStore.allocObject(object, update->buffer().size());
-		p_docStore.writeObject(object, 0, update->buffer().size(),
-				update->buffer().data());
+	}else if(mutation->type == Mutation::kTypeModify) {
+		DataStore::Object object = p_docStore.getObject(mutation->documentId);
+		p_docStore.allocObject(object, mutation->buffer.size());
+		p_docStore.writeObject(object, 0, mutation->buffer.size(),
+				mutation->buffer.data());
 		callback(Error(true));
 	}else{
-		throw std::logic_error("Illegal update");
+		throw std::logic_error("Illegal mutation");
 	}
 }
 

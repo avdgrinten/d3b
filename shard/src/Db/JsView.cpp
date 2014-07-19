@@ -7,6 +7,7 @@
 
 #include "Os/Linux.h"
 #include "Async.h"
+#include "Db/Types.hpp"
 #include "Db/StorageDriver.hpp"
 #include "Db/ViewDriver.hpp"
 #include "Db/Engine.hpp"
@@ -144,22 +145,22 @@ void JsView::readConfig(const Proto::ViewConfig &config) {
 	p_scriptFile = config.script_file();
 }
 
-void JsView::processUpdate(Proto::Update *update,
+void JsView::processUpdate(Mutation *mutation,
 		std::function<void(Error)> callback) {
-	if(update->action() == Proto::Actions::kActInsert) {
-		p_onInsert(update->id(), update->buffer().data(),
-			update->buffer().size(), callback);
-	}else if(update->action() == Proto::Actions::kActUpdate) {
+	if(mutation->type == Mutation::kTypeInsert) {
+		p_onInsert(mutation->documentId, mutation->buffer.data(),
+			mutation->buffer.size(), callback);
+	}else if(mutation->type == Mutation::kTypeModify) {
 		Async::staticSeries(std::make_tuple(
 			[=](std::function<void(Error)> ser_cb) {
-				p_onRemove(update->id(), ser_cb);
+				p_onRemove(mutation->documentId, ser_cb);
 			},
 			[=](std::function<void(Error)> ser_cb) {
-				p_onInsert(update->id(), update->buffer().data(),
-					update->buffer().size(), ser_cb);
+				p_onInsert(mutation->documentId, mutation->buffer.data(),
+					mutation->buffer.size(), ser_cb);
 			}
 		), callback);
-	}else throw std::logic_error("Illegal update type");
+	}else throw std::logic_error("Illegal mutation type");
 }
 
 void JsView::p_onInsert(id_type id,

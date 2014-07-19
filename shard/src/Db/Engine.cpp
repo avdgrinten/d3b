@@ -4,6 +4,7 @@
 
 #include "Os/Linux.h"
 #include "Async.h"
+#include "Db/Types.hpp"
 #include "Db/StorageDriver.hpp"
 #include "Db/ViewDriver.hpp"
 #include "Db/Engine.hpp"
@@ -131,7 +132,7 @@ void Engine::beginTransact(std::function<void(Error, trid_type)> callback) {
 		callback(Error(true), trid);
 	});
 }
-void Engine::update(trid_type trid, Proto::Update *update,
+void Engine::update(trid_type trid, Mutation *mutation,
 		std::function<void(Error)> callback) {
 	Proto::WriteAhead walog;
 	walog.set_type(Proto::WriteAhead::kUpdate);
@@ -144,24 +145,17 @@ void Engine::update(trid_type trid, Proto::Update *update,
 		if(transact_it == p_transacts.end())
 			throw std::runtime_error("Illegal transaction");
 		
-		/* remember the update objects as we will need them
+		/* remember the mutation objects as we will need them
 			during commit */
 		Transaction *transaction = transact_it->second;
-		transaction->updates.push_back(update);
-		
-		if(!update->has_storage_idx()) {
-			int storage = getStorage(update->storage_name());
-			if(storage == -1)
-				throw std::runtime_error("Illegal storage specified");
-			update->set_storage_idx(storage);
-		}
+		transaction->mutations.push_back(mutation);
 
-		/* submit the update to the processing queue */
+		/* submit the mutation to the processing queue */
 		// TODO: check whether specified storage is valid?
 		Queued queued;
 		queued.type = Queued::kUpdate;
 		queued.trid = trid;
-		queued.update = update;
+		queued.mutation = mutation;
 		queued.callback = callback;
 		p_submitQueue.push_back(queued);
 		p_eventFd->fire();
@@ -215,27 +209,27 @@ void Engine::p_processQueue(std::function<void(Error)> callback) {
 			Queued queued = p_submitQueue.front();
 			p_submitQueue.pop_front();
 			if(queued.type == Queued::kUpdate) {
-				StorageDriver *driver = p_storage[queued.update->storage_idx()];
-				driver->updateAccept(queued.update, [=](Error error) {
+				StorageDriver *driver = p_storage[queued.mutation->storageIndex];
+				driver->updateAccept(queued.mutation, [=](Error error) {
 					queued.callback(error);
 					osIntf->nextTick([=]() { main_cb(Error(true)); });
 				});
-				/* TODO: fix the update */
+				/* TODO: fix the mutation */
 			}else if(queued.type == Queued::kCommit) {
 				auto transact_it = p_transacts.find(queued.trid);
 				if(transact_it == p_transacts.end())
 					throw std::runtime_error("Illegal transaction");
 				Transaction *transaction = transact_it->second;
 				
-				Async::eachSeries(transaction->updates.begin(), transaction->updates.end(),
-						[=] (Proto::Update *update, std::function<void(Error)> each_cb) {
+				Async::eachSeries(transaction->mutations.begin(), transaction->mutations.end(),
+						[=] (Mutation *mutation, std::function<void(Error)> each_cb) {
 					Async::staticSeries(std::make_tuple(
 						[=](std::function<void(Error)> cb) {
-							StorageDriver *driver = p_storage[update->storage_idx()];
-							driver->processUpdate(update, cb);
+							StorageDriver *driver = p_storage[mutation->storageIndex];
+							driver->processUpdate(mutation, cb);
 						},
 						[=](std::function<void(Error)> cb) {
-							onUpdate(update, cb);
+							onUpdate(mutation, cb);
 						}
 					), each_cb);
 				}, [=](Error error) {
@@ -253,13 +247,13 @@ void Engine::p_processQueue(std::function<void(Error)> callback) {
 		}, callback);
 }
 
-void Engine::onUpdate(Proto::Update *update,
+void Engine::onUpdate(Mutation *mutation,
 		std::function<void(Error)> callback) {
 	Async::eachSeries(p_views.begin(), p_views.end(),
 			[=](ViewDriver *driver, std::function<void(Error)> each_cb) {
 		if(driver == nullptr)
 			return each_cb(Error(true));
-		driver->processUpdate(update, each_cb);
+		driver->processUpdate(mutation, each_cb);
 	}, callback);
 }
 

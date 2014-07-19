@@ -6,6 +6,7 @@
 
 #include "Os/Linux.h"
 #include "Async.h"
+#include "Db/Types.hpp"
 #include "Db/StorageDriver.hpp"
 #include "Db/ViewDriver.hpp"
 #include "Db/Engine.hpp"

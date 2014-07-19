@@ -20,15 +20,15 @@ public:
 	virtual Proto::StorageConfig writeConfig();
 	virtual void readConfig(const Proto::StorageConfig &config);
 
-	virtual void updateAccept(Proto::Update *update,
+	virtual void updateAccept(Mutation *mutation,
 			std::function<void(Error)> callback);
-	virtual void updateValidate(Proto::Update *update,
+	virtual void updateValidate(Mutation *mutation,
 			std::function<void(Error)> callback);
-	virtual void updateConflicts(Proto::Update *update,
-			Proto::Update &predecessor,
+	virtual void updateConflicts(Mutation *mutation,
+			Mutation &predecessor,
 			std::function<void(Error)> callback);
 
-	virtual void processUpdate(Proto::Update *update,
+	virtual void processUpdate(Mutation *mutation,
 			std::function<void(Error)> callback);
 	virtual void processFetch(FetchRequest *fetch,
 			std::function<void(FetchData &)> on_data,

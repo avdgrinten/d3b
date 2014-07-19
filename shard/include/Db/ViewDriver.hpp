@@ -35,7 +35,7 @@ public:
 	virtual Proto::ViewConfig writeConfig() = 0;
 	virtual void readConfig(const Proto::ViewConfig &config) = 0;
 
-	virtual void processUpdate(Proto::Update *update,
+	virtual void processUpdate(Mutation *mutation,
 		std::function<void(Error)> callback) = 0;
 
 	virtual void processQuery(Proto::Query *request,
