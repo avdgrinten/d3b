@@ -4,6 +4,19 @@ namespace Db {
 
 class Engine;
 
+struct Query {
+	int viewIndex;
+
+	bool useFromKey;
+	bool useToKey;
+	
+	std::string fromKey;
+	std::string toKey;
+	int limit;
+
+	Query() : useFromKey(false), useToKey(false), limit(-1) { }
+};
+
 struct QueryData {
 	std::vector<std::string> items;
 };
@@ -37,7 +50,7 @@ public:
 
 	virtual void sequence(std::vector<Mutation *> &mutations) = 0;
 
-	virtual void processQuery(Proto::Query *request,
+	virtual void processQuery(Query *request,
 			std::function<void(QueryData &)> report,
 			std::function<void(Error)> callback) = 0;
 

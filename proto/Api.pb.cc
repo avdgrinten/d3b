@@ -437,7 +437,11 @@ void Update::Swap(Update* other) {
 // ===================================================================
 
 #ifndef _MSC_VER
-const int CqQuery::kQueryFieldNumber;
+const int CqQuery::kViewNameFieldNumber;
+const int CqQuery::kKeysFieldNumber;
+const int CqQuery::kFromKeyFieldNumber;
+const int CqQuery::kToKeyFieldNumber;
+const int CqQuery::kLimitFieldNumber;
 #endif  // !_MSC_VER
 
 CqQuery::CqQuery()
@@ -446,7 +450,6 @@ CqQuery::CqQuery()
 }
 
 void CqQuery::InitAsDefaultInstance() {
-  query_ = const_cast< ::Db::Proto::Query*>(&::Db::Proto::Query::default_instance());
 }
 
 CqQuery::CqQuery(const CqQuery& from)
@@ -457,7 +460,10 @@ CqQuery::CqQuery(const CqQuery& from)
 
 void CqQuery::SharedCtor() {
   _cached_size_ = 0;
-  query_ = NULL;
+  view_name_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
+  from_key_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
+  to_key_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
+  limit_ = 0u;
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
 }
 
@@ -466,8 +472,16 @@ CqQuery::~CqQuery() {
 }
 
 void CqQuery::SharedDtor() {
+  if (view_name_ != &::google::protobuf::internal::kEmptyString) {
+    delete view_name_;
+  }
+  if (from_key_ != &::google::protobuf::internal::kEmptyString) {
+    delete from_key_;
+  }
+  if (to_key_ != &::google::protobuf::internal::kEmptyString) {
+    delete to_key_;
+  }
   if (this != default_instance_) {
-    delete query_;
   }
 }
 
@@ -488,10 +502,24 @@ CqQuery* CqQuery::New() const {
 
 void CqQuery::Clear() {
   if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
-    if (has_query()) {
-      if (query_ != NULL) query_->::Db::Proto::Query::Clear();
+    if (has_view_name()) {
+      if (view_name_ != &::google::protobuf::internal::kEmptyString) {
+        view_name_->clear();
+      }
     }
+    if (has_from_key()) {
+      if (from_key_ != &::google::protobuf::internal::kEmptyString) {
+        from_key_->clear();
+      }
+    }
+    if (has_to_key()) {
+      if (to_key_ != &::google::protobuf::internal::kEmptyString) {
+        to_key_->clear();
+      }
+    }
+    limit_ = 0u;
   }
+  keys_.Clear();
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
 }
 
@@ -501,12 +529,71 @@ bool CqQuery::MergePartialFromCodedStream(
   ::google::protobuf::uint32 tag;
   while ((tag = input->ReadTag()) != 0) {
     switch (::google::protobuf::internal::WireFormatLite::GetTagFieldNumber(tag)) {
-      // required .Db.Proto.Query query = 2;
+      // optional string view_name = 2;
       case 2: {
         if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
             ::google::protobuf::internal::WireFormatLite::WIRETYPE_LENGTH_DELIMITED) {
-          DO_(::google::protobuf::internal::WireFormatLite::ReadMessageNoVirtual(
-               input, mutable_query()));
+          DO_(::google::protobuf::internal::WireFormatLite::ReadString(
+                input, this->mutable_view_name()));
+        } else {
+          goto handle_uninterpreted;
+        }
+        if (input->ExpectTag(26)) goto parse_keys;
+        break;
+      }
+      
+      // repeated bytes keys = 3;
+      case 3: {
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_LENGTH_DELIMITED) {
+         parse_keys:
+          DO_(::google::protobuf::internal::WireFormatLite::ReadBytes(
+                input, this->add_keys()));
+        } else {
+          goto handle_uninterpreted;
+        }
+        if (input->ExpectTag(26)) goto parse_keys;
+        if (input->ExpectTag(34)) goto parse_from_key;
+        break;
+      }
+      
+      // optional bytes from_key = 4;
+      case 4: {
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_LENGTH_DELIMITED) {
+         parse_from_key:
+          DO_(::google::protobuf::internal::WireFormatLite::ReadBytes(
+                input, this->mutable_from_key()));
+        } else {
+          goto handle_uninterpreted;
+        }
+        if (input->ExpectTag(42)) goto parse_to_key;
+        break;
+      }
+      
+      // optional bytes to_key = 5;
+      case 5: {
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_LENGTH_DELIMITED) {
+         parse_to_key:
+          DO_(::google::protobuf::internal::WireFormatLite::ReadBytes(
+                input, this->mutable_to_key()));
+        } else {
+          goto handle_uninterpreted;
+        }
+        if (input->ExpectTag(48)) goto parse_limit;
+        break;
+      }
+      
+      // optional uint32 limit = 6;
+      case 6: {
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT) {
+         parse_limit:
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   ::google::protobuf::uint32, ::google::protobuf::internal::WireFormatLite::TYPE_UINT32>(
+                 input, &limit_)));
+          set_has_limit();
         } else {
           goto handle_uninterpreted;
         }
@@ -531,10 +618,33 @@ bool CqQuery::MergePartialFromCodedStream(
 
 void CqQuery::SerializeWithCachedSizes(
     ::google::protobuf::io::CodedOutputStream* output) const {
-  // required .Db.Proto.Query query = 2;
-  if (has_query()) {
-    ::google::protobuf::internal::WireFormatLite::WriteMessage(
-      2, this->query(), output);
+  // optional string view_name = 2;
+  if (has_view_name()) {
+    ::google::protobuf::internal::WireFormatLite::WriteString(
+      2, this->view_name(), output);
+  }
+  
+  // repeated bytes keys = 3;
+  for (int i = 0; i < this->keys_size(); i++) {
+    ::google::protobuf::internal::WireFormatLite::WriteBytes(
+      3, this->keys(i), output);
+  }
+  
+  // optional bytes from_key = 4;
+  if (has_from_key()) {
+    ::google::protobuf::internal::WireFormatLite::WriteBytes(
+      4, this->from_key(), output);
+  }
+  
+  // optional bytes to_key = 5;
+  if (has_to_key()) {
+    ::google::protobuf::internal::WireFormatLite::WriteBytes(
+      5, this->to_key(), output);
+  }
+  
+  // optional uint32 limit = 6;
+  if (has_limit()) {
+    ::google::protobuf::internal::WireFormatLite::WriteUInt32(6, this->limit(), output);
   }
   
 }
@@ -543,14 +653,42 @@ int CqQuery::ByteSize() const {
   int total_size = 0;
   
   if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
-    // required .Db.Proto.Query query = 2;
-    if (has_query()) {
+    // optional string view_name = 2;
+    if (has_view_name()) {
       total_size += 1 +
-        ::google::protobuf::internal::WireFormatLite::MessageSizeNoVirtual(
-          this->query());
+        ::google::protobuf::internal::WireFormatLite::StringSize(
+          this->view_name());
+    }
+    
+    // optional bytes from_key = 4;
+    if (has_from_key()) {
+      total_size += 1 +
+        ::google::protobuf::internal::WireFormatLite::BytesSize(
+          this->from_key());
+    }
+    
+    // optional bytes to_key = 5;
+    if (has_to_key()) {
+      total_size += 1 +
+        ::google::protobuf::internal::WireFormatLite::BytesSize(
+          this->to_key());
+    }
+    
+    // optional uint32 limit = 6;
+    if (has_limit()) {
+      total_size += 1 +
+        ::google::protobuf::internal::WireFormatLite::UInt32Size(
+          this->limit());
     }
     
   }
+  // repeated bytes keys = 3;
+  total_size += 1 * this->keys_size();
+  for (int i = 0; i < this->keys_size(); i++) {
+    total_size += ::google::protobuf::internal::WireFormatLite::BytesSize(
+      this->keys(i));
+  }
+  
   GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
   _cached_size_ = total_size;
   GOOGLE_SAFE_CONCURRENT_WRITES_END();
@@ -564,9 +702,19 @@ void CqQuery::CheckTypeAndMergeFrom(
 
 void CqQuery::MergeFrom(const CqQuery& from) {
   GOOGLE_CHECK_NE(&from, this);
+  keys_.MergeFrom(from.keys_);
   if (from._has_bits_[0 / 32] & (0xffu << (0 % 32))) {
-    if (from.has_query()) {
-      mutable_query()->::Db::Proto::Query::MergeFrom(from.query());
+    if (from.has_view_name()) {
+      set_view_name(from.view_name());
+    }
+    if (from.has_from_key()) {
+      set_from_key(from.from_key());
+    }
+    if (from.has_to_key()) {
+      set_to_key(from.to_key());
+    }
+    if (from.has_limit()) {
+      set_limit(from.limit());
     }
   }
 }
@@ -578,14 +726,17 @@ void CqQuery::CopyFrom(const CqQuery& from) {
 }
 
 bool CqQuery::IsInitialized() const {
-  if ((_has_bits_[0] & 0x00000001) != 0x00000001) return false;
   
   return true;
 }
 
 void CqQuery::Swap(CqQuery* other) {
   if (other != this) {
-    std::swap(query_, other->query_);
+    std::swap(view_name_, other->view_name_);
+    keys_.Swap(&other->keys_);
+    std::swap(from_key_, other->from_key_);
+    std::swap(to_key_, other->to_key_);
+    std::swap(limit_, other->limit_);
     std::swap(_has_bits_[0], other->_has_bits_[0]);
     std::swap(_cached_size_, other->_cached_size_);
   }

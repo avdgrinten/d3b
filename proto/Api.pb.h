@@ -255,23 +255,81 @@ class CqQuery : public ::google::protobuf::MessageLite {
   
   // accessors -------------------------------------------------------
   
-  // required .Db.Proto.Query query = 2;
-  inline bool has_query() const;
-  inline void clear_query();
-  static const int kQueryFieldNumber = 2;
-  inline const ::Db::Proto::Query& query() const;
-  inline ::Db::Proto::Query* mutable_query();
-  inline ::Db::Proto::Query* release_query();
+  // optional string view_name = 2;
+  inline bool has_view_name() const;
+  inline void clear_view_name();
+  static const int kViewNameFieldNumber = 2;
+  inline const ::std::string& view_name() const;
+  inline void set_view_name(const ::std::string& value);
+  inline void set_view_name(const char* value);
+  inline void set_view_name(const char* value, size_t size);
+  inline ::std::string* mutable_view_name();
+  inline ::std::string* release_view_name();
+  
+  // repeated bytes keys = 3;
+  inline int keys_size() const;
+  inline void clear_keys();
+  static const int kKeysFieldNumber = 3;
+  inline const ::std::string& keys(int index) const;
+  inline ::std::string* mutable_keys(int index);
+  inline void set_keys(int index, const ::std::string& value);
+  inline void set_keys(int index, const char* value);
+  inline void set_keys(int index, const void* value, size_t size);
+  inline ::std::string* add_keys();
+  inline void add_keys(const ::std::string& value);
+  inline void add_keys(const char* value);
+  inline void add_keys(const void* value, size_t size);
+  inline const ::google::protobuf::RepeatedPtrField< ::std::string>& keys() const;
+  inline ::google::protobuf::RepeatedPtrField< ::std::string>* mutable_keys();
+  
+  // optional bytes from_key = 4;
+  inline bool has_from_key() const;
+  inline void clear_from_key();
+  static const int kFromKeyFieldNumber = 4;
+  inline const ::std::string& from_key() const;
+  inline void set_from_key(const ::std::string& value);
+  inline void set_from_key(const char* value);
+  inline void set_from_key(const void* value, size_t size);
+  inline ::std::string* mutable_from_key();
+  inline ::std::string* release_from_key();
+  
+  // optional bytes to_key = 5;
+  inline bool has_to_key() const;
+  inline void clear_to_key();
+  static const int kToKeyFieldNumber = 5;
+  inline const ::std::string& to_key() const;
+  inline void set_to_key(const ::std::string& value);
+  inline void set_to_key(const char* value);
+  inline void set_to_key(const void* value, size_t size);
+  inline ::std::string* mutable_to_key();
+  inline ::std::string* release_to_key();
+  
+  // optional uint32 limit = 6;
+  inline bool has_limit() const;
+  inline void clear_limit();
+  static const int kLimitFieldNumber = 6;
+  inline ::google::protobuf::uint32 limit() const;
+  inline void set_limit(::google::protobuf::uint32 value);
   
   // @@protoc_insertion_point(class_scope:Api.Proto.CqQuery)
  private:
-  inline void set_has_query();
-  inline void clear_has_query();
+  inline void set_has_view_name();
+  inline void clear_has_view_name();
+  inline void set_has_from_key();
+  inline void clear_has_from_key();
+  inline void set_has_to_key();
+  inline void clear_has_to_key();
+  inline void set_has_limit();
+  inline void clear_has_limit();
   
-  ::Db::Proto::Query* query_;
+  ::std::string* view_name_;
+  ::google::protobuf::RepeatedPtrField< ::std::string> keys_;
+  ::std::string* from_key_;
+  ::std::string* to_key_;
+  ::google::protobuf::uint32 limit_;
   
   mutable int _cached_size_;
-  ::google::protobuf::uint32 _has_bits_[(1 + 31) / 32];
+  ::google::protobuf::uint32 _has_bits_[(5 + 31) / 32];
   
   friend void  protobuf_AddDesc_proto_2fApi_2eproto();
   friend void protobuf_AssignDesc_proto_2fApi_2eproto();
@@ -1234,33 +1292,244 @@ inline ::std::string* Update::release_buffer() {
 
 // CqQuery
 
-// required .Db.Proto.Query query = 2;
-inline bool CqQuery::has_query() const {
+// optional string view_name = 2;
+inline bool CqQuery::has_view_name() const {
   return (_has_bits_[0] & 0x00000001u) != 0;
 }
-inline void CqQuery::set_has_query() {
+inline void CqQuery::set_has_view_name() {
   _has_bits_[0] |= 0x00000001u;
 }
-inline void CqQuery::clear_has_query() {
+inline void CqQuery::clear_has_view_name() {
   _has_bits_[0] &= ~0x00000001u;
 }
-inline void CqQuery::clear_query() {
-  if (query_ != NULL) query_->::Db::Proto::Query::Clear();
-  clear_has_query();
+inline void CqQuery::clear_view_name() {
+  if (view_name_ != &::google::protobuf::internal::kEmptyString) {
+    view_name_->clear();
+  }
+  clear_has_view_name();
 }
-inline const ::Db::Proto::Query& CqQuery::query() const {
-  return query_ != NULL ? *query_ : *default_instance_->query_;
+inline const ::std::string& CqQuery::view_name() const {
+  return *view_name_;
 }
-inline ::Db::Proto::Query* CqQuery::mutable_query() {
-  set_has_query();
-  if (query_ == NULL) query_ = new ::Db::Proto::Query;
-  return query_;
+inline void CqQuery::set_view_name(const ::std::string& value) {
+  set_has_view_name();
+  if (view_name_ == &::google::protobuf::internal::kEmptyString) {
+    view_name_ = new ::std::string;
+  }
+  view_name_->assign(value);
 }
-inline ::Db::Proto::Query* CqQuery::release_query() {
-  clear_has_query();
-  ::Db::Proto::Query* temp = query_;
-  query_ = NULL;
-  return temp;
+inline void CqQuery::set_view_name(const char* value) {
+  set_has_view_name();
+  if (view_name_ == &::google::protobuf::internal::kEmptyString) {
+    view_name_ = new ::std::string;
+  }
+  view_name_->assign(value);
+}
+inline void CqQuery::set_view_name(const char* value, size_t size) {
+  set_has_view_name();
+  if (view_name_ == &::google::protobuf::internal::kEmptyString) {
+    view_name_ = new ::std::string;
+  }
+  view_name_->assign(reinterpret_cast<const char*>(value), size);
+}
+inline ::std::string* CqQuery::mutable_view_name() {
+  set_has_view_name();
+  if (view_name_ == &::google::protobuf::internal::kEmptyString) {
+    view_name_ = new ::std::string;
+  }
+  return view_name_;
+}
+inline ::std::string* CqQuery::release_view_name() {
+  clear_has_view_name();
+  if (view_name_ == &::google::protobuf::internal::kEmptyString) {
+    return NULL;
+  } else {
+    ::std::string* temp = view_name_;
+    view_name_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
+    return temp;
+  }
+}
+
+// repeated bytes keys = 3;
+inline int CqQuery::keys_size() const {
+  return keys_.size();
+}
+inline void CqQuery::clear_keys() {
+  keys_.Clear();
+}
+inline const ::std::string& CqQuery::keys(int index) const {
+  return keys_.Get(index);
+}
+inline ::std::string* CqQuery::mutable_keys(int index) {
+  return keys_.Mutable(index);
+}
+inline void CqQuery::set_keys(int index, const ::std::string& value) {
+  keys_.Mutable(index)->assign(value);
+}
+inline void CqQuery::set_keys(int index, const char* value) {
+  keys_.Mutable(index)->assign(value);
+}
+inline void CqQuery::set_keys(int index, const void* value, size_t size) {
+  keys_.Mutable(index)->assign(
+    reinterpret_cast<const char*>(value), size);
+}
+inline ::std::string* CqQuery::add_keys() {
+  return keys_.Add();
+}
+inline void CqQuery::add_keys(const ::std::string& value) {
+  keys_.Add()->assign(value);
+}
+inline void CqQuery::add_keys(const char* value) {
+  keys_.Add()->assign(value);
+}
+inline void CqQuery::add_keys(const void* value, size_t size) {
+  keys_.Add()->assign(reinterpret_cast<const char*>(value), size);
+}
+inline const ::google::protobuf::RepeatedPtrField< ::std::string>&
+CqQuery::keys() const {
+  return keys_;
+}
+inline ::google::protobuf::RepeatedPtrField< ::std::string>*
+CqQuery::mutable_keys() {
+  return &keys_;
+}
+
+// optional bytes from_key = 4;
+inline bool CqQuery::has_from_key() const {
+  return (_has_bits_[0] & 0x00000004u) != 0;
+}
+inline void CqQuery::set_has_from_key() {
+  _has_bits_[0] |= 0x00000004u;
+}
+inline void CqQuery::clear_has_from_key() {
+  _has_bits_[0] &= ~0x00000004u;
+}
+inline void CqQuery::clear_from_key() {
+  if (from_key_ != &::google::protobuf::internal::kEmptyString) {
+    from_key_->clear();
+  }
+  clear_has_from_key();
+}
+inline const ::std::string& CqQuery::from_key() const {
+  return *from_key_;
+}
+inline void CqQuery::set_from_key(const ::std::string& value) {
+  set_has_from_key();
+  if (from_key_ == &::google::protobuf::internal::kEmptyString) {
+    from_key_ = new ::std::string;
+  }
+  from_key_->assign(value);
+}
+inline void CqQuery::set_from_key(const char* value) {
+  set_has_from_key();
+  if (from_key_ == &::google::protobuf::internal::kEmptyString) {
+    from_key_ = new ::std::string;
+  }
+  from_key_->assign(value);
+}
+inline void CqQuery::set_from_key(const void* value, size_t size) {
+  set_has_from_key();
+  if (from_key_ == &::google::protobuf::internal::kEmptyString) {
+    from_key_ = new ::std::string;
+  }
+  from_key_->assign(reinterpret_cast<const char*>(value), size);
+}
+inline ::std::string* CqQuery::mutable_from_key() {
+  set_has_from_key();
+  if (from_key_ == &::google::protobuf::internal::kEmptyString) {
+    from_key_ = new ::std::string;
+  }
+  return from_key_;
+}
+inline ::std::string* CqQuery::release_from_key() {
+  clear_has_from_key();
+  if (from_key_ == &::google::protobuf::internal::kEmptyString) {
+    return NULL;
+  } else {
+    ::std::string* temp = from_key_;
+    from_key_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
+    return temp;
+  }
+}
+
+// optional bytes to_key = 5;
+inline bool CqQuery::has_to_key() const {
+  return (_has_bits_[0] & 0x00000008u) != 0;
+}
+inline void CqQuery::set_has_to_key() {
+  _has_bits_[0] |= 0x00000008u;
+}
+inline void CqQuery::clear_has_to_key() {
+  _has_bits_[0] &= ~0x00000008u;
+}
+inline void CqQuery::clear_to_key() {
+  if (to_key_ != &::google::protobuf::internal::kEmptyString) {
+    to_key_->clear();
+  }
+  clear_has_to_key();
+}
+inline const ::std::string& CqQuery::to_key() const {
+  return *to_key_;
+}
+inline void CqQuery::set_to_key(const ::std::string& value) {
+  set_has_to_key();
+  if (to_key_ == &::google::protobuf::internal::kEmptyString) {
+    to_key_ = new ::std::string;
+  }
+  to_key_->assign(value);
+}
+inline void CqQuery::set_to_key(const char* value) {
+  set_has_to_key();
+  if (to_key_ == &::google::protobuf::internal::kEmptyString) {
+    to_key_ = new ::std::string;
+  }
+  to_key_->assign(value);
+}
+inline void CqQuery::set_to_key(const void* value, size_t size) {
+  set_has_to_key();
+  if (to_key_ == &::google::protobuf::internal::kEmptyString) {
+    to_key_ = new ::std::string;
+  }
+  to_key_->assign(reinterpret_cast<const char*>(value), size);
+}
+inline ::std::string* CqQuery::mutable_to_key() {
+  set_has_to_key();
+  if (to_key_ == &::google::protobuf::internal::kEmptyString) {
+    to_key_ = new ::std::string;
+  }
+  return to_key_;
+}
+inline ::std::string* CqQuery::release_to_key() {
+  clear_has_to_key();
+  if (to_key_ == &::google::protobuf::internal::kEmptyString) {
+    return NULL;
+  } else {
+    ::std::string* temp = to_key_;
+    to_key_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
+    return temp;
+  }
+}
+
+// optional uint32 limit = 6;
+inline bool CqQuery::has_limit() const {
+  return (_has_bits_[0] & 0x00000010u) != 0;
+}
+inline void CqQuery::set_has_limit() {
+  _has_bits_[0] |= 0x00000010u;
+}
+inline void CqQuery::clear_has_limit() {
+  _has_bits_[0] &= ~0x00000010u;
+}
+inline void CqQuery::clear_limit() {
+  limit_ = 0u;
+  clear_has_limit();
+}
+inline ::google::protobuf::uint32 CqQuery::limit() const {
+  return limit_;
+}
+inline void CqQuery::set_limit(::google::protobuf::uint32 value) {
+  set_has_limit();
+  limit_ = value;
 }
 
 // -------------------------------------------------------------------

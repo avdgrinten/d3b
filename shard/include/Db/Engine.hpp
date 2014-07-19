@@ -41,7 +41,7 @@ public:
 			std::function<void(FetchData &)> on_data,
 			std::function<void(Error)> callback);
 	
-	Error query(Proto::Query *request,
+	Error query(Query *request,
 			std::function<void(QueryData &)> report,
 			std::function<void(Error)> callback);
 	

@@ -2,14 +2,6 @@
 package Db.Proto;
 option optimize_for = LITE_RUNTIME;
 
-message Query {
-	optional string view_name = 2;
-	repeated bytes keys = 3;
-	optional bytes from_key = 4;
-	optional bytes to_key = 5;
-	optional uint32 limit = 6;
-}
-
 message WriteAhead {
 	enum Type {
 		kNone = 0;

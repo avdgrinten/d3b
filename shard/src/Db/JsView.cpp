@@ -266,21 +266,21 @@ void JsView::p_onRemove(id_type id,
 	});
 }
 
-void JsView::processQuery(Proto::Query *request,
+void JsView::processQuery(Query *request,
 		std::function<void(QueryData &)> report,
 		std::function<void(Error)> callback) {	
 	v8::Context::Scope context_scope(p_context);
 	v8::HandleScope handle_scope;
 
 	v8::Persistent<v8::Value> end_key;
-	if(request->has_to_key())
-		end_key = v8::Persistent<v8::Value>::New(p_extractKey(request->to_key().c_str(),
-				request->to_key().size()));
+	if(request->useToKey)
+		end_key = v8::Persistent<v8::Value>::New(p_extractKey(request->toKey.c_str(),
+				request->toKey.size()));
 	
 	Btree<id_type>::Ref begin_ref;
-	if(request->has_from_key()) {
-		auto begin_key = v8::Persistent<v8::Value>::New(p_extractKey(request->from_key().c_str(),
-				request->from_key().size()));
+	if(request->useFromKey) {
+		auto begin_key = v8::Persistent<v8::Value>::New(p_extractKey(request->fromKey.c_str(),
+				request->fromKey.size()));
 		begin_ref = p_orderTree.findNext([this, begin_key] (id_type keyid_a) -> int {
 			auto object_a = p_keyStore.getObject(keyid_a);
 			auto length_a = p_keyStore.objectLength(object_a);
@@ -316,7 +316,7 @@ void JsView::processQuery(Proto::Query *request,
 	Async::whilst([request, control]() -> bool {
 		if(!control->sequence.valid())
 			return false;
-		if(request->has_limit() && control->count == request->limit())
+		if(request->limit != -1 && control->count == request->limit)
 			return false;
 		return true;
 	}, [this, report, control](std::function<void(Error)> elem_cb) {

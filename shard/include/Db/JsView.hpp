@@ -26,7 +26,7 @@ public:
 	
 	virtual void sequence(std::vector<Mutation *> &mutations);
 
-	virtual void processQuery(Proto::Query *request,
+	virtual void processQuery(Query *request,
 			std::function<void(QueryData &)> report,
 			std::function<void(Error)> callback);
 

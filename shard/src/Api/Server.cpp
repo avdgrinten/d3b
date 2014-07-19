@@ -86,10 +86,21 @@ void Server::Connection::p_processMessage() {
 		}
 
 		struct control_struct {
-			Db::Proto::Query query;
+			Db::Query query;
 		};
 		control_struct *control = new control_struct;
-		control->query = request.query();
+		
+		control->query.viewIndex = engine->getView(request.view_name());
+		if(request.has_from_key()) {
+			control->query.useFromKey = true;
+			control->query.fromKey = request.from_key();
+		}
+		if(request.has_to_key()) {
+			control->query.useFromKey = true;
+			control->query.fromKey = request.to_key();
+		}
+		if(request.has_limit())
+			control->query.limit = request.limit();
 
 		engine->query(&control->query, [=] (const Db::QueryData &rows) {
 			Proto::SrRows response;

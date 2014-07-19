@@ -114,7 +114,7 @@ function query(client, opts, row_handler, callback) {
 		}else throw new Error("Unexpected response " + opcode);
 	});
 	req.send(d3b.ClientRequests.kCqQuery, {
-		query: { viewName: opts.viewName } });
+		viewName: opts.viewName });
 }
 
 module.exports.createStorage = createStorage;

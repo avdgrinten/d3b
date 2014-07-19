@@ -224,15 +224,10 @@ void Engine::fetch(FetchRequest *fetch,
 	driver->processFetch(fetch, on_data, callback);
 }
 
-Error Engine::query(Proto::Query *request,
+Error Engine::query(Query *request,
 		std::function<void(QueryData &)> on_data,
 		std::function<void(Error)> callback) {
-	int view = -1;
-	if(request->has_view_name())
-		view = getView(request->view_name());
-	if(view == -1)
-		return Error(kErrIllegalView);
-	ViewDriver *driver = p_views[view];
+	ViewDriver *driver = p_views[request->viewIndex];
 	driver->processQuery(request, on_data, callback);
 }
 
