@@ -198,13 +198,18 @@ private:
 			/ (p_keySize + p_valSize);
 	}
 
+	// size of an entry in an inner node
+	// entries consist of key + reference to child block
 	Linux::size_type p_entSizeInner() {
 		return p_keySize + sizeof(blknum_type);
 	}
+	// offset of an entry in an inner node
 	Linux::size_type p_entOffInner(int i) {
 		return sizeof(InnerHead) + sizeof(blknum_type)
 				+ p_entSizeInner() * i;
 	}
+	// offset of the leftmost child reference
+	// it does not belong to an entry and thus must be special cased
 	Linux::size_type p_lrefOffInner() {
 		return sizeof(InnerHead);
 	}
@@ -559,7 +564,7 @@ void Btree<KeyType>::p_splitInner(char *block, blknum_type blk_num,
 	
 	char *split_block = new char[p_blockSize];
 	p_headSetFlags(split_block, 0);
-	p_innerSetEntCount(block, right_n);	
+	p_innerSetEntCount(split_block, right_n);	
 	
 	/* setup the leftmost child reference of the new block */
 	char *block_rref = block + p_refOffInner(left_n);
