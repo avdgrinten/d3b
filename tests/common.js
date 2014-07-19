@@ -4,8 +4,8 @@ var child_process = require('child_process');
 var async = require('async');
 var d3b = require('../client-nodejs/d3b');
 
-var showServerOutput = false;
-var useRunningServer = true;
+var showServerOutput = !!process.env.D3B_SHOW_SERVER_OUTPUT;
+var useRunningServer = !!process.env.D3B_USE_RUNNING_SERVER;
 
 process.on('uncaughtException', function(error) {
 	console.log("Uncaught exception:", error.stack);
