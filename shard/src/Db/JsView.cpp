@@ -90,7 +90,8 @@ JsView::JsView(Engine *engine) : ViewDriver(engine),
 		
 		v8::Context::Scope context_scope(p_context);
 		v8::HandleScope handle_scope;
-	
+		v8::TryCatch trycatch;
+
 		v8::Local<v8::Value> ser_a = v8::String::New(buf_a, length_a);
 		v8::Local<v8::Value> ser_b = v8::String::New(buf_b, length_b);
 		delete[] buf_a;
@@ -99,6 +100,8 @@ JsView::JsView(Engine *engine) : ViewDriver(engine),
 		v8::Local<v8::Value> key_a = p_deserializeKey(ser_a);
 		v8::Local<v8::Value> key_b = p_deserializeKey(ser_b);
 		v8::Local<v8::Value> result = p_compare(key_a, key_b);
+		if(trycatch.HasCaught())
+			throw std::runtime_error("Unexpected javascript exception");
 		return result->Int32Value();
 	});
 	p_orderTree.setWriteKey([] (void *buffer, id_type id) {
@@ -170,7 +173,7 @@ void JsView::p_onInsert(id_type id,
 	v8::HandleScope handle_scope;
 	
 	v8::Local<v8::Value> extracted = p_extractDoc(id, document, length);
-	v8::Local<v8::Value> key = p_keyOf(extracted);
+	auto key = v8::Persistent<v8::Value>::New(p_keyOf(extracted));
 	v8::Local<v8::Value> ser = p_serializeKey(key);
 
 	v8::String::Utf8Value ser_value(ser);	
@@ -190,6 +193,9 @@ void JsView::p_onInsert(id_type id,
 		auto length_a = p_keyStore.objectLength(object_a);
 		char *buf_a = new char[length_a];
 		p_keyStore.readObject(object_a, 0, length_a, buf_a);
+	
+		v8::Context::Scope context_scope(p_context);
+		v8::HandleScope handle_scope;
 		
 		v8::Local<v8::Value> ser_a = v8::String::New(buf_a, length_a);
 		delete[] buf_a;
@@ -209,9 +215,9 @@ void JsView::p_onRemove(id_type id,
 		v8::Context::Scope context_scope(p_context);
 		v8::HandleScope handle_scope;
 		
-		v8::Local<v8::Value> extracted = p_extractDoc(id,
-			data.buffer.data(), data.buffer.size());
-		v8::Local<v8::Value> key = p_keyOf(extracted);
+		auto extracted = v8::Persistent<v8::Value>::New(p_extractDoc(id,
+				data.buffer.data(), data.buffer.size()));
+		auto key = v8::Persistent<v8::Value>::New(p_keyOf(extracted));
 		
 		Btree<id_type>::Ref ref = p_orderTree.findNext
 				([this, key] (id_type keyid_a) -> int {
@@ -219,6 +225,9 @@ void JsView::p_onRemove(id_type id,
 			auto length_a = p_keyStore.objectLength(object_a);
 			char *buf_a = new char[length_a];
 			p_keyStore.readObject(object_a, 0, length_a, buf_a);
+			
+			v8::Context::Scope context_scope(p_context);
+			v8::HandleScope handle_scope;
 			
 			v8::Local<v8::Value> ser_a = v8::String::New(buf_a, length_a);
 			delete[] buf_a;
@@ -259,21 +268,24 @@ void JsView::processQuery(Proto::Query *request,
 	v8::Context::Scope context_scope(p_context);
 	v8::HandleScope handle_scope;
 
-	v8::Handle<v8::Value> end_key;
+	v8::Persistent<v8::Value> end_key;
 	if(request->has_to_key())
-		end_key = p_extractKey(request->to_key().c_str(),
-				request->to_key().size());
+		end_key = v8::Persistent<v8::Value>::New(p_extractKey(request->to_key().c_str(),
+				request->to_key().size()));
 	
 	Btree<id_type>::Ref begin_ref;
 	if(request->has_from_key()) {
-		v8::Handle<v8::Value> begin_key = p_extractKey(request->from_key().c_str(),
-				request->from_key().size());
+		auto begin_key = v8::Persistent<v8::Value>::New(p_extractKey(request->from_key().c_str(),
+				request->from_key().size()));
 		begin_ref = p_orderTree.findNext([this, begin_key] (id_type keyid_a) -> int {
 			auto object_a = p_keyStore.getObject(keyid_a);
 			auto length_a = p_keyStore.objectLength(object_a);
 			char *buf_a = new char[length_a];
 			p_keyStore.readObject(object_a, 0, length_a, buf_a);
 			
+			v8::Context::Scope context_scope(p_context);
+			v8::HandleScope handle_scope;
+
 			v8::Local<v8::Value> ser_a = v8::String::New(buf_a, length_a);
 			delete[] buf_a;
 			v8::Local<v8::Value> key_a = p_deserializeKey(ser_a);
@@ -297,13 +309,13 @@ void JsView::processQuery(Proto::Query *request,
 		p_orderTree.sequence(begin_ref));
 	control->count = 0;
 	
-	Async::whilst([=]() -> bool {
+	Async::whilst([request, control]() -> bool {
 		if(!control->sequence.valid())
 			return false;
 		if(request->has_limit() && control->count == request->limit())
 			return false;
 		return true;
-	}, [=](std::function<void(Error)> elem_cb) {
+	}, [this, report, control](std::function<void(Error)> elem_cb) {
 		id_type read_id;
 		control->sequence.getValue(&read_id);
 		id_type id = OS::fromLe(read_id);
@@ -316,13 +328,13 @@ void JsView::processQuery(Proto::Query *request,
 		
 		control->fetch.storageIndex = p_storage;
 		control->fetch.documentId = id;
-		getEngine()->fetch(&control->fetch, [=](FetchData &data) {
+		getEngine()->fetch(&control->fetch, [this, id, control](FetchData &data) {
 			v8::Context::Scope context_scope(p_context);
 			v8::HandleScope handle_scope;
 			
 			v8::Local<v8::Value> extracted = p_extractDoc(id,
 					data.buffer.data(), data.buffer.length());
-			
+
 			/* FIXME:
 			if(!end_key.IsEmpty()) {
 				v8::Local<v8::Value> key = p_keyOf(extracted);
@@ -333,7 +345,7 @@ void JsView::processQuery(Proto::Query *request,
 			v8::Local<v8::Value> rpt_value = p_report(extracted);
 			v8::String::Utf8Value rpt_utf8(rpt_value);
 			control->rows.items.emplace_back(*rpt_utf8, rpt_utf8.length());
-		}, [=](Error error) {
+		}, [report, control, elem_cb](Error error) {
 			if(!error.ok())
 				return elem_cb(error);
 
@@ -343,7 +355,7 @@ void JsView::processQuery(Proto::Query *request,
 			}
 			++control->sequence;
 			++control->count;
-			elem_cb(Error(true));
+			osIntf->nextTick([elem_cb]() { elem_cb(Error(true)); });
 		});
 	}, [=] (Error error) {
 		if(!error.ok())
