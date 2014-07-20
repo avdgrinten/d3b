@@ -1,4 +1,5 @@
 
+#include "Async.hpp"
 
 namespace Db {
 
@@ -51,8 +52,8 @@ public:
 	virtual void sequence(std::vector<Mutation *> &mutations) = 0;
 
 	virtual void processQuery(Query *request,
-			std::function<void(QueryData &)> report,
-			std::function<void(Error)> callback) = 0;
+			Async::Callback<void(QueryData &)> report,
+			Async::Callback<void(Error)> callback) = 0;
 
 	inline Engine *getEngine() {
 		return p_engine;

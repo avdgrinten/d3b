@@ -99,7 +99,7 @@ void Server::QueryClosure::execute(size_t packet_size, const void *packet_buffer
 	p_engine->query(&p_query, ASYNC_MEMBER(this, &QueryClosure::onData),
 			ASYNC_MEMBER(this, &QueryClosure::complete));
 }
-void Server::QueryClosure::onData(const Db::QueryData &rows) {
+void Server::QueryClosure::onData(Db::QueryData &rows) {
 	Proto::SrRows response;
 	for(int i = 0; i < rows.items.size(); i++)
 		response.add_row_data(rows.items[i]);

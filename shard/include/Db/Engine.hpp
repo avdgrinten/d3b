@@ -43,8 +43,8 @@ public:
 			std::function<void(Error)> callback);
 	
 	Error query(Query *request,
-			std::function<void(QueryData &)> report,
-			std::function<void(Error)> callback);
+			Async::Callback<void(QueryData &)> report,
+			Async::Callback<void(Error)> callback);
 	
 	void process();
 	

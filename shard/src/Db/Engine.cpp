@@ -283,8 +283,8 @@ void Engine::fetch(FetchRequest *fetch,
 }
 
 Error Engine::query(Query *request,
-		std::function<void(QueryData &)> on_data,
-		std::function<void(Error)> callback) {
+		Async::Callback<void(QueryData &)> on_data,
+		Async::Callback<void(Error)> callback) {
 	ViewDriver *driver = p_views[request->viewIndex];
 	driver->processQuery(request, on_data, callback);
 }

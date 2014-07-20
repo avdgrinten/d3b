@@ -267,8 +267,8 @@ void JsView::p_onRemove(DocumentId id,
 }
 
 void JsView::processQuery(Query *request,
-		std::function<void(QueryData &)> report,
-		std::function<void(Error)> callback) {	
+		Async::Callback<void(QueryData &)> report,
+		Async::Callback<void(Error)> callback) {	
 	v8::Context::Scope context_scope(p_context);
 	v8::HandleScope handle_scope;
 

@@ -54,7 +54,7 @@ private:
 		void execute(size_t packet_size, const void *packet_buffer);
 
 	private:
-		void onData(const Db::QueryData &data);
+		void onData(Db::QueryData &data);
 		void complete(Error error);
 
 		Db::Engine *p_engine;

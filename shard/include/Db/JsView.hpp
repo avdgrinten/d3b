@@ -28,8 +28,8 @@ public:
 	virtual void sequence(std::vector<Mutation *> &mutations);
 
 	virtual void processQuery(Query *request,
-			std::function<void(QueryData &)> report,
-			std::function<void(Error)> callback);
+			Async::Callback<void(QueryData &)> report,
+			Async::Callback<void(Error)> callback);
 
 private:
 	std::string p_scriptFile;

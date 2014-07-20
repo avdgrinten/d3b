@@ -36,7 +36,7 @@ public:
 	Callback(void *object, Res (*function)(void *, Args...))
 			: p_object(object), p_function(function) { }
 
-	Res operator() (Args... args) {
+	Res operator() (Args... args) const {
 		p_function(p_object, args...);
 	}
 	
