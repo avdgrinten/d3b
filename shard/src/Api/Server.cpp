@@ -96,9 +96,8 @@ void Server::QueryClosure::execute(size_t packet_size, const void *packet_buffer
 	if(request.has_limit())
 		p_query.limit = request.limit();
 
-	p_engine->query(&p_query,
-		Async::Callback<void(const Db::QueryData &)>::make<QueryClosure, &QueryClosure::onData>(this),
-		Async::Callback<void(Error)>::make<QueryClosure, &QueryClosure::complete>(this));
+	p_engine->query(&p_query, ASYNC_MEMBER(this, &QueryClosure::onData),
+			ASYNC_MEMBER(this, &QueryClosure::complete));
 }
 void Server::QueryClosure::onData(const Db::QueryData &rows) {
 	Proto::SrRows response;
@@ -146,8 +145,7 @@ void Server::ShortTransactClosure::execute(size_t packet_size, const void *packe
 		p_mutations.push_back(mutation);
 	}
 
-	p_engine->transaction(Async::Callback<void(Error, Db::TransactionId)>
-			::make<ShortTransactClosure, &ShortTransactClosure::onTransaction>(this));
+	p_engine->transaction(ASYNC_MEMBER(this, &ShortTransactClosure::onTransaction));
 };
 void Server::ShortTransactClosure::onTransaction(Error error,
 		Db::TransactionId transaction_id) {
@@ -156,11 +154,12 @@ void Server::ShortTransactClosure::onTransaction(Error error,
 }
 void Server::ShortTransactClosure::updateMutation() {
 	if(p_updatedMutationsCount == p_mutations.size()) {
-		p_engine->submit(p_transactionId, Async::Callback<void(Error)>
-			::make<ShortTransactClosure, &ShortTransactClosure::onSubmit>(this));
+		p_engine->submit(p_transactionId,
+				ASYNC_MEMBER(this, &ShortTransactClosure::onSubmit));
 	}else{
-		p_engine->updateMutation(p_transactionId, &p_mutations[p_updatedMutationsCount],
-			Async::Callback<void(Error)>::make<ShortTransactClosure, &ShortTransactClosure::onUpdateMutation>(this));
+		p_engine->updateMutation(p_transactionId,
+				&p_mutations[p_updatedMutationsCount],
+				ASYNC_MEMBER(this, &ShortTransactClosure::onUpdateMutation));
 	}
 }
 void Server::ShortTransactClosure::onUpdateMutation(Error error) {
@@ -168,8 +167,8 @@ void Server::ShortTransactClosure::onUpdateMutation(Error error) {
 	updateMutation();
 }
 void Server::ShortTransactClosure::onSubmit(Error error) {
-	p_engine->commit(p_transactionId, Async::Callback<void(Error)>
-		::make<ShortTransactClosure, &ShortTransactClosure::onCommit>(this));
+	p_engine->commit(p_transactionId,
+			ASYNC_MEMBER(this, &ShortTransactClosure::onCommit));
 }
 void Server::ShortTransactClosure::onCommit(Error error) {
 	Proto::SrFin response;

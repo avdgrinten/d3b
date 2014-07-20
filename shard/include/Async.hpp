@@ -45,6 +45,18 @@ private:
 	Res (*p_function)(void *, Args...);
 };
 
+template<typename F, F function>
+struct Member;
+
+template<typename Object, typename Res, typename... Args, Res(Object::*function)(Args...)>
+struct Member<Res(Object::*)(Args...), function> {
+	static Callback<Res(Args...)> make(Object *object) {
+		return Callback<Res(Args...)>::template make<Object, function>(object);
+	}
+};
+
+#define ASYNC_MEMBER(x, f) ::Async::Member<decltype(f), (f)>::make(x)
+
 template<typename FinalCb, int i, typename... Functors>
 struct p_staticSeries;
 

@@ -172,8 +172,7 @@ Engine::ProcessQueueClosure::ProcessQueueClosure(Engine *engine,
 	: p_engine(engine), p_callback(callback) { }
 
 void Engine::ProcessQueueClosure::processLoop() {
-	p_engine->p_eventFd->wait(Async::Callback<void()>::make<ProcessQueueClosure,
-			&ProcessQueueClosure::processItem>(this));
+	p_engine->p_eventFd->wait(ASYNC_MEMBER(this, &ProcessQueueClosure::processItem));
 }
 
 void Engine::ProcessQueueClosure::processItem() {
@@ -186,8 +185,7 @@ void Engine::ProcessQueueClosure::processItem() {
 			processCommit();
 		}else throw std::logic_error("Queued item has illegal type");
 	}else{
-		osIntf->nextTick(Async::Callback<void()>::make<ProcessQueueClosure,
-				&ProcessQueueClosure::processLoop>(this));
+		osIntf->nextTick(ASYNC_MEMBER(this, &ProcessQueueClosure::processLoop));
 	}
 }
 	
@@ -223,8 +221,7 @@ void Engine::ProcessQueueClosure::processSubmit() {
 	}
 
 	p_engine->p_writeAhead.log(p_logEntry,
-			Async::Callback<void(Error)>::make<ProcessQueueClosure,
-				&ProcessQueueClosure::onSubmitWriteAhead>(this));
+			ASYNC_MEMBER(this, &ProcessQueueClosure::onSubmitWriteAhead));
 }
 void Engine::ProcessQueueClosure::onSubmitWriteAhead(Error error) {
 	//TODO: handle failure
@@ -233,8 +230,7 @@ void Engine::ProcessQueueClosure::onSubmitWriteAhead(Error error) {
 
 	p_transaction = nullptr;
 	p_logEntry.Clear();
-	osIntf->nextTick(Async::Callback<void()>::make<ProcessQueueClosure,
-			&ProcessQueueClosure::processItem>(this));
+	osIntf->nextTick(ASYNC_MEMBER(this, &ProcessQueueClosure::processItem));
 }
 
 void Engine::ProcessQueueClosure::processCommit() {
@@ -247,8 +243,7 @@ void Engine::ProcessQueueClosure::processCommit() {
 	p_logEntry.set_transaction_id(p_queueItem.trid);
 
 	p_engine->p_writeAhead.log(p_logEntry,
-			Async::Callback<void(Error)>::make<ProcessQueueClosure,
-			&ProcessQueueClosure::onCommitWriteAhead>(this));
+			ASYNC_MEMBER(this, &ProcessQueueClosure::onCommitWriteAhead));
 }
 void Engine::ProcessQueueClosure::onCommitWriteAhead(Error error) {
 	//TODO: handle failure
@@ -277,8 +272,7 @@ void Engine::ProcessQueueClosure::onCommitWriteAhead(Error error) {
 
 	p_transaction = nullptr;
 	p_logEntry.Clear();
-	osIntf->nextTick(Async::Callback<void()>::make<ProcessQueueClosure,
-			&ProcessQueueClosure::processItem>(this));
+	osIntf->nextTick(ASYNC_MEMBER(this, &ProcessQueueClosure::processItem));
 }
 
 void Engine::fetch(FetchRequest *fetch,
