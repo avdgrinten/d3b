@@ -185,34 +185,78 @@ void Engine::p_processQueue(std::function<void(Error)> callback) {
 			Queued queued = p_submitQueue.front();
 			p_submitQueue.pop_front();
 			if(queued.type == Queued::kTypeSubmit) {
-				queued.callback(Error(true));
-				osIntf->nextTick([=]() { main_cb(Error(true)); });
+				auto transact_it = p_openTransactions.find(queued.trid);
+				if(transact_it == p_openTransactions.end())
+					throw std::runtime_error("Illegal transaction");
+				Transaction *transaction = transact_it->second;
+				
+				Proto::LogEntry log_entry;
+				log_entry.set_type(Proto::LogEntry::kTypeSubmit);
+				log_entry.set_transaction_id(queued.trid);
+
+				for(auto it = transaction->mutations.begin();
+						it != transaction->mutations.end(); ++it) {
+					Mutation *mutation = *it;
+
+					Proto::LogMutation *log_mutation = log_entry.add_mutations();
+					if(mutation->type == Mutation::kTypeInsert) {
+						StorageDriver *driver = p_storage[mutation->storageIndex];
+						
+						log_mutation->set_type(Proto::LogMutation::kTypeInsert);
+						log_mutation->set_storage_name(driver->getIdentifier());
+						log_mutation->set_buffer(mutation->buffer);
+					}else if(mutation->type == Mutation::kTypeModify) {
+						StorageDriver *driver = p_storage[mutation->storageIndex];
+						
+						log_mutation->set_type(Proto::LogMutation::kTypeModify);
+						log_mutation->set_storage_name(driver->getIdentifier());
+						log_mutation->set_document_id(mutation->documentId);
+						log_mutation->set_buffer(mutation->buffer);
+					}else throw std::logic_error("Illegal mutation type");
+				}
+			
+				p_writeAhead.log(log_entry, [queued, main_cb](Error error) {
+					//TODO: handle failure
+					//FIXME: this would segfault if p_writeAhead.write() was truly asyncronous
+
+					queued.callback(Error(true));
+					osIntf->nextTick([=]() { main_cb(Error(true)); });
+				});
 			}else if(queued.type == Queued::kTypeCommit) {
 				auto transact_it = p_openTransactions.find(queued.trid);
 				if(transact_it == p_openTransactions.end())
 					throw std::runtime_error("Illegal transaction");
 				Transaction *transaction = transact_it->second;
 				
-				for(auto it = p_storage.begin(); it != p_storage.end(); ++it) {
-					StorageDriver *driver = *it;
-					if(driver == nullptr)
-						continue;
-					driver->sequence(transaction->mutations);
-				}
-				for(auto it = p_views.begin(); it != p_views.end(); ++it) {
-					ViewDriver *driver = *it;
-					if(driver == nullptr)
-						continue;
-					driver->sequence(transaction->mutations);
-				}
-				
-				// commit/rollback always frees the transaction
-				p_openTransactions.erase(transact_it);
-				delete transaction;
-				
-				queued.callback(Error(true));
+				Proto::LogEntry log_entry;
+				log_entry.set_type(Proto::LogEntry::kTypeCommit);
+				log_entry.set_transaction_id(queued.trid);
 
-				osIntf->nextTick([=]() { main_cb(Error(true)); });
+				p_writeAhead.log(log_entry, [this, queued, transact_it, transaction, main_cb](Error error) {
+					//TODO: handle failure
+					//FIXME: this would segfault if p_writeAhead.write() was truly asyncronous
+
+					for(auto it = p_storage.begin(); it != p_storage.end(); ++it) {
+						StorageDriver *driver = *it;
+						if(driver == nullptr)
+							continue;
+						driver->sequence(transaction->mutations);
+					}
+					for(auto it = p_views.begin(); it != p_views.end(); ++it) {
+						ViewDriver *driver = *it;
+						if(driver == nullptr)
+							continue;
+						driver->sequence(transaction->mutations);
+					}
+					
+					// commit/rollback always frees the transaction
+					p_openTransactions.erase(transact_it);
+					delete transaction;
+					
+					queued.callback(Error(true));
+
+					osIntf->nextTick([=]() { main_cb(Error(true)); });
+				});
 			}else throw std::logic_error("Queued item has illegal type");
 		}, callback);
 }

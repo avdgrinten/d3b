@@ -3,8 +3,6 @@ namespace Ll {
 
 class WriteAhead {
 public:
-	typedef int64_t sequence_type;
-	
 	WriteAhead();
 
 	void setPath(const std::string &path);
@@ -13,7 +11,7 @@ public:
 	void createLog();
 	void loadLog();
 	
-	void submit(Db::Proto::WriteAhead &message,
+	void log(Db::Proto::LogEntry &message,
 			std::function<void(Error)> callback);
 
 private:
@@ -21,8 +19,6 @@ private:
 	std::string p_identifier;
 	
 	std::unique_ptr<Linux::File> p_file;
-	
-	sequence_type p_curSequence;
 };
 
 }

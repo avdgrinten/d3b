@@ -10,7 +10,6 @@
 #include "Ll/WriteAhead.hpp"
 
 Ll::WriteAhead::WriteAhead() {
-	p_curSequence = 1;
 	p_file = osIntf->createFile();
 }
 
@@ -45,7 +44,7 @@ void Ll::WriteAhead::loadLog() {
 		if(memcmp(head + 4, hash, 16) != 0)
 			throw std::runtime_error("WriteAhead: Hash mismatch!");
 
-		Db::Proto::WriteAhead message;
+		Db::Proto::LogEntry message;
 		if(!message.ParseFromArray(buffer, msg_length))
 			throw std::runtime_error("Could not deserialize protobuf");
 
@@ -56,10 +55,8 @@ void Ll::WriteAhead::loadLog() {
 	}
 }
 
-void Ll::WriteAhead::submit(Db::Proto::WriteAhead &message,
+void Ll::WriteAhead::log(Db::Proto::LogEntry &message,
 		std::function<void(Error)> callback) {
-	message.set_sequence(p_curSequence++);
-	
 	int msg_length = message.ByteSize();
 	char *buffer = new char[msg_length + 20];
 

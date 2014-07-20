@@ -17,7 +17,8 @@ void protobuf_ShutdownFile_proto_2fConfig_2eproto() {
   delete Config::default_instance_;
   delete StorageConfig::default_instance_;
   delete ViewConfig::default_instance_;
-  delete WriteAhead::default_instance_;
+  delete LogMutation::default_instance_;
+  delete LogEntry::default_instance_;
 }
 
 void protobuf_AddDesc_proto_2fConfig_2eproto() {
@@ -29,11 +30,13 @@ void protobuf_AddDesc_proto_2fConfig_2eproto() {
   Config::default_instance_ = new Config();
   StorageConfig::default_instance_ = new StorageConfig();
   ViewConfig::default_instance_ = new ViewConfig();
-  WriteAhead::default_instance_ = new WriteAhead();
+  LogMutation::default_instance_ = new LogMutation();
+  LogEntry::default_instance_ = new LogEntry();
   Config::default_instance_->InitAsDefaultInstance();
   StorageConfig::default_instance_->InitAsDefaultInstance();
   ViewConfig::default_instance_->InitAsDefaultInstance();
-  WriteAhead::default_instance_->InitAsDefaultInstance();
+  LogMutation::default_instance_->InitAsDefaultInstance();
+  LogEntry::default_instance_->InitAsDefaultInstance();
   ::google::protobuf::internal::OnShutdown(&protobuf_ShutdownFile_proto_2fConfig_2eproto);
 }
 
@@ -731,13 +734,11 @@ void ViewConfig::Swap(ViewConfig* other) {
 
 // ===================================================================
 
-bool WriteAhead_Type_IsValid(int value) {
+bool LogMutation_Type_IsValid(int value) {
   switch(value) {
     case 0:
     case 1:
     case 2:
-    case 3:
-    case 4:
       return true;
     default:
       return false;
@@ -745,83 +746,98 @@ bool WriteAhead_Type_IsValid(int value) {
 }
 
 #ifndef _MSC_VER
-const WriteAhead_Type WriteAhead::kNone;
-const WriteAhead_Type WriteAhead::kTransact;
-const WriteAhead_Type WriteAhead::kUpdate;
-const WriteAhead_Type WriteAhead::kCommit;
-const WriteAhead_Type WriteAhead::kRollback;
-const WriteAhead_Type WriteAhead::Type_MIN;
-const WriteAhead_Type WriteAhead::Type_MAX;
-const int WriteAhead::Type_ARRAYSIZE;
+const LogMutation_Type LogMutation::kTypeNone;
+const LogMutation_Type LogMutation::kTypeInsert;
+const LogMutation_Type LogMutation::kTypeModify;
+const LogMutation_Type LogMutation::Type_MIN;
+const LogMutation_Type LogMutation::Type_MAX;
+const int LogMutation::Type_ARRAYSIZE;
 #endif  // _MSC_VER
 #ifndef _MSC_VER
-const int WriteAhead::kTypeFieldNumber;
-const int WriteAhead::kSequenceFieldNumber;
-const int WriteAhead::kTransactIdFieldNumber;
+const int LogMutation::kTypeFieldNumber;
+const int LogMutation::kStorageNameFieldNumber;
+const int LogMutation::kDocumentIdFieldNumber;
+const int LogMutation::kBufferFieldNumber;
 #endif  // !_MSC_VER
 
-WriteAhead::WriteAhead()
+LogMutation::LogMutation()
   : ::google::protobuf::MessageLite() {
   SharedCtor();
 }
 
-void WriteAhead::InitAsDefaultInstance() {
+void LogMutation::InitAsDefaultInstance() {
 }
 
-WriteAhead::WriteAhead(const WriteAhead& from)
+LogMutation::LogMutation(const LogMutation& from)
   : ::google::protobuf::MessageLite() {
   SharedCtor();
   MergeFrom(from);
 }
 
-void WriteAhead::SharedCtor() {
+void LogMutation::SharedCtor() {
   _cached_size_ = 0;
   type_ = 0;
-  sequence_ = GOOGLE_LONGLONG(0);
-  transact_id_ = GOOGLE_LONGLONG(0);
+  storage_name_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
+  document_id_ = GOOGLE_LONGLONG(0);
+  buffer_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
 }
 
-WriteAhead::~WriteAhead() {
+LogMutation::~LogMutation() {
   SharedDtor();
 }
 
-void WriteAhead::SharedDtor() {
+void LogMutation::SharedDtor() {
+  if (storage_name_ != &::google::protobuf::internal::kEmptyString) {
+    delete storage_name_;
+  }
+  if (buffer_ != &::google::protobuf::internal::kEmptyString) {
+    delete buffer_;
+  }
   if (this != default_instance_) {
   }
 }
 
-void WriteAhead::SetCachedSize(int size) const {
+void LogMutation::SetCachedSize(int size) const {
   GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
   _cached_size_ = size;
   GOOGLE_SAFE_CONCURRENT_WRITES_END();
 }
-const WriteAhead& WriteAhead::default_instance() {
+const LogMutation& LogMutation::default_instance() {
   if (default_instance_ == NULL) protobuf_AddDesc_proto_2fConfig_2eproto();  return *default_instance_;
 }
 
-WriteAhead* WriteAhead::default_instance_ = NULL;
+LogMutation* LogMutation::default_instance_ = NULL;
 
-WriteAhead* WriteAhead::New() const {
-  return new WriteAhead;
+LogMutation* LogMutation::New() const {
+  return new LogMutation;
 }
 
-void WriteAhead::Clear() {
+void LogMutation::Clear() {
   if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
     type_ = 0;
-    sequence_ = GOOGLE_LONGLONG(0);
-    transact_id_ = GOOGLE_LONGLONG(0);
+    if (has_storage_name()) {
+      if (storage_name_ != &::google::protobuf::internal::kEmptyString) {
+        storage_name_->clear();
+      }
+    }
+    document_id_ = GOOGLE_LONGLONG(0);
+    if (has_buffer()) {
+      if (buffer_ != &::google::protobuf::internal::kEmptyString) {
+        buffer_->clear();
+      }
+    }
   }
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
 }
 
-bool WriteAhead::MergePartialFromCodedStream(
+bool LogMutation::MergePartialFromCodedStream(
     ::google::protobuf::io::CodedInputStream* input) {
 #define DO_(EXPRESSION) if (!(EXPRESSION)) return false
   ::google::protobuf::uint32 tag;
   while ((tag = input->ReadTag()) != 0) {
     switch (::google::protobuf::internal::WireFormatLite::GetTagFieldNumber(tag)) {
-      // optional .Db.Proto.WriteAhead.Type type = 1;
+      // optional .Db.Proto.LogMutation.Type type = 1;
       case 1: {
         if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
             ::google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT) {
@@ -829,41 +845,53 @@ bool WriteAhead::MergePartialFromCodedStream(
           DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
                    int, ::google::protobuf::internal::WireFormatLite::TYPE_ENUM>(
                  input, &value)));
-          if (::Db::Proto::WriteAhead_Type_IsValid(value)) {
-            set_type(static_cast< ::Db::Proto::WriteAhead_Type >(value));
+          if (::Db::Proto::LogMutation_Type_IsValid(value)) {
+            set_type(static_cast< ::Db::Proto::LogMutation_Type >(value));
           }
         } else {
           goto handle_uninterpreted;
         }
-        if (input->ExpectTag(16)) goto parse_sequence;
+        if (input->ExpectTag(18)) goto parse_storage_name;
         break;
       }
       
-      // optional int64 sequence = 2;
+      // optional string storage_name = 2;
       case 2: {
         if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
-            ::google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT) {
-         parse_sequence:
-          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
-                   ::google::protobuf::int64, ::google::protobuf::internal::WireFormatLite::TYPE_INT64>(
-                 input, &sequence_)));
-          set_has_sequence();
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_LENGTH_DELIMITED) {
+         parse_storage_name:
+          DO_(::google::protobuf::internal::WireFormatLite::ReadString(
+                input, this->mutable_storage_name()));
         } else {
           goto handle_uninterpreted;
         }
-        if (input->ExpectTag(24)) goto parse_transact_id;
+        if (input->ExpectTag(24)) goto parse_document_id;
         break;
       }
       
-      // optional int64 transact_id = 3;
+      // optional int64 document_id = 3;
       case 3: {
         if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
             ::google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT) {
-         parse_transact_id:
+         parse_document_id:
           DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
                    ::google::protobuf::int64, ::google::protobuf::internal::WireFormatLite::TYPE_INT64>(
-                 input, &transact_id_)));
-          set_has_transact_id();
+                 input, &document_id_)));
+          set_has_document_id();
+        } else {
+          goto handle_uninterpreted;
+        }
+        if (input->ExpectTag(34)) goto parse_buffer;
+        break;
+      }
+      
+      // optional string buffer = 4;
+      case 4: {
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_LENGTH_DELIMITED) {
+         parse_buffer:
+          DO_(::google::protobuf::internal::WireFormatLite::ReadString(
+                input, this->mutable_buffer()));
         } else {
           goto handle_uninterpreted;
         }
@@ -886,48 +914,62 @@ bool WriteAhead::MergePartialFromCodedStream(
 #undef DO_
 }
 
-void WriteAhead::SerializeWithCachedSizes(
+void LogMutation::SerializeWithCachedSizes(
     ::google::protobuf::io::CodedOutputStream* output) const {
-  // optional .Db.Proto.WriteAhead.Type type = 1;
+  // optional .Db.Proto.LogMutation.Type type = 1;
   if (has_type()) {
     ::google::protobuf::internal::WireFormatLite::WriteEnum(
       1, this->type(), output);
   }
   
-  // optional int64 sequence = 2;
-  if (has_sequence()) {
-    ::google::protobuf::internal::WireFormatLite::WriteInt64(2, this->sequence(), output);
+  // optional string storage_name = 2;
+  if (has_storage_name()) {
+    ::google::protobuf::internal::WireFormatLite::WriteString(
+      2, this->storage_name(), output);
   }
   
-  // optional int64 transact_id = 3;
-  if (has_transact_id()) {
-    ::google::protobuf::internal::WireFormatLite::WriteInt64(3, this->transact_id(), output);
+  // optional int64 document_id = 3;
+  if (has_document_id()) {
+    ::google::protobuf::internal::WireFormatLite::WriteInt64(3, this->document_id(), output);
+  }
+  
+  // optional string buffer = 4;
+  if (has_buffer()) {
+    ::google::protobuf::internal::WireFormatLite::WriteString(
+      4, this->buffer(), output);
   }
   
 }
 
-int WriteAhead::ByteSize() const {
+int LogMutation::ByteSize() const {
   int total_size = 0;
   
   if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
-    // optional .Db.Proto.WriteAhead.Type type = 1;
+    // optional .Db.Proto.LogMutation.Type type = 1;
     if (has_type()) {
       total_size += 1 +
         ::google::protobuf::internal::WireFormatLite::EnumSize(this->type());
     }
     
-    // optional int64 sequence = 2;
-    if (has_sequence()) {
+    // optional string storage_name = 2;
+    if (has_storage_name()) {
       total_size += 1 +
-        ::google::protobuf::internal::WireFormatLite::Int64Size(
-          this->sequence());
+        ::google::protobuf::internal::WireFormatLite::StringSize(
+          this->storage_name());
     }
     
-    // optional int64 transact_id = 3;
-    if (has_transact_id()) {
+    // optional int64 document_id = 3;
+    if (has_document_id()) {
       total_size += 1 +
         ::google::protobuf::internal::WireFormatLite::Int64Size(
-          this->transact_id());
+          this->document_id());
+    }
+    
+    // optional string buffer = 4;
+    if (has_buffer()) {
+      total_size += 1 +
+        ::google::protobuf::internal::WireFormatLite::StringSize(
+          this->buffer());
     }
     
   }
@@ -937,49 +979,338 @@ int WriteAhead::ByteSize() const {
   return total_size;
 }
 
-void WriteAhead::CheckTypeAndMergeFrom(
+void LogMutation::CheckTypeAndMergeFrom(
     const ::google::protobuf::MessageLite& from) {
-  MergeFrom(*::google::protobuf::down_cast<const WriteAhead*>(&from));
+  MergeFrom(*::google::protobuf::down_cast<const LogMutation*>(&from));
 }
 
-void WriteAhead::MergeFrom(const WriteAhead& from) {
+void LogMutation::MergeFrom(const LogMutation& from) {
   GOOGLE_CHECK_NE(&from, this);
   if (from._has_bits_[0 / 32] & (0xffu << (0 % 32))) {
     if (from.has_type()) {
       set_type(from.type());
     }
-    if (from.has_sequence()) {
-      set_sequence(from.sequence());
+    if (from.has_storage_name()) {
+      set_storage_name(from.storage_name());
     }
-    if (from.has_transact_id()) {
-      set_transact_id(from.transact_id());
+    if (from.has_document_id()) {
+      set_document_id(from.document_id());
+    }
+    if (from.has_buffer()) {
+      set_buffer(from.buffer());
     }
   }
 }
 
-void WriteAhead::CopyFrom(const WriteAhead& from) {
+void LogMutation::CopyFrom(const LogMutation& from) {
   if (&from == this) return;
   Clear();
   MergeFrom(from);
 }
 
-bool WriteAhead::IsInitialized() const {
+bool LogMutation::IsInitialized() const {
   
   return true;
 }
 
-void WriteAhead::Swap(WriteAhead* other) {
+void LogMutation::Swap(LogMutation* other) {
   if (other != this) {
     std::swap(type_, other->type_);
-    std::swap(sequence_, other->sequence_);
-    std::swap(transact_id_, other->transact_id_);
+    std::swap(storage_name_, other->storage_name_);
+    std::swap(document_id_, other->document_id_);
+    std::swap(buffer_, other->buffer_);
     std::swap(_has_bits_[0], other->_has_bits_[0]);
     std::swap(_cached_size_, other->_cached_size_);
   }
 }
 
-::std::string WriteAhead::GetTypeName() const {
-  return "Db.Proto.WriteAhead";
+::std::string LogMutation::GetTypeName() const {
+  return "Db.Proto.LogMutation";
+}
+
+
+// ===================================================================
+
+bool LogEntry_Type_IsValid(int value) {
+  switch(value) {
+    case 0:
+    case 1:
+    case 2:
+    case 3:
+      return true;
+    default:
+      return false;
+  }
+}
+
+#ifndef _MSC_VER
+const LogEntry_Type LogEntry::kTypeNone;
+const LogEntry_Type LogEntry::kTypeSubmit;
+const LogEntry_Type LogEntry::kTypeCommit;
+const LogEntry_Type LogEntry::kTypeRollback;
+const LogEntry_Type LogEntry::Type_MIN;
+const LogEntry_Type LogEntry::Type_MAX;
+const int LogEntry::Type_ARRAYSIZE;
+#endif  // _MSC_VER
+#ifndef _MSC_VER
+const int LogEntry::kTypeFieldNumber;
+const int LogEntry::kSequenceIdFieldNumber;
+const int LogEntry::kTransactionIdFieldNumber;
+const int LogEntry::kMutationsFieldNumber;
+#endif  // !_MSC_VER
+
+LogEntry::LogEntry()
+  : ::google::protobuf::MessageLite() {
+  SharedCtor();
+}
+
+void LogEntry::InitAsDefaultInstance() {
+}
+
+LogEntry::LogEntry(const LogEntry& from)
+  : ::google::protobuf::MessageLite() {
+  SharedCtor();
+  MergeFrom(from);
+}
+
+void LogEntry::SharedCtor() {
+  _cached_size_ = 0;
+  type_ = 0;
+  sequence_id_ = GOOGLE_LONGLONG(0);
+  transaction_id_ = GOOGLE_LONGLONG(0);
+  ::memset(_has_bits_, 0, sizeof(_has_bits_));
+}
+
+LogEntry::~LogEntry() {
+  SharedDtor();
+}
+
+void LogEntry::SharedDtor() {
+  if (this != default_instance_) {
+  }
+}
+
+void LogEntry::SetCachedSize(int size) const {
+  GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
+  _cached_size_ = size;
+  GOOGLE_SAFE_CONCURRENT_WRITES_END();
+}
+const LogEntry& LogEntry::default_instance() {
+  if (default_instance_ == NULL) protobuf_AddDesc_proto_2fConfig_2eproto();  return *default_instance_;
+}
+
+LogEntry* LogEntry::default_instance_ = NULL;
+
+LogEntry* LogEntry::New() const {
+  return new LogEntry;
+}
+
+void LogEntry::Clear() {
+  if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
+    type_ = 0;
+    sequence_id_ = GOOGLE_LONGLONG(0);
+    transaction_id_ = GOOGLE_LONGLONG(0);
+  }
+  mutations_.Clear();
+  ::memset(_has_bits_, 0, sizeof(_has_bits_));
+}
+
+bool LogEntry::MergePartialFromCodedStream(
+    ::google::protobuf::io::CodedInputStream* input) {
+#define DO_(EXPRESSION) if (!(EXPRESSION)) return false
+  ::google::protobuf::uint32 tag;
+  while ((tag = input->ReadTag()) != 0) {
+    switch (::google::protobuf::internal::WireFormatLite::GetTagFieldNumber(tag)) {
+      // optional .Db.Proto.LogEntry.Type type = 1;
+      case 1: {
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT) {
+          int value;
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   int, ::google::protobuf::internal::WireFormatLite::TYPE_ENUM>(
+                 input, &value)));
+          if (::Db::Proto::LogEntry_Type_IsValid(value)) {
+            set_type(static_cast< ::Db::Proto::LogEntry_Type >(value));
+          }
+        } else {
+          goto handle_uninterpreted;
+        }
+        if (input->ExpectTag(16)) goto parse_sequence_id;
+        break;
+      }
+      
+      // optional int64 sequence_id = 2;
+      case 2: {
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT) {
+         parse_sequence_id:
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   ::google::protobuf::int64, ::google::protobuf::internal::WireFormatLite::TYPE_INT64>(
+                 input, &sequence_id_)));
+          set_has_sequence_id();
+        } else {
+          goto handle_uninterpreted;
+        }
+        if (input->ExpectTag(24)) goto parse_transaction_id;
+        break;
+      }
+      
+      // optional int64 transaction_id = 3;
+      case 3: {
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT) {
+         parse_transaction_id:
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   ::google::protobuf::int64, ::google::protobuf::internal::WireFormatLite::TYPE_INT64>(
+                 input, &transaction_id_)));
+          set_has_transaction_id();
+        } else {
+          goto handle_uninterpreted;
+        }
+        if (input->ExpectTag(34)) goto parse_mutations;
+        break;
+      }
+      
+      // repeated .Db.Proto.LogMutation mutations = 4;
+      case 4: {
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_LENGTH_DELIMITED) {
+         parse_mutations:
+          DO_(::google::protobuf::internal::WireFormatLite::ReadMessageNoVirtual(
+                input, add_mutations()));
+        } else {
+          goto handle_uninterpreted;
+        }
+        if (input->ExpectTag(34)) goto parse_mutations;
+        if (input->ExpectAtEnd()) return true;
+        break;
+      }
+      
+      default: {
+      handle_uninterpreted:
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_END_GROUP) {
+          return true;
+        }
+        DO_(::google::protobuf::internal::WireFormatLite::SkipField(input, tag));
+        break;
+      }
+    }
+  }
+  return true;
+#undef DO_
+}
+
+void LogEntry::SerializeWithCachedSizes(
+    ::google::protobuf::io::CodedOutputStream* output) const {
+  // optional .Db.Proto.LogEntry.Type type = 1;
+  if (has_type()) {
+    ::google::protobuf::internal::WireFormatLite::WriteEnum(
+      1, this->type(), output);
+  }
+  
+  // optional int64 sequence_id = 2;
+  if (has_sequence_id()) {
+    ::google::protobuf::internal::WireFormatLite::WriteInt64(2, this->sequence_id(), output);
+  }
+  
+  // optional int64 transaction_id = 3;
+  if (has_transaction_id()) {
+    ::google::protobuf::internal::WireFormatLite::WriteInt64(3, this->transaction_id(), output);
+  }
+  
+  // repeated .Db.Proto.LogMutation mutations = 4;
+  for (int i = 0; i < this->mutations_size(); i++) {
+    ::google::protobuf::internal::WireFormatLite::WriteMessage(
+      4, this->mutations(i), output);
+  }
+  
+}
+
+int LogEntry::ByteSize() const {
+  int total_size = 0;
+  
+  if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
+    // optional .Db.Proto.LogEntry.Type type = 1;
+    if (has_type()) {
+      total_size += 1 +
+        ::google::protobuf::internal::WireFormatLite::EnumSize(this->type());
+    }
+    
+    // optional int64 sequence_id = 2;
+    if (has_sequence_id()) {
+      total_size += 1 +
+        ::google::protobuf::internal::WireFormatLite::Int64Size(
+          this->sequence_id());
+    }
+    
+    // optional int64 transaction_id = 3;
+    if (has_transaction_id()) {
+      total_size += 1 +
+        ::google::protobuf::internal::WireFormatLite::Int64Size(
+          this->transaction_id());
+    }
+    
+  }
+  // repeated .Db.Proto.LogMutation mutations = 4;
+  total_size += 1 * this->mutations_size();
+  for (int i = 0; i < this->mutations_size(); i++) {
+    total_size +=
+      ::google::protobuf::internal::WireFormatLite::MessageSizeNoVirtual(
+        this->mutations(i));
+  }
+  
+  GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
+  _cached_size_ = total_size;
+  GOOGLE_SAFE_CONCURRENT_WRITES_END();
+  return total_size;
+}
+
+void LogEntry::CheckTypeAndMergeFrom(
+    const ::google::protobuf::MessageLite& from) {
+  MergeFrom(*::google::protobuf::down_cast<const LogEntry*>(&from));
+}
+
+void LogEntry::MergeFrom(const LogEntry& from) {
+  GOOGLE_CHECK_NE(&from, this);
+  mutations_.MergeFrom(from.mutations_);
+  if (from._has_bits_[0 / 32] & (0xffu << (0 % 32))) {
+    if (from.has_type()) {
+      set_type(from.type());
+    }
+    if (from.has_sequence_id()) {
+      set_sequence_id(from.sequence_id());
+    }
+    if (from.has_transaction_id()) {
+      set_transaction_id(from.transaction_id());
+    }
+  }
+}
+
+void LogEntry::CopyFrom(const LogEntry& from) {
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+bool LogEntry::IsInitialized() const {
+  
+  return true;
+}
+
+void LogEntry::Swap(LogEntry* other) {
+  if (other != this) {
+    std::swap(type_, other->type_);
+    std::swap(sequence_id_, other->sequence_id_);
+    std::swap(transaction_id_, other->transaction_id_);
+    mutations_.Swap(&other->mutations_);
+    std::swap(_has_bits_[0], other->_has_bits_[0]);
+    std::swap(_cached_size_, other->_cached_size_);
+  }
+}
+
+::std::string LogEntry::GetTypeName() const {
+  return "Db.Proto.LogEntry";
 }
 
 

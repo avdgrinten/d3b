@@ -35,19 +35,29 @@ void protobuf_ShutdownFile_proto_2fConfig_2eproto();
 class Config;
 class StorageConfig;
 class ViewConfig;
-class WriteAhead;
+class LogMutation;
+class LogEntry;
 
-enum WriteAhead_Type {
-  WriteAhead_Type_kNone = 0,
-  WriteAhead_Type_kTransact = 1,
-  WriteAhead_Type_kUpdate = 2,
-  WriteAhead_Type_kCommit = 3,
-  WriteAhead_Type_kRollback = 4
+enum LogMutation_Type {
+  LogMutation_Type_kTypeNone = 0,
+  LogMutation_Type_kTypeInsert = 1,
+  LogMutation_Type_kTypeModify = 2
 };
-bool WriteAhead_Type_IsValid(int value);
-const WriteAhead_Type WriteAhead_Type_Type_MIN = WriteAhead_Type_kNone;
-const WriteAhead_Type WriteAhead_Type_Type_MAX = WriteAhead_Type_kRollback;
-const int WriteAhead_Type_Type_ARRAYSIZE = WriteAhead_Type_Type_MAX + 1;
+bool LogMutation_Type_IsValid(int value);
+const LogMutation_Type LogMutation_Type_Type_MIN = LogMutation_Type_kTypeNone;
+const LogMutation_Type LogMutation_Type_Type_MAX = LogMutation_Type_kTypeModify;
+const int LogMutation_Type_Type_ARRAYSIZE = LogMutation_Type_Type_MAX + 1;
+
+enum LogEntry_Type {
+  LogEntry_Type_kTypeNone = 0,
+  LogEntry_Type_kTypeSubmit = 1,
+  LogEntry_Type_kTypeCommit = 2,
+  LogEntry_Type_kTypeRollback = 3
+};
+bool LogEntry_Type_IsValid(int value);
+const LogEntry_Type LogEntry_Type_Type_MIN = LogEntry_Type_kTypeNone;
+const LogEntry_Type LogEntry_Type_Type_MAX = LogEntry_Type_kTypeRollback;
+const int LogEntry_Type_Type_ARRAYSIZE = LogEntry_Type_Type_MAX + 1;
 
 // ===================================================================
 
@@ -338,28 +348,28 @@ class ViewConfig : public ::google::protobuf::MessageLite {
 };
 // -------------------------------------------------------------------
 
-class WriteAhead : public ::google::protobuf::MessageLite {
+class LogMutation : public ::google::protobuf::MessageLite {
  public:
-  WriteAhead();
-  virtual ~WriteAhead();
+  LogMutation();
+  virtual ~LogMutation();
   
-  WriteAhead(const WriteAhead& from);
+  LogMutation(const LogMutation& from);
   
-  inline WriteAhead& operator=(const WriteAhead& from) {
+  inline LogMutation& operator=(const LogMutation& from) {
     CopyFrom(from);
     return *this;
   }
   
-  static const WriteAhead& default_instance();
+  static const LogMutation& default_instance();
   
-  void Swap(WriteAhead* other);
+  void Swap(LogMutation* other);
   
   // implements Message ----------------------------------------------
   
-  WriteAhead* New() const;
+  LogMutation* New() const;
   void CheckTypeAndMergeFrom(const ::google::protobuf::MessageLite& from);
-  void CopyFrom(const WriteAhead& from);
-  void MergeFrom(const WriteAhead& from);
+  void CopyFrom(const LogMutation& from);
+  void MergeFrom(const LogMutation& from);
   void Clear();
   bool IsInitialized() const;
   
@@ -379,67 +389,200 @@ class WriteAhead : public ::google::protobuf::MessageLite {
   
   // nested types ----------------------------------------------------
   
-  typedef WriteAhead_Type Type;
-  static const Type kNone = WriteAhead_Type_kNone;
-  static const Type kTransact = WriteAhead_Type_kTransact;
-  static const Type kUpdate = WriteAhead_Type_kUpdate;
-  static const Type kCommit = WriteAhead_Type_kCommit;
-  static const Type kRollback = WriteAhead_Type_kRollback;
+  typedef LogMutation_Type Type;
+  static const Type kTypeNone = LogMutation_Type_kTypeNone;
+  static const Type kTypeInsert = LogMutation_Type_kTypeInsert;
+  static const Type kTypeModify = LogMutation_Type_kTypeModify;
   static inline bool Type_IsValid(int value) {
-    return WriteAhead_Type_IsValid(value);
+    return LogMutation_Type_IsValid(value);
   }
   static const Type Type_MIN =
-    WriteAhead_Type_Type_MIN;
+    LogMutation_Type_Type_MIN;
   static const Type Type_MAX =
-    WriteAhead_Type_Type_MAX;
+    LogMutation_Type_Type_MAX;
   static const int Type_ARRAYSIZE =
-    WriteAhead_Type_Type_ARRAYSIZE;
+    LogMutation_Type_Type_ARRAYSIZE;
   
   // accessors -------------------------------------------------------
   
-  // optional .Db.Proto.WriteAhead.Type type = 1;
+  // optional .Db.Proto.LogMutation.Type type = 1;
   inline bool has_type() const;
   inline void clear_type();
   static const int kTypeFieldNumber = 1;
-  inline ::Db::Proto::WriteAhead_Type type() const;
-  inline void set_type(::Db::Proto::WriteAhead_Type value);
+  inline ::Db::Proto::LogMutation_Type type() const;
+  inline void set_type(::Db::Proto::LogMutation_Type value);
   
-  // optional int64 sequence = 2;
-  inline bool has_sequence() const;
-  inline void clear_sequence();
-  static const int kSequenceFieldNumber = 2;
-  inline ::google::protobuf::int64 sequence() const;
-  inline void set_sequence(::google::protobuf::int64 value);
+  // optional string storage_name = 2;
+  inline bool has_storage_name() const;
+  inline void clear_storage_name();
+  static const int kStorageNameFieldNumber = 2;
+  inline const ::std::string& storage_name() const;
+  inline void set_storage_name(const ::std::string& value);
+  inline void set_storage_name(const char* value);
+  inline void set_storage_name(const char* value, size_t size);
+  inline ::std::string* mutable_storage_name();
+  inline ::std::string* release_storage_name();
   
-  // optional int64 transact_id = 3;
-  inline bool has_transact_id() const;
-  inline void clear_transact_id();
-  static const int kTransactIdFieldNumber = 3;
-  inline ::google::protobuf::int64 transact_id() const;
-  inline void set_transact_id(::google::protobuf::int64 value);
+  // optional int64 document_id = 3;
+  inline bool has_document_id() const;
+  inline void clear_document_id();
+  static const int kDocumentIdFieldNumber = 3;
+  inline ::google::protobuf::int64 document_id() const;
+  inline void set_document_id(::google::protobuf::int64 value);
   
-  // @@protoc_insertion_point(class_scope:Db.Proto.WriteAhead)
+  // optional string buffer = 4;
+  inline bool has_buffer() const;
+  inline void clear_buffer();
+  static const int kBufferFieldNumber = 4;
+  inline const ::std::string& buffer() const;
+  inline void set_buffer(const ::std::string& value);
+  inline void set_buffer(const char* value);
+  inline void set_buffer(const char* value, size_t size);
+  inline ::std::string* mutable_buffer();
+  inline ::std::string* release_buffer();
+  
+  // @@protoc_insertion_point(class_scope:Db.Proto.LogMutation)
  private:
   inline void set_has_type();
   inline void clear_has_type();
-  inline void set_has_sequence();
-  inline void clear_has_sequence();
-  inline void set_has_transact_id();
-  inline void clear_has_transact_id();
+  inline void set_has_storage_name();
+  inline void clear_has_storage_name();
+  inline void set_has_document_id();
+  inline void clear_has_document_id();
+  inline void set_has_buffer();
+  inline void clear_has_buffer();
   
-  ::google::protobuf::int64 sequence_;
-  ::google::protobuf::int64 transact_id_;
+  ::std::string* storage_name_;
+  ::google::protobuf::int64 document_id_;
+  ::std::string* buffer_;
   int type_;
   
   mutable int _cached_size_;
-  ::google::protobuf::uint32 _has_bits_[(3 + 31) / 32];
+  ::google::protobuf::uint32 _has_bits_[(4 + 31) / 32];
   
   friend void  protobuf_AddDesc_proto_2fConfig_2eproto();
   friend void protobuf_AssignDesc_proto_2fConfig_2eproto();
   friend void protobuf_ShutdownFile_proto_2fConfig_2eproto();
   
   void InitAsDefaultInstance();
-  static WriteAhead* default_instance_;
+  static LogMutation* default_instance_;
+};
+// -------------------------------------------------------------------
+
+class LogEntry : public ::google::protobuf::MessageLite {
+ public:
+  LogEntry();
+  virtual ~LogEntry();
+  
+  LogEntry(const LogEntry& from);
+  
+  inline LogEntry& operator=(const LogEntry& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  
+  static const LogEntry& default_instance();
+  
+  void Swap(LogEntry* other);
+  
+  // implements Message ----------------------------------------------
+  
+  LogEntry* New() const;
+  void CheckTypeAndMergeFrom(const ::google::protobuf::MessageLite& from);
+  void CopyFrom(const LogEntry& from);
+  void MergeFrom(const LogEntry& from);
+  void Clear();
+  bool IsInitialized() const;
+  
+  int ByteSize() const;
+  bool MergePartialFromCodedStream(
+      ::google::protobuf::io::CodedInputStream* input);
+  void SerializeWithCachedSizes(
+      ::google::protobuf::io::CodedOutputStream* output) const;
+  int GetCachedSize() const { return _cached_size_; }
+  private:
+  void SharedCtor();
+  void SharedDtor();
+  void SetCachedSize(int size) const;
+  public:
+  
+  ::std::string GetTypeName() const;
+  
+  // nested types ----------------------------------------------------
+  
+  typedef LogEntry_Type Type;
+  static const Type kTypeNone = LogEntry_Type_kTypeNone;
+  static const Type kTypeSubmit = LogEntry_Type_kTypeSubmit;
+  static const Type kTypeCommit = LogEntry_Type_kTypeCommit;
+  static const Type kTypeRollback = LogEntry_Type_kTypeRollback;
+  static inline bool Type_IsValid(int value) {
+    return LogEntry_Type_IsValid(value);
+  }
+  static const Type Type_MIN =
+    LogEntry_Type_Type_MIN;
+  static const Type Type_MAX =
+    LogEntry_Type_Type_MAX;
+  static const int Type_ARRAYSIZE =
+    LogEntry_Type_Type_ARRAYSIZE;
+  
+  // accessors -------------------------------------------------------
+  
+  // optional .Db.Proto.LogEntry.Type type = 1;
+  inline bool has_type() const;
+  inline void clear_type();
+  static const int kTypeFieldNumber = 1;
+  inline ::Db::Proto::LogEntry_Type type() const;
+  inline void set_type(::Db::Proto::LogEntry_Type value);
+  
+  // optional int64 sequence_id = 2;
+  inline bool has_sequence_id() const;
+  inline void clear_sequence_id();
+  static const int kSequenceIdFieldNumber = 2;
+  inline ::google::protobuf::int64 sequence_id() const;
+  inline void set_sequence_id(::google::protobuf::int64 value);
+  
+  // optional int64 transaction_id = 3;
+  inline bool has_transaction_id() const;
+  inline void clear_transaction_id();
+  static const int kTransactionIdFieldNumber = 3;
+  inline ::google::protobuf::int64 transaction_id() const;
+  inline void set_transaction_id(::google::protobuf::int64 value);
+  
+  // repeated .Db.Proto.LogMutation mutations = 4;
+  inline int mutations_size() const;
+  inline void clear_mutations();
+  static const int kMutationsFieldNumber = 4;
+  inline const ::Db::Proto::LogMutation& mutations(int index) const;
+  inline ::Db::Proto::LogMutation* mutable_mutations(int index);
+  inline ::Db::Proto::LogMutation* add_mutations();
+  inline const ::google::protobuf::RepeatedPtrField< ::Db::Proto::LogMutation >&
+      mutations() const;
+  inline ::google::protobuf::RepeatedPtrField< ::Db::Proto::LogMutation >*
+      mutable_mutations();
+  
+  // @@protoc_insertion_point(class_scope:Db.Proto.LogEntry)
+ private:
+  inline void set_has_type();
+  inline void clear_has_type();
+  inline void set_has_sequence_id();
+  inline void clear_has_sequence_id();
+  inline void set_has_transaction_id();
+  inline void clear_has_transaction_id();
+  
+  ::google::protobuf::int64 sequence_id_;
+  ::google::protobuf::int64 transaction_id_;
+  ::google::protobuf::RepeatedPtrField< ::Db::Proto::LogMutation > mutations_;
+  int type_;
+  
+  mutable int _cached_size_;
+  ::google::protobuf::uint32 _has_bits_[(4 + 31) / 32];
+  
+  friend void  protobuf_AddDesc_proto_2fConfig_2eproto();
+  friend void protobuf_AssignDesc_proto_2fConfig_2eproto();
+  friend void protobuf_ShutdownFile_proto_2fConfig_2eproto();
+  
+  void InitAsDefaultInstance();
+  static LogEntry* default_instance_;
 };
 // ===================================================================
 
@@ -856,73 +999,263 @@ inline ::std::string* ViewConfig::release_script_file() {
 
 // -------------------------------------------------------------------
 
-// WriteAhead
+// LogMutation
 
-// optional .Db.Proto.WriteAhead.Type type = 1;
-inline bool WriteAhead::has_type() const {
+// optional .Db.Proto.LogMutation.Type type = 1;
+inline bool LogMutation::has_type() const {
   return (_has_bits_[0] & 0x00000001u) != 0;
 }
-inline void WriteAhead::set_has_type() {
+inline void LogMutation::set_has_type() {
   _has_bits_[0] |= 0x00000001u;
 }
-inline void WriteAhead::clear_has_type() {
+inline void LogMutation::clear_has_type() {
   _has_bits_[0] &= ~0x00000001u;
 }
-inline void WriteAhead::clear_type() {
+inline void LogMutation::clear_type() {
   type_ = 0;
   clear_has_type();
 }
-inline ::Db::Proto::WriteAhead_Type WriteAhead::type() const {
-  return static_cast< ::Db::Proto::WriteAhead_Type >(type_);
+inline ::Db::Proto::LogMutation_Type LogMutation::type() const {
+  return static_cast< ::Db::Proto::LogMutation_Type >(type_);
 }
-inline void WriteAhead::set_type(::Db::Proto::WriteAhead_Type value) {
-  GOOGLE_DCHECK(::Db::Proto::WriteAhead_Type_IsValid(value));
+inline void LogMutation::set_type(::Db::Proto::LogMutation_Type value) {
+  GOOGLE_DCHECK(::Db::Proto::LogMutation_Type_IsValid(value));
   set_has_type();
   type_ = value;
 }
 
-// optional int64 sequence = 2;
-inline bool WriteAhead::has_sequence() const {
+// optional string storage_name = 2;
+inline bool LogMutation::has_storage_name() const {
   return (_has_bits_[0] & 0x00000002u) != 0;
 }
-inline void WriteAhead::set_has_sequence() {
+inline void LogMutation::set_has_storage_name() {
   _has_bits_[0] |= 0x00000002u;
 }
-inline void WriteAhead::clear_has_sequence() {
+inline void LogMutation::clear_has_storage_name() {
   _has_bits_[0] &= ~0x00000002u;
 }
-inline void WriteAhead::clear_sequence() {
-  sequence_ = GOOGLE_LONGLONG(0);
-  clear_has_sequence();
+inline void LogMutation::clear_storage_name() {
+  if (storage_name_ != &::google::protobuf::internal::kEmptyString) {
+    storage_name_->clear();
+  }
+  clear_has_storage_name();
 }
-inline ::google::protobuf::int64 WriteAhead::sequence() const {
-  return sequence_;
+inline const ::std::string& LogMutation::storage_name() const {
+  return *storage_name_;
 }
-inline void WriteAhead::set_sequence(::google::protobuf::int64 value) {
-  set_has_sequence();
-  sequence_ = value;
+inline void LogMutation::set_storage_name(const ::std::string& value) {
+  set_has_storage_name();
+  if (storage_name_ == &::google::protobuf::internal::kEmptyString) {
+    storage_name_ = new ::std::string;
+  }
+  storage_name_->assign(value);
+}
+inline void LogMutation::set_storage_name(const char* value) {
+  set_has_storage_name();
+  if (storage_name_ == &::google::protobuf::internal::kEmptyString) {
+    storage_name_ = new ::std::string;
+  }
+  storage_name_->assign(value);
+}
+inline void LogMutation::set_storage_name(const char* value, size_t size) {
+  set_has_storage_name();
+  if (storage_name_ == &::google::protobuf::internal::kEmptyString) {
+    storage_name_ = new ::std::string;
+  }
+  storage_name_->assign(reinterpret_cast<const char*>(value), size);
+}
+inline ::std::string* LogMutation::mutable_storage_name() {
+  set_has_storage_name();
+  if (storage_name_ == &::google::protobuf::internal::kEmptyString) {
+    storage_name_ = new ::std::string;
+  }
+  return storage_name_;
+}
+inline ::std::string* LogMutation::release_storage_name() {
+  clear_has_storage_name();
+  if (storage_name_ == &::google::protobuf::internal::kEmptyString) {
+    return NULL;
+  } else {
+    ::std::string* temp = storage_name_;
+    storage_name_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
+    return temp;
+  }
 }
 
-// optional int64 transact_id = 3;
-inline bool WriteAhead::has_transact_id() const {
+// optional int64 document_id = 3;
+inline bool LogMutation::has_document_id() const {
   return (_has_bits_[0] & 0x00000004u) != 0;
 }
-inline void WriteAhead::set_has_transact_id() {
+inline void LogMutation::set_has_document_id() {
   _has_bits_[0] |= 0x00000004u;
 }
-inline void WriteAhead::clear_has_transact_id() {
+inline void LogMutation::clear_has_document_id() {
   _has_bits_[0] &= ~0x00000004u;
 }
-inline void WriteAhead::clear_transact_id() {
-  transact_id_ = GOOGLE_LONGLONG(0);
-  clear_has_transact_id();
+inline void LogMutation::clear_document_id() {
+  document_id_ = GOOGLE_LONGLONG(0);
+  clear_has_document_id();
 }
-inline ::google::protobuf::int64 WriteAhead::transact_id() const {
-  return transact_id_;
+inline ::google::protobuf::int64 LogMutation::document_id() const {
+  return document_id_;
 }
-inline void WriteAhead::set_transact_id(::google::protobuf::int64 value) {
-  set_has_transact_id();
-  transact_id_ = value;
+inline void LogMutation::set_document_id(::google::protobuf::int64 value) {
+  set_has_document_id();
+  document_id_ = value;
+}
+
+// optional string buffer = 4;
+inline bool LogMutation::has_buffer() const {
+  return (_has_bits_[0] & 0x00000008u) != 0;
+}
+inline void LogMutation::set_has_buffer() {
+  _has_bits_[0] |= 0x00000008u;
+}
+inline void LogMutation::clear_has_buffer() {
+  _has_bits_[0] &= ~0x00000008u;
+}
+inline void LogMutation::clear_buffer() {
+  if (buffer_ != &::google::protobuf::internal::kEmptyString) {
+    buffer_->clear();
+  }
+  clear_has_buffer();
+}
+inline const ::std::string& LogMutation::buffer() const {
+  return *buffer_;
+}
+inline void LogMutation::set_buffer(const ::std::string& value) {
+  set_has_buffer();
+  if (buffer_ == &::google::protobuf::internal::kEmptyString) {
+    buffer_ = new ::std::string;
+  }
+  buffer_->assign(value);
+}
+inline void LogMutation::set_buffer(const char* value) {
+  set_has_buffer();
+  if (buffer_ == &::google::protobuf::internal::kEmptyString) {
+    buffer_ = new ::std::string;
+  }
+  buffer_->assign(value);
+}
+inline void LogMutation::set_buffer(const char* value, size_t size) {
+  set_has_buffer();
+  if (buffer_ == &::google::protobuf::internal::kEmptyString) {
+    buffer_ = new ::std::string;
+  }
+  buffer_->assign(reinterpret_cast<const char*>(value), size);
+}
+inline ::std::string* LogMutation::mutable_buffer() {
+  set_has_buffer();
+  if (buffer_ == &::google::protobuf::internal::kEmptyString) {
+    buffer_ = new ::std::string;
+  }
+  return buffer_;
+}
+inline ::std::string* LogMutation::release_buffer() {
+  clear_has_buffer();
+  if (buffer_ == &::google::protobuf::internal::kEmptyString) {
+    return NULL;
+  } else {
+    ::std::string* temp = buffer_;
+    buffer_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
+    return temp;
+  }
+}
+
+// -------------------------------------------------------------------
+
+// LogEntry
+
+// optional .Db.Proto.LogEntry.Type type = 1;
+inline bool LogEntry::has_type() const {
+  return (_has_bits_[0] & 0x00000001u) != 0;
+}
+inline void LogEntry::set_has_type() {
+  _has_bits_[0] |= 0x00000001u;
+}
+inline void LogEntry::clear_has_type() {
+  _has_bits_[0] &= ~0x00000001u;
+}
+inline void LogEntry::clear_type() {
+  type_ = 0;
+  clear_has_type();
+}
+inline ::Db::Proto::LogEntry_Type LogEntry::type() const {
+  return static_cast< ::Db::Proto::LogEntry_Type >(type_);
+}
+inline void LogEntry::set_type(::Db::Proto::LogEntry_Type value) {
+  GOOGLE_DCHECK(::Db::Proto::LogEntry_Type_IsValid(value));
+  set_has_type();
+  type_ = value;
+}
+
+// optional int64 sequence_id = 2;
+inline bool LogEntry::has_sequence_id() const {
+  return (_has_bits_[0] & 0x00000002u) != 0;
+}
+inline void LogEntry::set_has_sequence_id() {
+  _has_bits_[0] |= 0x00000002u;
+}
+inline void LogEntry::clear_has_sequence_id() {
+  _has_bits_[0] &= ~0x00000002u;
+}
+inline void LogEntry::clear_sequence_id() {
+  sequence_id_ = GOOGLE_LONGLONG(0);
+  clear_has_sequence_id();
+}
+inline ::google::protobuf::int64 LogEntry::sequence_id() const {
+  return sequence_id_;
+}
+inline void LogEntry::set_sequence_id(::google::protobuf::int64 value) {
+  set_has_sequence_id();
+  sequence_id_ = value;
+}
+
+// optional int64 transaction_id = 3;
+inline bool LogEntry::has_transaction_id() const {
+  return (_has_bits_[0] & 0x00000004u) != 0;
+}
+inline void LogEntry::set_has_transaction_id() {
+  _has_bits_[0] |= 0x00000004u;
+}
+inline void LogEntry::clear_has_transaction_id() {
+  _has_bits_[0] &= ~0x00000004u;
+}
+inline void LogEntry::clear_transaction_id() {
+  transaction_id_ = GOOGLE_LONGLONG(0);
+  clear_has_transaction_id();
+}
+inline ::google::protobuf::int64 LogEntry::transaction_id() const {
+  return transaction_id_;
+}
+inline void LogEntry::set_transaction_id(::google::protobuf::int64 value) {
+  set_has_transaction_id();
+  transaction_id_ = value;
+}
+
+// repeated .Db.Proto.LogMutation mutations = 4;
+inline int LogEntry::mutations_size() const {
+  return mutations_.size();
+}
+inline void LogEntry::clear_mutations() {
+  mutations_.Clear();
+}
+inline const ::Db::Proto::LogMutation& LogEntry::mutations(int index) const {
+  return mutations_.Get(index);
+}
+inline ::Db::Proto::LogMutation* LogEntry::mutable_mutations(int index) {
+  return mutations_.Mutable(index);
+}
+inline ::Db::Proto::LogMutation* LogEntry::add_mutations() {
+  return mutations_.Add();
+}
+inline const ::google::protobuf::RepeatedPtrField< ::Db::Proto::LogMutation >&
+LogEntry::mutations() const {
+  return mutations_;
+}
+inline ::google::protobuf::RepeatedPtrField< ::Db::Proto::LogMutation >*
+LogEntry::mutable_mutations() {
+  return &mutations_;
 }
 
 
