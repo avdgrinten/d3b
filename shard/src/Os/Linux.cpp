@@ -264,36 +264,31 @@ Linux::EventFd::EventFd() {
 		throw std::runtime_error("eventfd() failed");
 }
 
-void Linux::EventFd::onEvent(std::function<void()> on_event) {
-	p_epollFunctor = [=]() {
-		uint64_t value;
-		if(::read(p_eventFd, &value, 8) != 8)
-			throw std::runtime_error("Could not read eventfd");
-		on_event();
-	};
-}
-
-void Linux::EventFd::fire() {
+void Linux::EventFd::increment() {
 	uint64_t value = 1;
 	if(::write(p_eventFd, &value, 8) != 8)
 		throw std::runtime_error("Could not write eventfd");
 }
 
-void Linux::EventFd::install() {
-	epoll_event event;
-	event.data.ptr = &p_epollFunctor;
-	event.events = EPOLLIN;
-	if(epoll_ctl(osIntf->p_epollFd, EPOLL_CTL_ADD, p_eventFd, &event) == - 1)
+void Linux::EventFd::wait(std::function<void()> callback) {
+	p_epollFunctor = [this, callback]() {
+		epoll_event uninstall_event;
+		uninstall_event.events = EPOLLIN;
+		if(epoll_ctl(osIntf->p_epollFd, EPOLL_CTL_DEL, p_eventFd, &uninstall_event) == - 1)
+			throw std::runtime_error("epoll_ctl() failed");
+
+		uint64_t value;
+		if(::read(p_eventFd, &value, 8) != 8)
+			throw std::runtime_error("Could not read eventfd");
+		callback();
+	};
+
+	epoll_event install_event;
+	install_event.data.ptr = &p_epollFunctor;
+	install_event.events = EPOLLIN;
+	if(epoll_ctl(osIntf->p_epollFd, EPOLL_CTL_ADD, p_eventFd, &install_event) == - 1)
 		throw std::runtime_error("epoll_ctl() failed");
 }
-
-void Linux::EventFd::uninstall() {
-	epoll_event event;
-	event.events = EPOLLIN;
-	if(epoll_ctl(osIntf->p_epollFd, EPOLL_CTL_DEL, p_eventFd, &event) == - 1)
-		throw std::runtime_error("epoll_ctl() failed");
-}
-
 
 /* ------------------------------------------------------------------- */
 

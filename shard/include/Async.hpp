@@ -1,51 +1,91 @@
 
+#ifndef ASYNC_HPP
+#define ASYNC_HPP
+
 #include <type_traits>
 
 namespace Async {
 
-typedef std::function<void()> Callback;
+template<typename Signature>
+class Callback;
 
-template<typename Callback, int i, typename... Functors>
+template<typename Res, typename... Args>
+class Callback<Res(Args...)> {
+public:
+	template<Res (*function)(Args...)>
+	static Callback<Res(Args...)> make() {
+		struct Wrapper {
+			static Res run(void *object, Args... args) {
+				return function(args...);
+			}
+		};
+		return Callback(nullptr, Wrapper::run);
+	}
+
+	template<typename Object, Res (Object::*function)(Args...)>
+	static Callback<Res(Args...)> make(Object *object) {
+		struct Wrapper {
+			static Res run(void *object, Args... args) {
+				auto ptr = static_cast<Object *>(object);
+				return (ptr->*function)(args...);
+			}
+		};
+		return Callback(object, Wrapper::run);
+	}
+
+	Callback(void *object, Res (*function)(void *, Args...))
+			: p_object(object), p_function(function) { }
+
+	Res operator() (Args... args) {
+		p_function(p_object, args...);
+	}
+	
+private:
+	void *p_object;
+	Res (*p_function)(void *, Args...);
+};
+
+template<typename FinalCb, int i, typename... Functors>
 struct p_staticSeries;
 
-template<typename Callback, typename... Functors>
+template<typename FinalCb, typename... Functors>
 struct p_staticSeriesTail {
-	static void invoke(std::tuple<Functors...> functors, Callback callback) {
+	static void invoke(std::tuple<Functors...> functors, FinalCb callback) {
 		callback(Error(true));
 	}
 };
 
-template<typename Callback, int i, typename... Functors>
+template<typename FinalCb, int i, typename... Functors>
 struct p_staticSeriesItem {
-	static void invoke(std::tuple<Functors...> functors, Callback callback) {
+	static void invoke(std::tuple<Functors...> functors, FinalCb callback) {
 		auto functor = std::get<i>(functors);
 		functor([functors, callback] (Error error) {
 			if(!error.ok())
 				return callback(error);
-			p_staticSeries<Callback, i + 1, Functors...>::invoke(functors, callback);
+			p_staticSeries<FinalCb, i + 1, Functors...>::invoke(functors, callback);
 		});
 	}
 };
 
-template<typename Callback, int i, typename... Functors>
+template<typename FinalCb, int i, typename... Functors>
 struct p_staticSeries {
 	static void invoke(std::tuple<Functors...> functors,
-			Callback callback) {
+			FinalCb callback) {
 		std::conditional<i == sizeof...(Functors),
-				p_staticSeriesTail<Callback, Functors...>,
-				p_staticSeriesItem<Callback, i, Functors...>>
+				p_staticSeriesTail<FinalCb, Functors...>,
+				p_staticSeriesItem<FinalCb, i, Functors...>>
 			::type::invoke(functors, callback);
 	}
 };
 
-template<typename... Functors, typename Callback>
-void staticSeries(std::tuple<Functors...> functors, Callback callback) {
-	p_staticSeries<Callback, 0, Functors...>::invoke(functors, callback);
+template<typename... Functors, typename FinalCb>
+void staticSeries(std::tuple<Functors...> functors, FinalCb callback) {
+	p_staticSeries<FinalCb, 0, Functors...>::invoke(functors, callback);
 }
 
-template<typename Iterator, typename Functor, typename Callback>
+template<typename Iterator, typename Functor, typename FinalCb>
 void eachSeries(Iterator begin, Iterator end, Functor functor,
-		Callback callback) {
+		FinalCb callback) {
 	if(begin == end) {
 		callback(Error(true));
 		return;
@@ -57,11 +97,11 @@ void eachSeries(Iterator begin, Iterator end, Functor functor,
 	});
 }
 
-template<typename Iterator, typename Callback>
+template<typename Iterator, typename FinalCb>
 void seriesIter(Iterator begin, Iterator end,
-		Callback callback) {
+		FinalCb callback) {
 	struct Control {
-		Control(Iterator start, Iterator end, Callback callback)
+		Control(Iterator start, Iterator end, FinalCb callback)
 				: p_current(start), p_end(end), p_callback(callback) {
 			p_recurse = [this] () { (*this)(); };
 		}
@@ -79,18 +119,18 @@ void seriesIter(Iterator begin, Iterator end,
 		std::function<void()> p_recurse;
 		Iterator p_current;
 		Iterator p_end;
-		Callback p_callback;
+		FinalCb p_callback;
 	};
 	
 	Control *control = new Control(begin, end, callback);
 	(*control)();
 }
 
-template<typename Test, typename Functor, typename Callback>
+template<typename Test, typename Functor, typename FinalCb>
 void whilst(Test test, Functor functor,
-		Callback callback) {
+		FinalCb callback) {
 	struct Control {
-		Control(Test test, Functor functor, Callback callback)
+		Control(Test test, Functor functor, FinalCb callback)
 				: p_test(test), p_functor(functor), p_callback(callback) {
 			p_recurse = [this] (Error error) {
 				if(!error.ok())
@@ -111,7 +151,7 @@ void whilst(Test test, Functor functor,
 		std::function<void(Error)> p_recurse;
 		Test p_test;
 		Functor p_functor;
-		Callback p_callback;
+		FinalCb p_callback;
 	};
 	
 	Control *control = new Control(test, functor, callback);
@@ -119,4 +159,6 @@ void whilst(Test test, Functor functor,
 }
 
 };
+
+#endif
 

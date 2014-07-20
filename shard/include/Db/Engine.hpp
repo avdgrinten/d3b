@@ -4,6 +4,7 @@
 #include <vector>
 #include <unordered_map>
 
+#include "Async.hpp"
 #include "Ll/WriteAhead.hpp"
 
 namespace Db {
@@ -89,6 +90,28 @@ private:
 	ViewDriver *p_setupView(const Proto::ViewConfig &config);
 	
 	void p_writeConfig();
+
+	class ProcessQueueClosure {
+	public:
+		ProcessQueueClosure(Engine *engine, Async::Callback<void()> callback);
+
+		void processLoop();
+
+	private:
+		void processSubmit();
+		void processItem();
+		void onSubmitWriteAhead(Error error);
+		void processCommit();
+		void onCommitWriteAhead(Error error);
+
+		Engine *p_engine;
+		
+		Queued p_queueItem;
+		Transaction *p_transaction;
+		Proto::LogEntry p_logEntry;
+
+		Async::Callback<void()> p_callback;
+	};
 };
 
 };

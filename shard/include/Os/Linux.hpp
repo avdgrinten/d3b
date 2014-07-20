@@ -154,10 +154,8 @@ public:
 	class EventFd {
 	public:
 		EventFd();
-		void onEvent(std::function<void()> on_event);
-		void fire();
-		void install();
-		void uninstall();
+		void increment();
+		void wait(std::function<void()> callback);
 		
 	private:
 		int p_eventFd;
