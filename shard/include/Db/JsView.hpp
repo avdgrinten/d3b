@@ -2,8 +2,9 @@
 #include <cassert>
 #include <cstring>
 #include <v8.h>
-#include "Ll/DataStore.h"
-#include "Ll/Btree.h"
+
+#include "Ll/DataStore.hpp"
+#include "Ll/Btree.hpp"
 
 namespace Db {
 

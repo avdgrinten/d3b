@@ -1,6 +1,6 @@
 
-#include "Os/Linux.h"
-#include "Ll/DataStore.h"
+#include "Os/Linux.hpp"
+#include "Ll/DataStore.hpp"
 
 DataStore::DataStore(const std::string &name) : p_storeName(name) {
 	p_fIndex = osIntf->createFile();

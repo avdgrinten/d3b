@@ -3,7 +3,7 @@
 #include <iostream>
 #include <openssl/md5.h>
 
-#include "Os/Linux.h"
+#include "Os/Linux.hpp"
 
 #include "proto/Config.pb.h"
 

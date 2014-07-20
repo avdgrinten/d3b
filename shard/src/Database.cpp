@@ -4,8 +4,8 @@
 #include <iostream>
 #include <boost/program_options.hpp>
 
-#include "Os/Linux.h"
-#include "Async.h"
+#include "Os/Linux.hpp"
+#include "Async.hpp"
 #include "Db/Types.hpp"
 #include "Db/StorageDriver.hpp"
 #include "Db/ViewDriver.hpp"

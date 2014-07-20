@@ -2,7 +2,7 @@
 #include <cstdint>
 #include <string>
 
-#include "Os/Linux.h"
+#include "Os/Linux.hpp"
 #include "Db/Types.hpp"
 #include "Db/StorageDriver.hpp"
 #include "Db/ViewDriver.hpp"
