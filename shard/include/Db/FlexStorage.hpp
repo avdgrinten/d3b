@@ -20,6 +20,7 @@ public:
 	virtual Proto::StorageConfig writeConfig();
 	virtual void readConfig(const Proto::StorageConfig &config);
 
+	virtual DocumentId allocate();
 	virtual void sequence(std::vector<Mutation *> &mutations);
 	virtual void processFetch(FetchRequest *fetch,
 			std::function<void(FetchData &)> on_data,

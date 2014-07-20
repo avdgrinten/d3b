@@ -129,10 +129,16 @@ void Engine::updateMutation(TransactionId trid, Mutation *mutation,
 		std::function<void(Error)> callback) {
 	auto transact_it = p_openTransactions.find(trid);
 	if(transact_it == p_openTransactions.end())
-		throw std::runtime_error("Illegal transaction");
-		
+		throw std::runtime_error("Illegal transaction");	
 	Transaction *transaction = transact_it->second;
+	
+	if(mutation->type == Mutation::kTypeInsert) {
+		StorageDriver *driver = p_storage[mutation->storageIndex];
+		
+		mutation->documentId = driver->allocate();
+	}
 	transaction->mutations.push_back(mutation);
+
 	callback(Error(true));
 }
 void Engine::submit(TransactionId trid,
@@ -204,6 +210,7 @@ void Engine::p_processQueue(std::function<void(Error)> callback) {
 						
 						log_mutation->set_type(Proto::LogMutation::kTypeInsert);
 						log_mutation->set_storage_name(driver->getIdentifier());
+						log_mutation->set_document_id(mutation->documentId);
 						log_mutation->set_buffer(mutation->buffer);
 					}else if(mutation->type == Mutation::kTypeModify) {
 						StorageDriver *driver = p_storage[mutation->storageIndex];

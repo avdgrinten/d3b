@@ -39,6 +39,10 @@ public:
 
 	virtual Proto::StorageConfig writeConfig() = 0;
 	virtual void readConfig(const Proto::StorageConfig &config) = 0;
+	
+	// returns an unused and unique document id.
+	// must never return the same value more than once
+	virtual DocumentId allocate() = 0;
 
 	/* commits a transaction to the storage */
 	virtual void sequence(std::vector<Mutation *> &mutations) = 0;

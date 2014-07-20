@@ -36,12 +36,16 @@ void FlexStorage::readConfig(const Proto::StorageConfig &config) {
 	
 }
 
+DocumentId FlexStorage::allocate() {
+	DataStore::Object object = p_docStore.createObject();
+	return p_docStore.objectLid(object);
+}
+
 void FlexStorage::sequence(std::vector<Mutation *> &mutations) {
 	for(auto it = mutations.begin(); it != mutations.end(); ++it) {
 		Mutation *mutation = *it;
 		if(mutation->type == Mutation::kTypeInsert) {
-			DataStore::Object object = p_docStore.createObject();
-			mutation->documentId = p_docStore.objectLid(object);
+			DataStore::Object object = p_docStore.getObject(mutation->documentId);
 			p_docStore.allocObject(object, mutation->buffer.size());
 			p_docStore.writeObject(object, 0, mutation->buffer.size(),
 					mutation->buffer.data());
