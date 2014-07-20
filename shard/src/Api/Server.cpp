@@ -70,49 +70,58 @@ void Server::Connection::p_readMessage(std::function<void(Error)> callback) {
 	), callback);
 }
 
+Server::QueryClosure::QueryClosure(Db::Engine *engine, Connection *connection,
+		ResponseId response_id)
+	: p_engine(engine), p_connection(connection), p_responseId(response_id) { }
+
+void Server::QueryClosure::execute(size_t packet_size, const void *packet_buffer) {
+	Proto::CqQuery request;
+	if(!request.ParseFromArray(packet_buffer, packet_size)) {
+		Proto::SrFin response;
+		response.set_success(false);
+		response.set_err_code(Proto::kErrIllegalRequest);
+		p_connection->p_postResponse(Proto::kSrFin, p_responseId, response);
+		return;
+	}
+	
+	p_query.viewIndex = p_engine->getView(request.view_name());
+	if(request.has_from_key()) {
+		p_query.useFromKey = true;
+		p_query.fromKey = request.from_key();
+	}
+	if(request.has_to_key()) {
+		p_query.useFromKey = true;
+		p_query.fromKey = request.to_key();
+	}
+	if(request.has_limit())
+		p_query.limit = request.limit();
+
+	p_engine->query(&p_query,
+		Async::Callback<void(const Db::QueryData &)>::make<QueryClosure, &QueryClosure::onData>(this),
+		Async::Callback<void(Error)>::make<QueryClosure, &QueryClosure::complete>(this));
+}
+void Server::QueryClosure::onData(const Db::QueryData &rows) {
+	Proto::SrRows response;
+	for(int i = 0; i < rows.items.size(); i++)
+		response.add_row_data(rows.items[i]);
+	p_connection->p_postResponse(Proto::kSrRows, p_responseId, response);
+}
+void Server::QueryClosure::complete(Error error) {
+	// FIXME: don't ignore error value
+	Proto::SrFin response;
+	p_connection->p_postResponse(Proto::kSrFin, p_responseId, response);
+
+	delete this;
+}
+
 void Server::Connection::p_processMessage() {
 	uint32_t seq_number = p_curPacket.seqNumber;
 	//std::cout << "Message: " << p_curPacket.opcode << std::endl;
 
 	Db::Engine *engine = p_server->getEngine();
 	if(p_curPacket.opcode == Proto::kCqQuery) {
-		Proto::CqQuery request;
-		if(!request.ParseFromArray(p_curBuffer, p_curPacket.length)) {
-			Proto::SrFin response;
-			response.set_success(false);
-			response.set_err_code(Proto::kErrIllegalRequest);
-			p_postResponse(Proto::kSrFin, seq_number, response);
-			return;
-		}
-
-		struct control_struct {
-			Db::Query query;
-		};
-		control_struct *control = new control_struct;
-		
-		control->query.viewIndex = engine->getView(request.view_name());
-		if(request.has_from_key()) {
-			control->query.useFromKey = true;
-			control->query.fromKey = request.from_key();
-		}
-		if(request.has_to_key()) {
-			control->query.useFromKey = true;
-			control->query.fromKey = request.to_key();
-		}
-		if(request.has_limit())
-			control->query.limit = request.limit();
-
-		engine->query(&control->query, [=] (const Db::QueryData &rows) {
-			Proto::SrRows response;
-			for(int i = 0; i < rows.items.size(); i++)
-				response.add_row_data(rows.items[i]);
-			p_postResponse(Proto::kSrRows, seq_number, response);
-		}, [=] (Error error) { /*FIXME: don't ignore error value */
-			delete control;
-			
-			Proto::SrFin response;
-			p_postResponse(Proto::kSrFin, seq_number, response);
-		});
+		auto closure = new QueryClosure(engine, this, p_curPacket.seqNumber);
+		closure->execute(p_curPacket.length, p_curBuffer);
 	}else if(p_curPacket.opcode == Proto::kCqShortTransact) {
 		Proto::CqShortTransact request;
 		if(!request.ParseFromArray(p_curBuffer, p_curPacket.length)) {

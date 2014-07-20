@@ -14,6 +14,8 @@ public:
 	}
 
 private:
+	typedef uint32_t ResponseId;
+
 	class Connection {
 	friend class Server;
 	private:
@@ -43,6 +45,24 @@ private:
 	
 	Db::Engine *p_engine;
 	std::unique_ptr<Linux::SockServer> p_sockServer;
+
+	class QueryClosure {
+	public:
+		QueryClosure(Db::Engine *engine, Connection *connection,
+				ResponseId response_id);
+		
+		void execute(size_t packet_size, const void *packet_buffer);
+
+	private:
+		void onData(const Db::QueryData &data);
+		void complete(Error error);
+
+		Db::Engine *p_engine;
+		Connection *p_connection;
+		ResponseId p_responseId;
+
+		Db::Query p_query;
+	};
 };
 
 };
