@@ -2,7 +2,7 @@
 namespace Db {
 
 typedef int64_t DocumentId;
-typedef int64_t trid_type;
+typedef int64_t TransactionId;
 
 struct Mutation {
 	enum Type {

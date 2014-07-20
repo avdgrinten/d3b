@@ -124,7 +124,7 @@ void Server::Connection::p_processMessage() {
 		}
 		
 		struct control_struct {
-			Db::trid_type trid;
+			Db::TransactionId trid;
 			std::vector<Db::Mutation> mutations;
 		};
 		control_struct *control = new control_struct;
@@ -148,7 +148,7 @@ void Server::Connection::p_processMessage() {
 
 		Async::staticSeries(std::make_tuple(
 			[=](std::function<void(Error)> tr_callback) {
-				engine->transaction([=](Error error, Db::trid_type trid) {
+				engine->transaction([=](Error error, Db::TransactionId trid) {
 					if(!error.ok())
 						return tr_callback(error);
 					control->trid = trid;

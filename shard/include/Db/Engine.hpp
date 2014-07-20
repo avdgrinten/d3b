@@ -24,17 +24,17 @@ public:
 	void unlinkView(int view);
 
 	// begin a transaction. returns a transaction id
-	void transaction(std::function<void(Error, trid_type)> callback);
+	void transaction(std::function<void(Error, TransactionId)> callback);
 	// add a mutation to an existing transaction
-	void updateMutation(trid_type trid, Mutation *mutation,
+	void updateMutation(TransactionId trid, Mutation *mutation,
 			std::function<void(Error)> callback);
 	// submits the transaction.
 	// after submit() return success commit() is guaranteed to succeed
-	void submit(trid_type trid,
+	void submit(TransactionId trid,
 			std::function<void(Error)> callback);
-	void commit(trid_type trid,
+	void commit(TransactionId trid,
 			std::function<void(Error)> callback);
-	void rollback(trid_type trid,
+	void rollback(TransactionId trid,
 			std::function<void(Error)> callback);
 
 	void fetch(FetchRequest *fetch,
@@ -62,7 +62,7 @@ private:
 		};
 		
 		Type type;
-		trid_type trid;
+		TransactionId trid;
 		std::function<void(Error)> callback;
 	};
 	
@@ -76,8 +76,8 @@ private:
 		std::vector<Mutation*> mutations;
 	};
 
-	trid_type p_nextTransactId;
-	std::unordered_map<trid_type, Transaction*> p_openTransactions;
+	TransactionId p_nextTransactId;
+	std::unordered_map<TransactionId, Transaction *> p_openTransactions;
 
 	Ll::WriteAhead p_writeAhead;
 	

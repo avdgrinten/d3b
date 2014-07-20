@@ -118,14 +118,14 @@ void Engine::unlinkView(int view) {
 	p_writeConfig();
 }
 
-void Engine::transaction(std::function<void(Error, trid_type)> callback) {
-	trid_type trid = p_nextTransactId++;
+void Engine::transaction(std::function<void(Error, TransactionId)> callback) {
+	TransactionId trid = p_nextTransactId++;
 
 	Transaction *transaction = new Transaction;
 	p_openTransactions.insert(std::make_pair(trid, transaction));
 	callback(Error(true), trid);
 }
-void Engine::updateMutation(trid_type trid, Mutation *mutation,
+void Engine::updateMutation(TransactionId trid, Mutation *mutation,
 		std::function<void(Error)> callback) {
 	auto transact_it = p_openTransactions.find(trid);
 	if(transact_it == p_openTransactions.end())
@@ -135,7 +135,7 @@ void Engine::updateMutation(trid_type trid, Mutation *mutation,
 	transaction->mutations.push_back(mutation);
 	callback(Error(true));
 }
-void Engine::submit(trid_type trid,
+void Engine::submit(TransactionId trid,
 		std::function<void(Error)> callback) {
 	Queued queued;
 	queued.type = Queued::kTypeSubmit;
@@ -144,7 +144,7 @@ void Engine::submit(trid_type trid,
 	p_submitQueue.push_back(queued);
 	p_eventFd->fire();
 }
-void Engine::commit(trid_type trid,
+void Engine::commit(TransactionId trid,
 		std::function<void(Error)> callback) {
 	Queued queued;
 	queued.type = Queued::kTypeCommit;
