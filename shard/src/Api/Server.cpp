@@ -114,6 +114,70 @@ void Server::QueryClosure::complete(Error error) {
 	delete this;
 }
 
+Server::ShortTransactClosure::ShortTransactClosure(Db::Engine *engine, Connection *connection,
+		ResponseId response_id)
+	: p_engine(engine), p_connection(connection), p_responseId(response_id),
+	p_updatedMutationsCount(0) { }
+
+void Server::ShortTransactClosure::execute(size_t packet_size, const void *packet_buffer) {
+	Proto::CqShortTransact request;
+	if(!request.ParseFromArray(packet_buffer, packet_size)) {
+		Proto::SrFin response;
+		response.set_success(false);
+		response.set_err_code(Proto::kErrIllegalRequest);
+		p_connection->p_postResponse(Proto::kSrFin, p_responseId, response);
+		return;
+	}
+
+	for(int i = 0; i < request.updates_size(); i++) {
+		const Proto::Update &update = request.updates(i);
+
+		Db::Mutation mutation;
+		if(update.action() == Proto::Actions::kActInsert) {
+			mutation.type = Db::Mutation::kTypeInsert;
+			mutation.storageIndex = p_engine->getStorage(update.storage_name());
+			mutation.buffer = update.buffer();
+		}else if(update.action() == Proto::Actions::kActUpdate) {
+			mutation.type = Db::Mutation::kTypeModify;
+			mutation.storageIndex = p_engine->getStorage(update.storage_name());
+			mutation.documentId = update.id();
+			mutation.buffer = update.buffer();
+		}else throw std::runtime_error("Illegal update type");
+		p_mutations.push_back(mutation);
+	}
+
+	p_engine->transaction(Async::Callback<void(Error, Db::TransactionId)>
+			::make<ShortTransactClosure, &ShortTransactClosure::onTransaction>(this));
+};
+void Server::ShortTransactClosure::onTransaction(Error error,
+		Db::TransactionId transaction_id) {
+	p_transactionId = transaction_id;
+	updateMutation();
+}
+void Server::ShortTransactClosure::updateMutation() {
+	if(p_updatedMutationsCount == p_mutations.size()) {
+		p_engine->submit(p_transactionId, Async::Callback<void(Error)>
+			::make<ShortTransactClosure, &ShortTransactClosure::onSubmit>(this));
+	}else{
+		p_engine->updateMutation(p_transactionId, &p_mutations[p_updatedMutationsCount],
+			Async::Callback<void(Error)>::make<ShortTransactClosure, &ShortTransactClosure::onUpdateMutation>(this));
+	}
+}
+void Server::ShortTransactClosure::onUpdateMutation(Error error) {
+	p_updatedMutationsCount++;
+	updateMutation();
+}
+void Server::ShortTransactClosure::onSubmit(Error error) {
+	p_engine->commit(p_transactionId, Async::Callback<void(Error)>
+		::make<ShortTransactClosure, &ShortTransactClosure::onCommit>(this));
+}
+void Server::ShortTransactClosure::onCommit(Error error) {
+	Proto::SrFin response;
+	p_connection->p_postResponse(Proto::kSrFin, p_responseId, response);
+	
+	delete this;
+}
+
 void Server::Connection::p_processMessage() {
 	uint32_t seq_number = p_curPacket.seqNumber;
 	//std::cout << "Message: " << p_curPacket.opcode << std::endl;
@@ -123,64 +187,8 @@ void Server::Connection::p_processMessage() {
 		auto closure = new QueryClosure(engine, this, p_curPacket.seqNumber);
 		closure->execute(p_curPacket.length, p_curBuffer);
 	}else if(p_curPacket.opcode == Proto::kCqShortTransact) {
-		Proto::CqShortTransact request;
-		if(!request.ParseFromArray(p_curBuffer, p_curPacket.length)) {
-			Proto::SrFin response;
-			response.set_success(false);
-			response.set_err_code(Proto::kErrIllegalRequest);
-			p_postResponse(Proto::kSrFin, seq_number, response);
-			return;
-		}
-		
-		struct control_struct {
-			Db::TransactionId trid;
-			std::vector<Db::Mutation> mutations;
-		};
-		control_struct *control = new control_struct;
-		for(int i = 0; i < request.updates_size(); i++) {
-			const Proto::Update &update = request.updates(i);
-
-			Db::Mutation mutation;
-			if(update.action() == Proto::Actions::kActInsert) {
-				mutation.type = Db::Mutation::kTypeInsert;
-				mutation.storageIndex = engine->getStorage(update.storage_name());
-				mutation.buffer = update.buffer();
-			}else if(update.action() == Proto::Actions::kActUpdate) {
-				mutation.type = Db::Mutation::kTypeModify;
-				mutation.storageIndex = engine->getStorage(update.storage_name());
-				mutation.documentId = update.id();
-				mutation.buffer = update.buffer();
-			}else throw std::runtime_error("Illegal update type");
-			control->mutations.push_back(mutation);
-		}
-		Connection *self = this;
-
-		Async::staticSeries(std::make_tuple(
-			[=](std::function<void(Error)> tr_callback) {
-				engine->transaction([=](Error error, Db::TransactionId trid) {
-					if(!error.ok())
-						return tr_callback(error);
-					control->trid = trid;
-					tr_callback(Error(true));
-				});
-			},
-			[=](std::function<void(Error)> tr_callback) {
-				Async::eachSeries(control->mutations.begin(),
-						control->mutations.end(), [=](Db::Mutation &mutation,
-							std::function<void(Error)> each_callback) {
-					engine->updateMutation(control->trid, &mutation, each_callback);
-				}, tr_callback);
-			},
-			[=](std::function<void(Error)> tr_callback) {
-				engine->submit(control->trid, tr_callback);
-			},
-			[=](std::function<void(Error)> tr_callback) {
-				engine->commit(control->trid, tr_callback);
-			}
-		), [=](Error error) {
-			Proto::SrFin fin_resp;
-			p_postResponse(Proto::kSrFin, seq_number, fin_resp);
-		});
+		auto closure = new ShortTransactClosure(engine, this, p_curPacket.seqNumber);
+		closure->execute(p_curPacket.length, p_curBuffer);
 	}else if(p_curPacket.opcode == Proto::kCqCreateStorage) {
 		Proto::CqCreateStorage request;
 		if(!request.ParseFromArray(p_curBuffer, p_curPacket.length)) {

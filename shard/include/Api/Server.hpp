@@ -63,6 +63,29 @@ private:
 
 		Db::Query p_query;
 	};
+
+	class ShortTransactClosure {
+	public:
+		ShortTransactClosure(Db::Engine *engine, Connection *connection,
+				ResponseId response_id);
+
+		void execute(size_t packet_size, const void *packet_buffer);
+	
+	private:
+		void onTransaction(Error, Db::TransactionId transaction_id);
+		void updateMutation();
+		void onUpdateMutation(Error error);
+		void onSubmit(Error error);
+		void onCommit(Error error);
+
+		Db::Engine *p_engine;
+		Connection *p_connection;
+		ResponseId p_responseId;
+
+		Db::TransactionId p_transactionId;
+		std::vector<Db::Mutation> p_mutations;
+		int p_updatedMutationsCount;
+	};
 };
 
 };
