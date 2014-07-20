@@ -7,11 +7,11 @@ class Engine;
 
 struct FetchRequest {
 	int storageIndex;
-	id_type documentId;
+	DocumentId documentId;
 };
 
 struct FetchData {
-	id_type documentId;
+	DocumentId documentId;
 	std::string buffer;
 };
 

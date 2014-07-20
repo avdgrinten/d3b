@@ -1,7 +1,7 @@
 
 namespace Db {
 
-typedef int64_t id_type;
+typedef int64_t DocumentId;
 typedef int64_t trid_type;
 
 struct Mutation {
@@ -11,7 +11,7 @@ struct Mutation {
 
 	Type type;
 	int storageIndex;
-	id_type documentId;
+	DocumentId documentId;
 	std::string buffer;
 };
 

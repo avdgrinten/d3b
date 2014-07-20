@@ -35,14 +35,14 @@ private:
 	std::string p_scriptFile;
 	std::string p_storageName;
 
-	void p_onInsert(id_type id, const void *document,
+	void p_onInsert(DocumentId id, const void *document,
 			Linux::size_type length,
 			std::function<void(Error)> callback);
-	void p_onRemove(id_type id, std::function<void(Error)> callback);
+	void p_onRemove(DocumentId id, std::function<void(Error)> callback);
 
 	int p_storage;
 	DataStore p_keyStore;
-	Btree<id_type> p_orderTree;
+	Btree<DocumentId> p_orderTree;
 	v8::Persistent<v8::ObjectTemplate> p_global;
 	v8::Persistent<v8::Context> p_context;
 
@@ -60,7 +60,7 @@ private:
 
 	void p_setupJs();
 
-	v8::Local<v8::Value> p_extractDoc(id_type id,
+	v8::Local<v8::Value> p_extractDoc(DocumentId id,
 			const void *buffer, Linux::size_type length);
 	v8::Local<v8::Value> p_extractKey(const void *buffer,
 			Linux::size_type length);

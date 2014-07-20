@@ -63,7 +63,7 @@ v8::Handle<v8::Value> JsView::p_jsHook(const v8::Arguments &args) {
 
 JsView::JsView(Engine *engine) : ViewDriver(engine),
 		p_enableLog(true), p_keyStore("keys"),
-		p_orderTree("order", 4096, sizeof(id_type), sizeof(id_type)) {
+		p_orderTree("order", 4096, sizeof(DocumentId), sizeof(DocumentId)) {
 	v8::HandleScope handle_scope;
 	
 	v8::Local<v8::External> js_this = v8::External::New(this);
@@ -77,7 +77,7 @@ JsView::JsView(Engine *engine) : ViewDriver(engine),
 	
 	p_context = v8::Context::New(NULL, p_global);
 	
-	p_orderTree.setCompare([this] (id_type keyid_a, id_type keyid_b) -> int {
+	p_orderTree.setCompare([this] (DocumentId keyid_a, DocumentId keyid_b) -> int {
 		auto object_a = p_keyStore.getObject(keyid_a);
 		auto object_b = p_keyStore.getObject(keyid_b);
 
@@ -104,11 +104,11 @@ JsView::JsView(Engine *engine) : ViewDriver(engine),
 			throw std::runtime_error("Unexpected javascript exception");
 		return result->Int32Value();
 	});
-	p_orderTree.setWriteKey([] (void *buffer, id_type id) {
-		*(id_type*)buffer = OS::toLe(id);
+	p_orderTree.setWriteKey([] (void *buffer, DocumentId id) {
+		*(DocumentId*)buffer = OS::toLe(id);
 	});
-	p_orderTree.setReadKey([] (const void *buffer) -> id_type {
-		return OS::fromLe(*(id_type*)buffer);
+	p_orderTree.setReadKey([] (const void *buffer) -> DocumentId {
+		return OS::fromLe(*(DocumentId*)buffer);
 	});
 }
 
@@ -170,7 +170,7 @@ void JsView::sequence(std::vector<Mutation *> &mutations) {
 	});
 }
 
-void JsView::p_onInsert(id_type id,
+void JsView::p_onInsert(DocumentId id,
 		const void *document, Linux::size_type length,
 		std::function<void(Error)> callback) {
 	v8::Context::Scope context_scope(p_context);
@@ -186,13 +186,13 @@ void JsView::p_onInsert(id_type id,
 	auto key_object = p_keyStore.createObject();
 	p_keyStore.allocObject(key_object, ser_value.length());
 	p_keyStore.writeObject(key_object, 0, ser_value.length(), *ser_value);
-	id_type key_id = p_keyStore.objectLid(key_object);
+	DocumentId key_id = p_keyStore.objectLid(key_object);
 
-	id_type written_id = OS::toLe(id);
+	DocumentId written_id = OS::toLe(id);
 
 	/* TODO: re-use removed document entries */
 	
-	p_orderTree.insert(key_id, &written_id, [this, key] (id_type keyid_a) -> int {
+	p_orderTree.insert(key_id, &written_id, [this, key] (DocumentId keyid_a) -> int {
 		auto object_a = p_keyStore.getObject(keyid_a);
 		auto length_a = p_keyStore.objectLength(object_a);
 		char *buf_a = new char[length_a];
@@ -209,7 +209,7 @@ void JsView::p_onInsert(id_type id,
 	});
 	callback(Error(true));
 }
-void JsView::p_onRemove(id_type id,
+void JsView::p_onRemove(DocumentId id,
 		std::function<void(Error)> callback) {
 	FetchRequest *fetch = new FetchRequest;
 	fetch->storageIndex = p_storage;
@@ -223,8 +223,8 @@ void JsView::p_onRemove(id_type id,
 				data.buffer.data(), data.buffer.size()));
 		auto key = v8::Persistent<v8::Value>::New(p_keyOf(extracted));
 		
-		Btree<id_type>::Ref ref = p_orderTree.findNext
-				([this, key] (id_type keyid_a) -> int {
+		Btree<DocumentId>::Ref ref = p_orderTree.findNext
+				([this, key] (DocumentId keyid_a) -> int {
 			auto object_a = p_keyStore.getObject(keyid_a);
 			auto length_a = p_keyStore.objectLength(object_a);
 			char *buf_a = new char[length_a];
@@ -240,7 +240,7 @@ void JsView::p_onRemove(id_type id,
 			return result->Int32Value();
 		}, nullptr, nullptr);
 		
-		Btree<id_type>::Seq seq = p_orderTree.sequence(ref);
+		Btree<DocumentId>::Seq seq = p_orderTree.sequence(ref);
 
 		/* advance the sequence position until we reach
 				the specified document id */
@@ -248,9 +248,9 @@ void JsView::p_onRemove(id_type id,
 			if(!seq.valid())
 				throw std::runtime_error("Specified document not in tree");
 			
-			id_type read_id;
+			DocumentId read_id;
 			seq.getValue(&read_id);
-			id_type cur_id = OS::fromLe(read_id);
+			DocumentId cur_id = OS::fromLe(read_id);
 			
 			if(cur_id == id)
 				break;
@@ -258,7 +258,7 @@ void JsView::p_onRemove(id_type id,
 		}
 		
 		// set the id to zero to remove the document
-		id_type write_id = 0;
+		DocumentId write_id = 0;
 		seq.setValue(&write_id);
 	}, [=](Error error) {
 		delete fetch;
@@ -277,11 +277,11 @@ void JsView::processQuery(Query *request,
 		end_key = v8::Persistent<v8::Value>::New(p_extractKey(request->toKey.c_str(),
 				request->toKey.size()));
 	
-	Btree<id_type>::Ref begin_ref;
+	Btree<DocumentId>::Ref begin_ref;
 	if(request->useFromKey) {
 		auto begin_key = v8::Persistent<v8::Value>::New(p_extractKey(request->fromKey.c_str(),
 				request->fromKey.size()));
-		begin_ref = p_orderTree.findNext([this, begin_key] (id_type keyid_a) -> int {
+		begin_ref = p_orderTree.findNext([this, begin_key] (DocumentId keyid_a) -> int {
 			auto object_a = p_keyStore.getObject(keyid_a);
 			auto length_a = p_keyStore.objectLength(object_a);
 			char *buf_a = new char[length_a];
@@ -301,12 +301,12 @@ void JsView::processQuery(Query *request,
 	}
 
 	struct control_struct {
-		Btree<id_type>::Seq sequence;
+		Btree<DocumentId>::Seq sequence;
 		FetchRequest fetch;
 		QueryData rows;
 		int count;
 		
-		control_struct(Btree<id_type>::Seq &&sequence)
+		control_struct(Btree<DocumentId>::Seq &&sequence)
 				: sequence(std::move(sequence)) { }
 	};
 	control_struct *control = new control_struct(
@@ -320,9 +320,9 @@ void JsView::processQuery(Query *request,
 			return false;
 		return true;
 	}, [this, report, control](std::function<void(Error)> elem_cb) {
-		id_type read_id;
+		DocumentId read_id;
 		control->sequence.getValue(&read_id);
-		id_type id = OS::fromLe(read_id);
+		DocumentId id = OS::fromLe(read_id);
 
 		// skip removed documents
 		if(id == 0) {
@@ -400,7 +400,7 @@ void JsView::p_setupJs() {
 	p_storage = getEngine()->getStorage(p_storageName);
 }
 
-v8::Local<v8::Value> JsView::p_extractDoc(id_type id,
+v8::Local<v8::Value> JsView::p_extractDoc(DocumentId id,
 		const void *buffer, Linux::size_type length) {
 	std::array<v8::Handle<v8::Value>, 2> args;
 	args[0] = v8::Number::New(id);
