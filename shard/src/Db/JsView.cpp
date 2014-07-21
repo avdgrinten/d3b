@@ -159,8 +159,10 @@ void JsView::SequenceClosure::apply() {
 	
 	Mutation *mutation = p_mutations[p_index];
 	if(mutation->type == Mutation::kTypeInsert) {
-		p_view->p_onInsert(mutation->documentId, mutation->buffer.data(), mutation->buffer.size(),
-			ASYNC_MEMBER(this, &SequenceClosure::insertOnComplete));
+		auto closure = new InsertClosure(p_view,
+				mutation->documentId, mutation->buffer,
+				ASYNC_MEMBER(this, &SequenceClosure::insertOnComplete));
+		closure->apply();
 	}else if(mutation->type == Mutation::kTypeModify) {
 		p_view->p_onRemove(mutation->documentId,
 			ASYNC_MEMBER(this, &SequenceClosure::modifyOnRemove));
@@ -174,9 +176,10 @@ void JsView::SequenceClosure::insertOnComplete(Error error) {
 void JsView::SequenceClosure::modifyOnRemove(Error error) {
 	//FIXME: don't ignore error
 	Mutation *mutation = p_mutations[p_index];
-	p_view->p_onInsert(mutation->documentId, mutation->buffer.data(), mutation->buffer.size(),
-		ASYNC_MEMBER(this, &SequenceClosure::modifyOnInsert));
-
+	auto closure = new InsertClosure(p_view,
+			mutation->documentId, mutation->buffer,
+			ASYNC_MEMBER(this, &SequenceClosure::modifyOnInsert));
+	closure->apply();
 }
 void JsView::SequenceClosure::modifyOnInsert(Error error) {
 	//FIXME: don't ignore error
@@ -192,45 +195,54 @@ void JsView::sequence(std::vector<Mutation *> &mutations) {
 	closure->apply();
 }
 
-void JsView::p_onInsert(DocumentId id,
-		const void *document, Linux::size_type length,
-		std::function<void(Error)> callback) {
-	v8::Context::Scope context_scope(p_context);
+JsView::InsertClosure::InsertClosure(JsView *view, DocumentId document_id,
+		std::string buffer, Async::Callback<void(Error)> callback)
+	: p_view(view), p_documentId(document_id), p_buffer(buffer),
+		p_callback(callback) { }
+
+void JsView::InsertClosure::apply() {
+	v8::Context::Scope context_scope(p_view->p_context);
 	v8::HandleScope handle_scope;
 	
-	v8::Local<v8::Value> extracted = p_extractDoc(id, document, length);
-	auto key = v8::Persistent<v8::Value>::New(p_keyOf(extracted));
-	v8::Local<v8::Value> ser = p_serializeKey(key);
+	v8::Local<v8::Value> extracted = p_view->p_extractDoc(p_documentId,
+		p_buffer.data(), p_buffer.length());
+	p_newKey = v8::Persistent<v8::Value>::New(p_view->p_keyOf(extracted));
 
+	v8::Local<v8::Value> ser = p_view->p_serializeKey(p_newKey);
 	v8::String::Utf8Value ser_value(ser);	
 	
 	/* add the document's key to the key store */
-	auto key_object = p_keyStore.createObject();
-	p_keyStore.allocObject(key_object, ser_value.length());
-	p_keyStore.writeObject(key_object, 0, ser_value.length(), *ser_value);
-	DocumentId key_id = p_keyStore.objectLid(key_object);
+	auto key_object = p_view->p_keyStore.createObject();
+	p_view->p_keyStore.allocObject(key_object, ser_value.length());
+	p_view->p_keyStore.writeObject(key_object, 0, ser_value.length(), *ser_value);
+	DocumentId key_id = p_view->p_keyStore.objectLid(key_object);
 
-	DocumentId written_id = OS::toLe(id);
+	DocumentId written_id = OS::toLe(p_documentId);
 
 	/* TODO: re-use removed document entries */
 	
-	p_orderTree.insert(key_id, &written_id, [this, key] (DocumentId keyid_a) -> int {
-		auto object_a = p_keyStore.getObject(keyid_a);
-		auto length_a = p_keyStore.objectLength(object_a);
-		char *buf_a = new char[length_a];
-		p_keyStore.readObject(object_a, 0, length_a, buf_a);
+	p_view->p_orderTree.insert(key_id, &written_id,
+		ASYNC_MEMBER(this, &InsertClosure::compareToNew));
 	
-		v8::Context::Scope context_scope(p_context);
-		v8::HandleScope handle_scope;
-		
-		v8::Local<v8::Value> ser_a = v8::String::New(buf_a, length_a);
-		delete[] buf_a;
-		v8::Local<v8::Value> key_a = p_deserializeKey(ser_a);
-		v8::Local<v8::Value> result = p_compare(key_a, key);
-		return result->Int32Value();
-	});
-	callback(Error(true));
+	p_callback(Error(true));
+	delete this;
 }
+int JsView::InsertClosure::compareToNew(DocumentId keyid_a) {
+	auto object_a = p_view->p_keyStore.getObject(keyid_a);
+	auto length_a = p_view->p_keyStore.objectLength(object_a);
+	char *buf_a = new char[length_a];
+	p_view->p_keyStore.readObject(object_a, 0, length_a, buf_a);
+
+	v8::Context::Scope context_scope(p_view->p_context);
+	v8::HandleScope handle_scope;
+	
+	v8::Local<v8::Value> ser_a = v8::String::New(buf_a, length_a);
+	delete[] buf_a;
+	v8::Local<v8::Value> key_a = p_view->p_deserializeKey(ser_a);
+	v8::Local<v8::Value> result = p_view->p_compare(key_a, p_newKey);
+	return result->Int32Value();
+}
+
 void JsView::p_onRemove(DocumentId id,
 		std::function<void(Error)> callback) {
 	FetchRequest *fetch = new FetchRequest;

@@ -35,9 +35,6 @@ private:
 	std::string p_scriptFile;
 	std::string p_storageName;
 
-	void p_onInsert(DocumentId id, const void *document,
-			Linux::size_type length,
-			std::function<void(Error)> callback);
 	void p_onRemove(DocumentId id, std::function<void(Error)> callback);
 
 	int p_storage;
@@ -112,9 +109,27 @@ private:
 		void complete();
 
 		JsView *p_view;
-		
 		std::vector<Mutation *> p_mutations;
+
 		int p_index;
+	};
+
+	class InsertClosure {
+	public:
+		InsertClosure(JsView *view, DocumentId document_id, std::string buffer,
+			Async::Callback<void(Error)> callback);
+		
+		void apply();
+
+	private:
+		int compareToNew(DocumentId id);
+
+		JsView *p_view;
+		DocumentId p_documentId;
+		std::string p_buffer;
+		Async::Callback<void(Error)> p_callback;
+
+		v8::Persistent<v8::Value> p_newKey;
 	};
 };
 
