@@ -1,4 +1,6 @@
 
+#include "Async.hpp"
+
 namespace Ll {
 
 class WriteAhead {
@@ -10,6 +12,8 @@ public:
 	
 	void createLog();
 	void loadLog();
+
+	void replay(Async::Callback<void(Db::Proto::LogEntry &)> on_entry);
 	
 	void log(Db::Proto::LogEntry &message,
 			std::function<void(Error)> callback);

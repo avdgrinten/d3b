@@ -110,6 +110,20 @@ private:
 
 		Async::Callback<void()> p_callback;
 	};
+
+	class ReplayClosure {
+	public:
+		ReplayClosure(Engine *engine);
+		
+		void replay();
+
+	private:
+		void onEntry(Proto::LogEntry &entry);
+
+		Engine *p_engine;
+
+		std::unordered_map<TransactionId, Transaction *> p_transactions;
+	};
 };
 
 };

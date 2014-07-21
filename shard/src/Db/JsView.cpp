@@ -126,10 +126,12 @@ void JsView::loadView() {
 	p_setupJs();
 
 	p_keyStore.setPath(this->getPath());
-	p_keyStore.loadStore();
+	//NOTE: to test the durability implementation we always delete the data on load!
+	p_keyStore.createStore();
 
 	p_orderTree.setPath(this->getPath());
-	p_orderTree.loadTree();
+	//NOTE: to test the durability implementation we always delete the data on load!
+	p_orderTree.createTree();
 }
 
 Proto::ViewConfig JsView::writeConfig() {

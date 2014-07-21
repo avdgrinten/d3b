@@ -23,7 +23,8 @@ void FlexStorage::createStorage() {
 
 void FlexStorage::loadStorage() {
 	p_docStore.setPath(this->getPath());
-	p_docStore.loadStore();
+	//NOTE: to test the durability implementation we always delete the data on load!
+	p_docStore.createStore();
 }
 
 Proto::StorageConfig FlexStorage::writeConfig() {

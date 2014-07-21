@@ -28,7 +28,9 @@ void Ll::WriteAhead::createLog() {
 void Ll::WriteAhead::loadLog() {
 	std::string file_name = p_path + "/" + p_identifier + ".wal";
 	p_file->openSync(file_name, Linux::kFileRead | Linux::kFileWrite);
+}
 
+void Ll::WriteAhead::replay(Async::Callback<void(Db::Proto::LogEntry &)> on_entry) {
 	Linux::size_type position = 0;
 	Linux::size_type length = p_file->lengthSync();
 	while(position < length) {
@@ -44,12 +46,10 @@ void Ll::WriteAhead::loadLog() {
 		if(memcmp(head + 4, hash, 16) != 0)
 			throw std::runtime_error("WriteAhead: Hash mismatch!");
 
-		Db::Proto::LogEntry message;
-		if(!message.ParseFromArray(buffer, msg_length))
+		Db::Proto::LogEntry entry;
+		if(!entry.ParseFromArray(buffer, msg_length))
 			throw std::runtime_error("Could not deserialize protobuf");
-
-		//TODO: handle write-ahead log messages
-//		std::cout << "wal: " << message.type() << std::endl;
+		on_entry(entry);
 		
 		position += 20 + msg_length;
 	}

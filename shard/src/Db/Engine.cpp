@@ -36,10 +36,6 @@ void Engine::createConfig() {
 }
 
 void Engine::loadConfig() {
-	p_writeAhead.setPath(p_path);
-	p_writeAhead.setIdentifier("transact");
-	p_writeAhead.loadLog();
-	
 	std::unique_ptr<Linux::File> file = osIntf->createFile();
 	file->openSync(p_path + "/config", Linux::FileMode::read);
 	Linux::size_type length = file->lengthSync();
@@ -62,6 +58,71 @@ void Engine::loadConfig() {
 		ViewDriver *instance = p_setupView(view_config);
 		instance->loadView();
 	}
+	
+	p_writeAhead.setPath(p_path);
+	p_writeAhead.setIdentifier("transact");
+	p_writeAhead.loadLog();
+
+	auto closure = new ReplayClosure(this);
+	closure->replay();
+}
+
+Engine::ReplayClosure::ReplayClosure(Engine *engine)
+	: p_engine(engine) { }
+
+void Engine::ReplayClosure::replay() {
+	p_engine->p_writeAhead.replay(ASYNC_MEMBER(this, &ReplayClosure::onEntry));
+}
+void Engine::ReplayClosure::onEntry(Proto::LogEntry &log_entry) {
+	if(log_entry.type() == Proto::LogEntry::kTypeSubmit) {
+		TransactionId transact_id = log_entry.transaction_id();
+		Transaction *transaction = new Transaction;
+
+		for(int i = 0; i < log_entry.mutations_size(); i++) {
+			const Proto::LogMutation &log_mutation = log_entry.mutations(i);
+
+			auto mutation = new Mutation;
+			if(log_mutation.type() == Proto::LogMutation::kTypeInsert) {
+				int storage = p_engine->getStorage(log_mutation.storage_name());
+				mutation->type = Mutation::kTypeInsert;
+				mutation->storageIndex = storage;
+				mutation->documentId = log_mutation.document_id();
+				mutation->buffer = log_mutation.buffer();
+			}else if(log_mutation.type() == Proto::LogMutation::kTypeModify) {
+				int storage = p_engine->getStorage(log_mutation.storage_name());
+				mutation->type = Mutation::kTypeInsert;
+				mutation->storageIndex = storage;
+				mutation->documentId = log_mutation.document_id();
+				mutation->buffer = log_mutation.buffer();
+			}else throw std::logic_error("Illegal log mutation type");
+
+			transaction->mutations.push_back(mutation);
+		}
+
+		p_transactions.insert(std::make_pair(transact_id, transaction));
+	}else if(log_entry.type() == Proto::LogEntry::kTypeCommit) {
+		TransactionId transact_id = log_entry.transaction_id();
+		auto transact_it = p_transactions.find(transact_id);
+		if(transact_it == p_transactions.end())
+			throw std::runtime_error("Illegal transaction");
+		Transaction *transaction = transact_it->second;
+		
+		for(auto it = p_engine->p_storage.begin(); it != p_engine->p_storage.end(); ++it) {
+			StorageDriver *driver = *it;
+			if(driver == nullptr)
+				continue;
+			driver->sequence(transaction->mutations);
+		}
+		for(auto it = p_engine->p_views.begin(); it != p_engine->p_views.end(); ++it) {
+			ViewDriver *driver = *it;
+			if(driver == nullptr)
+				continue;
+			driver->sequence(transaction->mutations);
+		}
+		
+		p_transactions.erase(transact_it);
+		delete transaction;
+	}else throw std::logic_error("Illegal log entry type");
 }
 
 void Engine::createStorage(const Proto::StorageConfig &config) {
