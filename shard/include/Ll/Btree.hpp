@@ -40,15 +40,25 @@ public:
 		blknum_type entry;
 	};
 
+	// FIXME: Seq should properly deallocate memory
 	class Seq {
 	friend class Btree;
 	public:
 		~Seq() {
 			delete[] p_buffer;
 		}
+		Seq() : p_tree(nullptr), p_buffer(nullptr), p_block(0), p_entry(0) { }
 		Seq(Seq &&other) :
 				p_tree(other.p_tree), p_buffer(other.p_buffer),
 				p_block(other.p_block), p_entry(other.p_entry) {
+		}
+
+		void operator= (Seq &&other) {
+			p_tree = other.p_tree;
+			p_buffer = other.p_buffer;
+			p_block = other.p_block;
+			p_entry = other.p_entry;
+			
 			other.p_buffer = nullptr;
 			other.p_block = 0;
 			other.p_entry = 0;
@@ -69,12 +79,12 @@ public:
 		void setValue(void *value);
 		
 	private:
-		Seq(Btree &tree, blknum_type block, blknum_type entry)
+		Seq(Btree *tree, blknum_type block, blknum_type entry)
 				: p_tree(tree), p_block(block), p_entry(entry) {
-			p_buffer = new char[tree.p_blockSize];
+			p_buffer = new char[tree->p_blockSize];
 		}
 		
-		Btree &p_tree;
+		Btree *p_tree;
 		char *p_buffer;
 		blknum_type p_block;
 		blknum_type p_entry;
@@ -144,7 +154,7 @@ public:
 	Ref refToFirst();
 	
 	Seq sequence(const Ref &ref) {
-		Seq result(*this, ref.block, ref.entry);
+		Seq result(this, ref.block, ref.entry);
 		if(ref.block > 0)
 			p_readBlock(ref.block, result.p_buffer);
 		return result;
@@ -322,13 +332,13 @@ Btree<KeyType>::Btree
 
 template<typename KeyType>
 void Btree<KeyType>::Seq::operator++() {
-	assert(p_block > 0 && p_entry < p_tree.p_leafGetEntCount(p_buffer));
+	assert(p_block > 0 && p_entry < p_tree->p_leafGetEntCount(p_buffer));
 	p_entry++;
 
-	blknum_type right_link = p_tree.p_leafGetRightLink(p_buffer);
-	if(p_entry == p_tree.p_leafGetEntCount(p_buffer)) {
+	blknum_type right_link = p_tree->p_leafGetRightLink(p_buffer);
+	if(p_entry == p_tree->p_leafGetEntCount(p_buffer)) {
 		if(right_link != 0) {
-			p_tree.p_readBlock(right_link, p_buffer);
+			p_tree->p_readBlock(right_link, p_buffer);
 			p_block = right_link;
 			p_entry = 0;
 		}else{
@@ -341,21 +351,21 @@ void Btree<KeyType>::Seq::operator++() {
 template<typename KeyType>
 KeyType Btree<KeyType>::Seq::getKey() {
 	assert(p_block > 0 && p_entry >= 0);
-	return p_tree.p_readKey(p_buffer + p_tree.p_keyOffLeaf(p_entry));
+	return p_tree->p_readKey(p_buffer + p_tree->p_keyOffLeaf(p_entry));
 }
 
 template<typename KeyType>
 void Btree<KeyType>::Seq::getValue(void *value) {
 	assert(p_block > 0 && p_entry >= 0);
-	std::memcpy(value, p_buffer + p_tree.p_valOffLeaf(p_entry),
-			p_tree.p_valSize);
+	std::memcpy(value, p_buffer + p_tree->p_valOffLeaf(p_entry),
+			p_tree->p_valSize);
 }
 template<typename KeyType>
 void Btree<KeyType>::Seq::setValue(void *value) {
 	assert(p_block > 0 && p_entry >= 0);
-	std::memcpy(p_buffer + p_tree.p_valOffLeaf(p_entry), value,
-			p_tree.p_valSize);
-	p_tree.p_writeBlock(p_block, p_buffer);
+	std::memcpy(p_buffer + p_tree->p_valOffLeaf(p_entry), value,
+			p_tree->p_valSize);
+	p_tree->p_writeBlock(p_block, p_buffer);
 }
 
 /* ------------------------------------------------------------------------- *

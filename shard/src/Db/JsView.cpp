@@ -266,109 +266,119 @@ void JsView::p_onRemove(DocumentId id,
 	});
 }
 
-void JsView::processQuery(Query *request,
-		Async::Callback<void(QueryData &)> report,
-		Async::Callback<void(Error)> callback) {	
-	v8::Context::Scope context_scope(p_context);
+JsView::QueryClosure::QueryClosure(JsView *view, Query *query,
+		Async::Callback<void(QueryData &)> on_data,
+		Async::Callback<void(Error)> on_complete)
+	: p_view(view), p_query(query), p_onData(on_data),
+		p_onComplete(on_complete) { }
+
+void JsView::QueryClosure::process() {
+	v8::Context::Scope context_scope(p_view->p_context);
 	v8::HandleScope handle_scope;
 
-	v8::Persistent<v8::Value> end_key;
-	if(request->useToKey)
-		end_key = v8::Persistent<v8::Value>::New(p_extractKey(request->toKey.c_str(),
-				request->toKey.size()));
+	if(p_query->useToKey)
+		p_endKey = v8::Persistent<v8::Value>::New(p_view->p_extractKey(p_query->toKey.c_str(),
+				p_query->toKey.size()));
 	
 	Btree<DocumentId>::Ref begin_ref;
-	if(request->useFromKey) {
-		auto begin_key = v8::Persistent<v8::Value>::New(p_extractKey(request->fromKey.c_str(),
-				request->fromKey.size()));
-		begin_ref = p_orderTree.findNext([this, begin_key] (DocumentId keyid_a) -> int {
-			auto object_a = p_keyStore.getObject(keyid_a);
-			auto length_a = p_keyStore.objectLength(object_a);
-			char *buf_a = new char[length_a];
-			p_keyStore.readObject(object_a, 0, length_a, buf_a);
-			
-			v8::Context::Scope context_scope(p_context);
-			v8::HandleScope handle_scope;
-
-			v8::Local<v8::Value> ser_a = v8::String::New(buf_a, length_a);
-			delete[] buf_a;
-			v8::Local<v8::Value> key_a = p_deserializeKey(ser_a);
-			v8::Local<v8::Value> result = p_compare(key_a, begin_key);
-			return result->Int32Value();
-		}, nullptr, nullptr);
+	if(p_query->useFromKey) {
+		p_beginKey = v8::Persistent<v8::Value>::New(p_view->p_extractKey(p_query->fromKey.c_str(),
+				p_query->fromKey.size()));
+		begin_ref = p_view->p_orderTree.findNext(ASYNC_MEMBER(this, &QueryClosure::compareToBegin),
+				nullptr, nullptr);
 	}else{
-		begin_ref = p_orderTree.refToFirst();
+		begin_ref = p_view->p_orderTree.refToFirst();
 	}
 
-	struct control_struct {
-		Btree<DocumentId>::Seq sequence;
-		FetchRequest fetch;
-		QueryData rows;
-		int count;
-		
-		control_struct(Btree<DocumentId>::Seq &&sequence)
-				: sequence(std::move(sequence)) { }
-	};
-	control_struct *control = new control_struct(
-		p_orderTree.sequence(begin_ref));
-	control->count = 0;
+	p_btreeIterator = std::move(p_view->p_orderTree.sequence(begin_ref));
+
+	fetchItem();
+}
+int JsView::QueryClosure::compareToBegin(DocumentId keyid_a) {
+	auto object_a = p_view->p_keyStore.getObject(keyid_a);
+	auto length_a = p_view->p_keyStore.objectLength(object_a);
+	char *buf_a = new char[length_a];
+	p_view->p_keyStore.readObject(object_a, 0, length_a, buf_a);
 	
-	Async::whilst([request, control]() -> bool {
-		if(!control->sequence.valid())
-			return false;
-		if(request->limit != -1 && control->count == request->limit)
-			return false;
-		return true;
-	}, [this, report, control](std::function<void(Error)> elem_cb) {
-		DocumentId read_id;
-		control->sequence.getValue(&read_id);
-		DocumentId id = OS::fromLe(read_id);
+	v8::Context::Scope context_scope(p_view->p_context);
+	v8::HandleScope handle_scope;
 
-		// skip removed documents
-		if(id == 0) {
-			++control->sequence;
-			return elem_cb(Error(true));
-		}
-		
-		control->fetch.storageIndex = p_storage;
-		control->fetch.documentId = id;
-		getEngine()->fetch(&control->fetch, [this, id, control](FetchData &data) {
-			v8::Context::Scope context_scope(p_context);
-			v8::HandleScope handle_scope;
-			
-			v8::Local<v8::Value> extracted = p_extractDoc(id,
-					data.buffer.data(), data.buffer.length());
+	v8::Local<v8::Value> ser_a = v8::String::New(buf_a, length_a);
+	delete[] buf_a;
+	v8::Local<v8::Value> key_a = p_view->p_deserializeKey(ser_a);
+	v8::Local<v8::Value> result = p_view->p_compare(key_a, p_beginKey);
+	return result->Int32Value();
+}
+void JsView::QueryClosure::fetchItem() {
+	if(!p_btreeIterator.valid()) {
+		complete();
+		return;
+	}
+	if(p_query->limit != -1 && p_fetchedCount == p_query->limit) {
+		complete();
+		return;
+	}
 
-			/* FIXME:
-			if(!end_key.IsEmpty()) {
-				v8::Local<v8::Value> key = p_keyOf(extracted);
-				if(p_compare(key, end_key)->Int32Value() > 0)
-					break;
-			}*/
-			
-			v8::Local<v8::Value> rpt_value = p_report(extracted);
-			v8::String::Utf8Value rpt_utf8(rpt_value);
-			control->rows.items.emplace_back(*rpt_utf8, rpt_utf8.length());
-		}, [report, control, elem_cb](Error error) {
-			if(!error.ok())
-				return elem_cb(error);
+	DocumentId read_id;
+	p_btreeIterator.getValue(&read_id);
+	DocumentId id = OS::fromLe(read_id);
 
-			if(control->rows.items.size() >= 1000) {
-				report(control->rows);
-				control->rows.items.clear();
-			}
-			++control->sequence;
-			++control->count;
-			osIntf->nextTick([elem_cb]() { elem_cb(Error(true)); });
-		});
-	}, [=] (Error error) {
-		if(!error.ok())
-			return callback(error);
-		if(control->rows.items.size() > 0)
-			report(control->rows);
-		delete control;
-		callback(Error(true));
-	});
+	// skip removed documents
+	if(id == 0) {
+		++p_btreeIterator;
+		osIntf->nextTick(ASYNC_MEMBER(this, &QueryClosure::fetchItem));
+		return;
+	}
+	
+	p_fetch.storageIndex = p_view->p_storage;
+	p_fetch.documentId = id;
+	p_view->getEngine()->fetch(&p_fetch,
+			ASYNC_MEMBER(this, &QueryClosure::onFetchData),
+			ASYNC_MEMBER(this, &QueryClosure::onFetchComplete));
+}
+void JsView::QueryClosure::onFetchData(FetchData &data) {
+	v8::Context::Scope context_scope(p_view->p_context);
+	v8::HandleScope handle_scope;
+	
+	v8::Local<v8::Value> extracted = p_view->p_extractDoc(data.documentId,
+			data.buffer.data(), data.buffer.length());
+
+	/* FIXME:
+	if(!p_endKey.IsEmpty()) {
+		v8::Local<v8::Value> key = p_view->p_keyOf(extracted);
+		if(p_compare(key, p_endKey)->Int32Value() > 0)
+			break;
+	}*/
+	
+	v8::Local<v8::Value> rpt_value = p_view->p_report(extracted);
+	v8::String::Utf8Value rpt_utf8(rpt_value);
+	p_queryData.items.emplace_back(*rpt_utf8, rpt_utf8.length());
+}
+void JsView::QueryClosure::onFetchComplete(Error error) {
+	//FIXME: don't ignore error values
+
+	if(p_queryData.items.size() >= 1000) {
+		p_onData(p_queryData);
+		p_queryData.items.clear();
+	}
+
+	++p_btreeIterator;
+	++p_fetchedCount;
+	osIntf->nextTick(ASYNC_MEMBER(this, &QueryClosure::fetchItem));
+}
+void JsView::QueryClosure::complete() {
+	if(p_queryData.items.size() > 0)
+		p_onData(p_queryData);
+
+	p_onComplete(Error(true));
+	delete this;
+}
+
+void JsView::processQuery(Query *request,
+		Async::Callback<void(QueryData &)> on_data,
+		Async::Callback<void(Error)> on_complete) {
+	auto closure = new QueryClosure(this, request, on_data, on_complete);
+	closure->process();
 }
 
 void JsView::p_setupJs() {

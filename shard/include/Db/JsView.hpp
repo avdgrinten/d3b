@@ -70,6 +70,34 @@ private:
 	v8::Local<v8::Value> p_serializeKey(v8::Handle<v8::Value> key);
 	v8::Local<v8::Value> p_deserializeKey(v8::Handle<v8::Value> buffer);
 	v8::Local<v8::Value> p_report(v8::Handle<v8::Value> document);
+
+	class QueryClosure {
+	public:
+		QueryClosure(JsView *view, Query *query,
+				Async::Callback<void(QueryData &)> on_data,
+				Async::Callback<void(Error)> on_complete);
+		
+		void process();
+	
+	private:
+		int compareToBegin(DocumentId id);
+		void fetchItem();
+		void onFetchData(FetchData &data);
+		void onFetchComplete(Error error);
+		void complete();
+
+		JsView *p_view;
+		Query *p_query;
+		Async::Callback<void(QueryData &)> p_onData;
+		Async::Callback<void(Error)> p_onComplete;
+
+		v8::Persistent<v8::Value> p_beginKey;
+		v8::Persistent<v8::Value> p_endKey;
+		Btree<DocumentId>::Seq p_btreeIterator;
+		FetchRequest p_fetch;
+		QueryData p_queryData;
+		int p_fetchedCount;
+	};
 };
 
 }
