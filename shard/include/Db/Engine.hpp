@@ -25,18 +25,18 @@ public:
 	void unlinkView(int view);
 
 	// begin a transaction. returns a transaction id
-	void transaction(std::function<void(Error, TransactionId)> callback);
+	void transaction(Async::Callback<void(Error, TransactionId)> callback);
 	// add a mutation to an existing transaction
 	void updateMutation(TransactionId trid, Mutation *mutation,
-			std::function<void(Error)> callback);
+			Async::Callback<void(Error)> callback);
 	// submits the transaction.
 	// after submit() return success commit() is guaranteed to succeed
 	void submit(TransactionId trid,
-			std::function<void(Error)> callback);
+			Async::Callback<void(Error)> callback);
 	void commit(TransactionId trid,
-			std::function<void(Error)> callback);
+			Async::Callback<void(Error)> callback);
 	void rollback(TransactionId trid,
-			std::function<void(Error)> callback);
+			Async::Callback<void(Error)> callback);
 
 	void fetch(FetchRequest *fetch,
 			Async::Callback<void(FetchData &)> on_data,
@@ -64,14 +64,12 @@ private:
 		
 		Type type;
 		TransactionId trid;
-		std::function<void(Error)> callback;
+		Async::Callback<void(Error)> callback;
 	};
 	
 	std::unique_ptr<Linux::EventFd> p_eventFd;
 	std::deque<Queued> p_submitQueue;
 
-	void p_processQueue(std::function<void(Error)> callback);
-	
 	/* --------- active transactions -------- */
 	struct Transaction {
 		std::vector<Mutation*> mutations;

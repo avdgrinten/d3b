@@ -118,7 +118,7 @@ void Engine::unlinkView(int view) {
 	p_writeConfig();
 }
 
-void Engine::transaction(std::function<void(Error, TransactionId)> callback) {
+void Engine::transaction(Async::Callback<void(Error, TransactionId)> callback) {
 	TransactionId trid = p_nextTransactId++;
 
 	Transaction *transaction = new Transaction;
@@ -126,7 +126,7 @@ void Engine::transaction(std::function<void(Error, TransactionId)> callback) {
 	callback(Error(true), trid);
 }
 void Engine::updateMutation(TransactionId trid, Mutation *mutation,
-		std::function<void(Error)> callback) {
+		Async::Callback<void(Error)> callback) {
 	auto transact_it = p_openTransactions.find(trid);
 	if(transact_it == p_openTransactions.end())
 		throw std::runtime_error("Illegal transaction");	
@@ -142,7 +142,7 @@ void Engine::updateMutation(TransactionId trid, Mutation *mutation,
 	callback(Error(true));
 }
 void Engine::submit(TransactionId trid,
-		std::function<void(Error)> callback) {
+		Async::Callback<void(Error)> callback) {
 	Queued queued;
 	queued.type = Queued::kTypeSubmit;
 	queued.trid = trid;
@@ -151,7 +151,7 @@ void Engine::submit(TransactionId trid,
 	p_eventFd->increment();
 }
 void Engine::commit(TransactionId trid,
-		std::function<void(Error)> callback) {
+		Async::Callback<void(Error)> callback) {
 	Queued queued;
 	queued.type = Queued::kTypeCommit;
 	queued.trid = trid;

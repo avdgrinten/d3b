@@ -33,6 +33,8 @@ public:
 		return Callback(object, Wrapper::run);
 	}
 
+	Callback() : p_object(nullptr), p_function(nullptr) { };
+
 	Callback(void *object, Res (*function)(void *, Args...))
 			: p_object(object), p_function(function) { }
 
