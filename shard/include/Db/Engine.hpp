@@ -39,8 +39,8 @@ public:
 			std::function<void(Error)> callback);
 
 	void fetch(FetchRequest *fetch,
-			std::function<void(FetchData &)> on_data,
-			std::function<void(Error)> callback);
+			Async::Callback<void(FetchData &)> on_data,
+			Async::Callback<void(Error)> callback);
 	
 	Error query(Query *request,
 			Async::Callback<void(QueryData &)> report,

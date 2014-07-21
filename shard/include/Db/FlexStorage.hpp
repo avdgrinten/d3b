@@ -23,8 +23,8 @@ public:
 	virtual DocumentId allocate();
 	virtual void sequence(std::vector<Mutation *> &mutations);
 	virtual void processFetch(FetchRequest *fetch,
-			std::function<void(FetchData &)> on_data,
-			std::function<void(Error)> callback);
+			Async::Callback<void(FetchData &)> on_data,
+			Async::Callback<void(Error)> callback);
 
 private:
 	DataStore p_docStore;

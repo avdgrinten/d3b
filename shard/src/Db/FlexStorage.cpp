@@ -61,8 +61,8 @@ void FlexStorage::sequence(std::vector<Mutation *> &mutations) {
 }
 
 void FlexStorage::processFetch(FetchRequest *fetch,
-		std::function<void(FetchData &)> on_data,
-		std::function<void(Error)> callback) {
+		Async::Callback<void(FetchData &)> on_data,
+		Async::Callback<void(Error)> callback) {
 	DataStore::Object object = p_docStore.getObject(fetch->documentId);
 	
 	Linux::size_type length = p_docStore.objectLength(object);

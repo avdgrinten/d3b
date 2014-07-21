@@ -1,4 +1,6 @@
 
+#include "Async.hpp"
+
 #include "proto/Config.pb.h"
 
 namespace Db {
@@ -49,8 +51,8 @@ public:
 
 	/* processes a query */
 	virtual void processFetch(FetchRequest *fetch,
-			std::function<void(FetchData &)> on_data,
-			std::function<void(Error)> callback) = 0;
+			Async::Callback<void(FetchData &)> on_data,
+			Async::Callback<void(Error)> callback) = 0;
 
 	inline Engine *getEngine() {
 		return p_engine;

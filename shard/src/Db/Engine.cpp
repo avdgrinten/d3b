@@ -276,8 +276,8 @@ void Engine::ProcessQueueClosure::onCommitWriteAhead(Error error) {
 }
 
 void Engine::fetch(FetchRequest *fetch,
-		std::function<void(FetchData &)> on_data,
-		std::function<void(Error)> callback) {
+		Async::Callback<void(FetchData &)> on_data,
+		Async::Callback<void(Error)> callback) {
 	StorageDriver *driver = p_storage[fetch->storageIndex];
 	driver->processFetch(fetch, on_data, callback);
 }
