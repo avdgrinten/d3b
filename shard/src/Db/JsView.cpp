@@ -164,8 +164,9 @@ void JsView::SequenceClosure::apply() {
 				ASYNC_MEMBER(this, &SequenceClosure::insertOnComplete));
 		closure->apply();
 	}else if(mutation->type == Mutation::kTypeModify) {
-		p_view->p_onRemove(mutation->documentId,
+		auto closure = new RemoveClosure(p_view, mutation->documentId,
 			ASYNC_MEMBER(this, &SequenceClosure::modifyOnRemove));
+		closure->apply();
 	}else throw std::logic_error("Illegal mutation type");
 }
 void JsView::SequenceClosure::insertOnComplete(Error error) {
@@ -243,61 +244,69 @@ int JsView::InsertClosure::compareToNew(DocumentId keyid_a) {
 	return result->Int32Value();
 }
 
-void JsView::p_onRemove(DocumentId id,
-		std::function<void(Error)> callback) {
-	FetchRequest *fetch = new FetchRequest;
-	fetch->storageIndex = p_storage;
-	fetch->documentId = id;
-	
-	getEngine()->fetch(fetch, [=](FetchData &data) {
-		v8::Context::Scope context_scope(p_context);
-		v8::HandleScope handle_scope;
-		
-		auto extracted = v8::Persistent<v8::Value>::New(p_extractDoc(id,
-				data.buffer.data(), data.buffer.size()));
-		auto key = v8::Persistent<v8::Value>::New(p_keyOf(extracted));
-		
-		Btree<DocumentId>::Ref ref = p_orderTree.findNext
-				([this, key] (DocumentId keyid_a) -> int {
-			auto object_a = p_keyStore.getObject(keyid_a);
-			auto length_a = p_keyStore.objectLength(object_a);
-			char *buf_a = new char[length_a];
-			p_keyStore.readObject(object_a, 0, length_a, buf_a);
-			
-			v8::Context::Scope context_scope(p_context);
-			v8::HandleScope handle_scope;
-			
-			v8::Local<v8::Value> ser_a = v8::String::New(buf_a, length_a);
-			delete[] buf_a;
-			v8::Local<v8::Value> key_a = p_deserializeKey(ser_a);
-			v8::Local<v8::Value> result = p_compare(key_a, key);
-			return result->Int32Value();
-		}, nullptr, nullptr);
-		
-		Btree<DocumentId>::Seq seq = p_orderTree.sequence(ref);
+JsView::RemoveClosure::RemoveClosure(JsView *view, DocumentId document_id,
+		Async::Callback<void(Error)> callback)
+	: p_view(view), p_documentId(document_id), p_callback(callback) { }
 
-		/* advance the sequence position until we reach
-				the specified document id */
-		while(true) {
-			if(!seq.valid())
-				throw std::runtime_error("Specified document not in tree");
-			
-			DocumentId read_id;
-			seq.getValue(&read_id);
-			DocumentId cur_id = OS::fromLe(read_id);
-			
-			if(cur_id == id)
-				break;
-			++seq;
-		}
+void JsView::RemoveClosure::apply() {
+	p_fetch.storageIndex = p_view->p_storage;
+	p_fetch.documentId = p_documentId;
+	
+	p_view->getEngine()->fetch(&p_fetch,
+		ASYNC_MEMBER(this, &RemoveClosure::onFetchData),
+		ASYNC_MEMBER(this, &RemoveClosure::onFetchComplete));
+}
+void JsView::RemoveClosure::onFetchData(FetchData &data) {
+	v8::Context::Scope context_scope(p_view->p_context);
+	v8::HandleScope handle_scope;
+	
+	v8::Local<v8::Value> extracted = p_view->p_extractDoc(p_documentId,
+			data.buffer.data(), data.buffer.size());
+	p_removedKey = v8::Persistent<v8::Value>::New(p_view->p_keyOf(extracted));
 		
-		// set the id to zero to remove the document
-		DocumentId write_id = 0;
-		seq.setValue(&write_id);
-	}, [=](Error error) {
-		delete fetch;
-		callback(error);
-	});
+	auto ref = p_view->p_orderTree.findNext(ASYNC_MEMBER(this, &RemoveClosure::compareToRemoved),
+			nullptr, nullptr);
+	
+	Btree<DocumentId>::Seq seq = p_view->p_orderTree.sequence(ref);
+
+	/* advance the sequence position until we reach
+			the specified document id */
+	while(true) {
+		if(!seq.valid())
+			throw std::runtime_error("Specified document not in tree");
+		
+		DocumentId read_id;
+		seq.getValue(&read_id);
+		DocumentId cur_id = OS::fromLe(read_id);
+		
+		if(cur_id == p_documentId)
+			break;
+		++seq;
+	}
+	
+	// set the id to zero to remove the document
+	DocumentId write_id = 0;
+	seq.setValue(&write_id);
+}
+int JsView::RemoveClosure::compareToRemoved(DocumentId keyid_a) {
+	auto object_a = p_view->p_keyStore.getObject(keyid_a);
+	auto length_a = p_view->p_keyStore.objectLength(object_a);
+	char *buf_a = new char[length_a];
+	p_view->p_keyStore.readObject(object_a, 0, length_a, buf_a);
+	
+	v8::Context::Scope context_scope(p_view->p_context);
+	v8::HandleScope handle_scope;
+	
+	v8::Local<v8::Value> ser_a = v8::String::New(buf_a, length_a);
+	delete[] buf_a;
+	v8::Local<v8::Value> key_a = p_view->p_deserializeKey(ser_a);
+	v8::Local<v8::Value> result = p_view->p_compare(key_a, p_removedKey);
+	return result->Int32Value();
+}
+void JsView::RemoveClosure::onFetchComplete(Error error) {
+	//FIXME: don't ignore error
+	p_callback(Error(true));
+	delete(this);
 }
 
 JsView::QueryClosure::QueryClosure(JsView *view, Query *query,

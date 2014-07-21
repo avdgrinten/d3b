@@ -35,8 +35,6 @@ private:
 	std::string p_scriptFile;
 	std::string p_storageName;
 
-	void p_onRemove(DocumentId id, std::function<void(Error)> callback);
-
 	int p_storage;
 	DataStore p_keyStore;
 	Btree<DocumentId> p_orderTree;
@@ -130,6 +128,26 @@ private:
 		Async::Callback<void(Error)> p_callback;
 
 		v8::Persistent<v8::Value> p_newKey;
+	};
+	
+	class RemoveClosure {
+	public:
+		RemoveClosure(JsView *view, DocumentId document_id,
+			Async::Callback<void(Error)> callback);
+		
+		void apply();
+
+	private:
+		int compareToRemoved(DocumentId id);
+		void onFetchData(FetchData &data);
+		void onFetchComplete(Error error);
+
+		JsView *p_view;
+		DocumentId p_documentId;
+		Async::Callback<void(Error)> p_callback;
+		
+		FetchRequest p_fetch;
+		v8::Persistent<v8::Value> p_removedKey;
 	};
 };
 
