@@ -98,6 +98,24 @@ private:
 		QueryData p_queryData;
 		int p_fetchedCount;
 	};
+
+	class SequenceClosure {
+	public:
+		SequenceClosure(JsView *view, std::vector<Mutation *> &mutations);
+
+		void apply();
+	
+	private:
+		void insertOnComplete(Error error);
+		void modifyOnRemove(Error error);
+		void modifyOnInsert(Error error);
+		void complete();
+
+		JsView *p_view;
+		
+		std::vector<Mutation *> p_mutations;
+		int p_index;
+	};
 };
 
 }

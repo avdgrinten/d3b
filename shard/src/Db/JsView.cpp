@@ -148,26 +148,48 @@ void JsView::readConfig(const Proto::ViewConfig &config) {
 	p_scriptFile = config.script_file();
 }
 
+JsView::SequenceClosure::SequenceClosure(JsView *view, std::vector<Mutation*> &mutations)
+	: p_view(view), p_mutations(mutations), p_index(0) { }
+
+void JsView::SequenceClosure::apply() {
+	if(p_index == p_mutations.size()) {
+		complete();
+		return;
+	}
+	
+	Mutation *mutation = p_mutations[p_index];
+	if(mutation->type == Mutation::kTypeInsert) {
+		p_view->p_onInsert(mutation->documentId, mutation->buffer.data(), mutation->buffer.size(),
+			ASYNC_MEMBER(this, &SequenceClosure::insertOnComplete));
+	}else if(mutation->type == Mutation::kTypeModify) {
+		p_view->p_onRemove(mutation->documentId,
+			ASYNC_MEMBER(this, &SequenceClosure::modifyOnRemove));
+	}else throw std::logic_error("Illegal mutation type");
+}
+void JsView::SequenceClosure::insertOnComplete(Error error) {
+	//FIXME: don't ignore error
+	p_index++;
+	apply();
+}
+void JsView::SequenceClosure::modifyOnRemove(Error error) {
+	//FIXME: don't ignore error
+	Mutation *mutation = p_mutations[p_index];
+	p_view->p_onInsert(mutation->documentId, mutation->buffer.data(), mutation->buffer.size(),
+		ASYNC_MEMBER(this, &SequenceClosure::modifyOnInsert));
+
+}
+void JsView::SequenceClosure::modifyOnInsert(Error error) {
+	//FIXME: don't ignore error
+	p_index++;
+	apply();
+}
+void JsView::SequenceClosure::complete() {
+	delete this;
+}
+
 void JsView::sequence(std::vector<Mutation *> &mutations) {
-	Async::eachSeries(mutations.begin(), mutations.end(),
-			[this](Mutation *mutation, std::function<void(Error)> callback) {
-		if(mutation->type == Mutation::kTypeInsert) {
-			p_onInsert(mutation->documentId, mutation->buffer.data(),
-				mutation->buffer.size(), callback);
-		}else if(mutation->type == Mutation::kTypeModify) {
-			Async::staticSeries(std::make_tuple(
-				[=](std::function<void(Error)> ser_cb) {
-					p_onRemove(mutation->documentId, ser_cb);
-				},
-				[=](std::function<void(Error)> ser_cb) {
-					p_onInsert(mutation->documentId, mutation->buffer.data(),
-						mutation->buffer.size(), ser_cb);
-				}
-			), callback);
-		}else throw std::logic_error("Illegal mutation type");
-	}, [](Error error) {
-		/* the commit is complete */
-	});
+	auto closure = new SequenceClosure(this, mutations);
+	closure->apply();
 }
 
 void JsView::p_onInsert(DocumentId id,
