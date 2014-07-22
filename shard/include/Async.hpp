@@ -39,7 +39,7 @@ public:
 			: p_object(object), p_function(function) { }
 
 	Res operator() (Args... args) const {
-		p_function(p_object, args...);
+		return p_function(p_object, args...);
 	}
 	
 private:
