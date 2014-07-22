@@ -149,6 +149,28 @@ public:
 		SplitClosure p_splitClosure;
 	};
 
+	class FindClosure {
+	public:
+		FindClosure(Btree *tree) : p_tree(tree) { }
+
+		void findFirst(Async::Callback<void(Ref)> on_complete);
+		void findNext(Async::Callback<int(const KeyType&)> compare,
+				Async::Callback<void(Ref)> on_complete);
+
+	private:
+		void findFirstDescend();
+		void findFirstOnRead();
+		void findNextDescend();
+		void findNextOnRead();
+
+		Btree *p_tree;
+		Async::Callback<int(const KeyType &)> p_compare;
+		Async::Callback<void(Ref)> p_onComplete;
+
+		blknum_type p_blockNumber;
+		char *p_blockBuffer;
+	};
+
 	void setPath(const std::string &path) {
 		p_path = path;
 	}
@@ -205,10 +227,6 @@ public:
 	void integrity(KeyType min, KeyType max) {
 		p_blockIntegrity(p_curFileHead.rootBlock, min, max);
 	}
-
-	Ref findNext(std::function<int(const KeyType&)> compare,
-			KeyType *found, void *value);
-	Ref refToFirst();
 	
 	Seq sequence(const Ref &ref) {
 		Seq result(this, ref.block, ref.entry);
@@ -515,65 +533,86 @@ void Btree<KeyType>::InsertClosure::complete() {
 }
 
 template<typename KeyType>
-typename Btree<KeyType>::Ref Btree<KeyType>::findNext(
-		std::function<int(const KeyType&)> compare,
-		KeyType *found, void *value) {
-//std::cout << p_entsPerLeaf() << std::endl;
-	blknum_type block_num = p_curFileHead.rootBlock;
-	char *block_buf = new char[p_blockSize];
-	while(true) {
-		p_readBlock(block_num, block_buf);
-		
-		flags_type flags = p_headGetFlags(block_buf);
-		if((flags & 1) != 0) {
-			int i = p_nextInLeaf(block_buf, compare);
-			if(i >= 0) {
-				if(found != nullptr)
-					*found = p_readKey(block_buf + p_keyOffLeaf(i));
-				if(value != nullptr)
-					std::memcpy(value, block_buf + p_valOffLeaf(i), p_valSize);
-				delete[] block_buf;
-				return Ref(block_num, i);
-			}else{
-				delete[] block_buf;
-				return Ref(-1, -1);
-			}
-		}
+void Btree<KeyType>::FindClosure::findFirst(Async::Callback<void(Ref)> on_complete) {
+	p_onComplete = on_complete;
 
-		blknum_type ent_count = p_innerGetEntCount(block_buf);
-		int i = p_nextInInner(block_buf, compare);
-		int j = (i == -1 ? ent_count : i);
-		char *ref_ptr = block_buf
-				+ (j > 0 ? p_refOffInner(j - 1) : p_lrefOffInner());
-		blknum_type child_num = OS::fromLeU32(*((blknum_type*)ref_ptr));
-		block_num = child_num;
-	}
+	p_blockNumber = p_tree->p_curFileHead.rootBlock;
+	p_blockBuffer = new char[p_tree->p_blockSize];
+
+	findFirstDescend();
 }
-
 template<typename KeyType>
-typename Btree<KeyType>::Ref Btree<KeyType>::refToFirst() {
-	blknum_type block_num = p_curFileHead.rootBlock;
-	
-	char *block_buf = new char[p_blockSize];
-	while(true) {
-		p_readBlock(block_num, block_buf);
-		
-		flags_type flags = p_headGetFlags(block_buf);
-		if((flags & 1) != 0) {
-			if(p_leafGetEntCount(block_buf) != 0) {
-				Ref result;
-				result.block = block_num;
-				result.entry = 0;
-				return result;
-			}else{
-				return Ref();
-			}
-		}
-		
-		char *ref_ptr = block_buf + p_lrefOffInner();
-		block_num = OS::fromLeU32(*((blknum_type*)ref_ptr));
-	}
+void Btree<KeyType>::FindClosure::findFirstDescend() {
+	p_tree->p_readBlock(p_blockNumber, p_blockBuffer);
+	findFirstOnRead();
 }
+template<typename KeyType>
+void Btree<KeyType>::FindClosure::findFirstOnRead() {
+	flags_type flags = p_tree->p_headGetFlags(p_blockBuffer);
+	if((flags & 1) != 0) {
+		if(p_tree->p_leafGetEntCount(p_blockBuffer) != 0) {
+			Ref result;
+			result.block = p_blockNumber;
+			result.entry = 0;
+			
+			p_onComplete(result);
+			return;
+		}else{
+			p_onComplete(Ref());
+			return;
+		}
+	}
+	
+	char *ref_ptr = p_blockBuffer + p_tree->p_lrefOffInner();
+	p_blockNumber = OS::fromLeU32(*((blknum_type*)ref_ptr));
+
+	findFirstDescend();
+}
+template<typename KeyType>
+void Btree<KeyType>::FindClosure::findNext(Async::Callback<int(const KeyType&)> compare,
+		Async::Callback<void(Ref)> on_complete) {
+	p_compare = compare;
+	p_onComplete = on_complete;
+
+	p_blockNumber = p_tree->p_curFileHead.rootBlock;
+	p_blockBuffer = new char[p_tree->p_blockSize];
+
+	findNextDescend();
+}
+template<typename KeyType>
+void Btree<KeyType>::FindClosure::findNextDescend() {
+	p_tree->p_readBlock(p_blockNumber, p_blockBuffer);
+	findNextOnRead();
+}
+template<typename KeyType>
+void Btree<KeyType>::FindClosure::findNextOnRead() {
+	flags_type flags = p_tree->p_headGetFlags(p_blockBuffer);
+	if((flags & 1) != 0) {
+		int i = p_tree->p_nextInLeaf(p_blockBuffer, p_compare);
+		if(i >= 0) {
+			delete[] p_blockBuffer;
+			
+			p_onComplete(Ref(p_blockNumber, i));
+			return;
+		}else{
+			delete[] p_blockBuffer;
+			
+			p_onComplete(Ref());
+			return;
+		}
+	}
+
+	blknum_type ent_count = p_tree->p_innerGetEntCount(p_blockBuffer);
+	int i = p_tree->p_nextInInner(p_blockBuffer, p_compare);
+	int j = (i == -1 ? ent_count : i);
+	char *ref_ptr = p_blockBuffer
+			+ (j > 0 ? p_tree->p_refOffInner(j - 1) : p_tree->p_lrefOffInner());
+	blknum_type child_num = OS::fromLeU32(*((blknum_type*)ref_ptr));
+	p_blockNumber = child_num;
+
+	findNextDescend();
+}
+
 
 /* ------------------------------------------------------------------------- *
  * NODE SPLITTING FUNCTIONS                                                  *

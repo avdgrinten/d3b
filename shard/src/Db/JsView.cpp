@@ -250,7 +250,8 @@ void JsView::InsertClosure::onComplete() {
 
 JsView::RemoveClosure::RemoveClosure(JsView *view, DocumentId document_id,
 		Async::Callback<void(Error)> callback)
-	: p_view(view), p_documentId(document_id), p_callback(callback) { }
+	: p_view(view), p_documentId(document_id), p_callback(callback),
+		p_btreeFind(&view->p_orderTree) { }
 
 void JsView::RemoveClosure::apply() {
 	p_fetch.storageIndex = p_view->p_storage;
@@ -268,9 +269,25 @@ void JsView::RemoveClosure::onFetchData(FetchData &data) {
 			data.buffer.data(), data.buffer.size());
 	p_removedKey = v8::Persistent<v8::Value>::New(p_view->p_keyOf(extracted));
 		
-	auto ref = p_view->p_orderTree.findNext(ASYNC_MEMBER(this, &RemoveClosure::compareToRemoved),
-			nullptr, nullptr);
+	p_btreeFind.findNext(ASYNC_MEMBER(this, &RemoveClosure::compareToRemoved),
+			ASYNC_MEMBER(this, &RemoveClosure::onFindRemoved));
+}
+int JsView::RemoveClosure::compareToRemoved(const DocumentId &keyid_a) {
+	auto object_a = p_view->p_keyStore.getObject(keyid_a);
+	auto length_a = p_view->p_keyStore.objectLength(object_a);
+	char *buf_a = new char[length_a];
+	p_view->p_keyStore.readObject(object_a, 0, length_a, buf_a);
 	
+	v8::Context::Scope context_scope(p_view->p_context);
+	v8::HandleScope handle_scope;
+	
+	v8::Local<v8::Value> ser_a = v8::String::New(buf_a, length_a);
+	delete[] buf_a;
+	v8::Local<v8::Value> key_a = p_view->p_deserializeKey(ser_a);
+	v8::Local<v8::Value> result = p_view->p_compare(key_a, p_removedKey);
+	return result->Int32Value();
+}
+void JsView::RemoveClosure::onFindRemoved(Btree<DocumentId>::Ref ref) {
 	Btree<DocumentId>::Seq seq = p_view->p_orderTree.sequence(ref);
 
 	/* advance the sequence position until we reach
@@ -292,21 +309,6 @@ void JsView::RemoveClosure::onFetchData(FetchData &data) {
 	DocumentId write_id = 0;
 	seq.setValue(&write_id);
 }
-int JsView::RemoveClosure::compareToRemoved(DocumentId keyid_a) {
-	auto object_a = p_view->p_keyStore.getObject(keyid_a);
-	auto length_a = p_view->p_keyStore.objectLength(object_a);
-	char *buf_a = new char[length_a];
-	p_view->p_keyStore.readObject(object_a, 0, length_a, buf_a);
-	
-	v8::Context::Scope context_scope(p_view->p_context);
-	v8::HandleScope handle_scope;
-	
-	v8::Local<v8::Value> ser_a = v8::String::New(buf_a, length_a);
-	delete[] buf_a;
-	v8::Local<v8::Value> key_a = p_view->p_deserializeKey(ser_a);
-	v8::Local<v8::Value> result = p_view->p_compare(key_a, p_removedKey);
-	return result->Int32Value();
-}
 void JsView::RemoveClosure::onFetchComplete(Error error) {
 	//FIXME: don't ignore error
 	p_callback(Error(true));
@@ -317,7 +319,7 @@ JsView::QueryClosure::QueryClosure(JsView *view, Query *query,
 		Async::Callback<void(QueryData &)> on_data,
 		Async::Callback<void(Error)> on_complete)
 	: p_view(view), p_query(query), p_onData(on_data),
-		p_onComplete(on_complete) { }
+		p_onComplete(on_complete), p_btreeFind(&view->p_orderTree) { }
 
 void JsView::QueryClosure::process() {
 	v8::Context::Scope context_scope(p_view->p_context);
@@ -331,17 +333,18 @@ void JsView::QueryClosure::process() {
 	if(p_query->useFromKey) {
 		p_beginKey = v8::Persistent<v8::Value>::New(p_view->p_extractKey(p_query->fromKey.c_str(),
 				p_query->fromKey.size()));
-		begin_ref = p_view->p_orderTree.findNext(ASYNC_MEMBER(this, &QueryClosure::compareToBegin),
-				nullptr, nullptr);
+		p_btreeFind.findNext(ASYNC_MEMBER(this, &QueryClosure::compareToBegin),
+				ASYNC_MEMBER(this, &QueryClosure::onFindBegin));
 	}else{
-		begin_ref = p_view->p_orderTree.refToFirst();
+		p_btreeFind.findFirst(ASYNC_MEMBER(this, &QueryClosure::onFindBegin));
 	}
-
-	p_btreeIterator = std::move(p_view->p_orderTree.sequence(begin_ref));
+}
+void JsView::QueryClosure::onFindBegin(Btree<DocumentId>::Ref ref) {
+	p_btreeIterator = std::move(p_view->p_orderTree.sequence(ref));
 
 	fetchItem();
 }
-int JsView::QueryClosure::compareToBegin(DocumentId keyid_a) {
+int JsView::QueryClosure::compareToBegin(const DocumentId &keyid_a) {
 	auto object_a = p_view->p_keyStore.getObject(keyid_a);
 	auto length_a = p_view->p_keyStore.objectLength(object_a);
 	char *buf_a = new char[length_a];

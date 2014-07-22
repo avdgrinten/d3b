@@ -75,7 +75,8 @@ private:
 		void process();
 	
 	private:
-		int compareToBegin(DocumentId id);
+		int compareToBegin(const DocumentId &id);
+		void onFindBegin(Btree<DocumentId>::Ref ref);
 		void fetchItem();
 		void onFetchData(FetchData &data);
 		void onFetchComplete(Error error);
@@ -92,6 +93,7 @@ private:
 		FetchRequest p_fetch;
 		QueryData p_queryData;
 		int p_fetchedCount;
+		Btree<DocumentId>::FindClosure p_btreeFind;
 	};
 
 	class SequenceClosure {
@@ -129,8 +131,8 @@ private:
 		Async::Callback<void(Error)> p_callback;
 
 		v8::Persistent<v8::Value> p_newKey;
-		Btree<DocumentId>::InsertClosure p_btreeInsert;
 		DocumentId p_insertKey;
+		Btree<DocumentId>::InsertClosure p_btreeInsert;
 	};
 	
 	class RemoveClosure {
@@ -141,7 +143,8 @@ private:
 		void apply();
 
 	private:
-		int compareToRemoved(DocumentId id);
+		int compareToRemoved(const DocumentId &id);
+		void onFindRemoved(Btree<DocumentId>::Ref ref);
 		void onFetchData(FetchData &data);
 		void onFetchComplete(Error error);
 
@@ -151,6 +154,7 @@ private:
 		
 		FetchRequest p_fetch;
 		v8::Persistent<v8::Value> p_removedKey;
+		Btree<DocumentId>::FindClosure p_btreeFind;
 	};
 };
 
