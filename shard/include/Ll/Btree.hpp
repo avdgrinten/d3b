@@ -90,9 +90,37 @@ public:
 		blknum_type p_entry;
 	};
 
+	class SplitClosure {
+	public:
+		SplitClosure(Btree *tree) : p_tree(tree) { }
+
+		void split(blknum_type block_num, char *block_buf,
+				char *parent_buf, blknum_type block_index,
+				Async::Callback<void()> on_complete);
+	
+	private:
+		void splitLeaf();
+		void onReadRightLink();
+		void splitInner();
+		void fixParent();
+
+		Btree *p_tree;
+		Async::Callback<void()> p_onComplete;
+		
+		blknum_type p_blockNumber;
+		blknum_type p_blockIndex;
+		blknum_type p_splitNumber;
+		blknum_type p_rightLinkNumber;
+		char *p_blockBuffer;
+		char *p_parentBuffer;
+		char *p_rightLinkBuffer;
+		KeyType p_splitKey;
+	};
+
 	class InsertClosure {
 	public:
-		InsertClosure(Btree *tree) : p_tree(tree) { }
+		InsertClosure(Btree *tree) : p_tree(tree),
+				p_splitClosure(tree) { }
 
 		void insert(KeyType *key, void *value,
 				Async::Callback<int(const KeyType&)> compare,
@@ -100,8 +128,10 @@ public:
 
 	private:
 		void onReadRoot();
+		void onSplitRoot();
 		void descend();
 		void onReadChild();
+		void onSplitChild();
 		void complete();
 
 		Btree *p_tree;
@@ -115,6 +145,8 @@ public:
 		blknum_type p_childIndex;
 		char *p_blockBuffer;
 		char *p_childBuffer;
+		
+		SplitClosure p_splitClosure;
 	};
 
 	void setPath(const std::string &path) {
@@ -302,14 +334,7 @@ private:
 		return number;
 	}
 
-	bool p_checkSplit(blknum_type block_num, char *block_buf,
-			char *parent_buf, blknum_type parent_i);
-	void p_fixParent(char *parent_buf, int parent_i, KeyType &split_key,
-			blknum_type block_num, blknum_type split_num);
-	void p_splitLeaf(char *block, blknum_type blk_num,
-			char *parent_buf, int parent_i);
-	void p_splitInner(char *block, blknum_type blk_num,
-			char *parent_buf, int parent_i);
+	bool blockIsFull(blknum_type block_num, char *block_buf);
 
 	void p_blockIntegrity(blknum_type block_num,
 			KeyType min, KeyType max);
@@ -414,15 +439,21 @@ void Btree<KeyType>::InsertClosure::insert(KeyType *key, void *value,
 template<typename KeyType>
 void Btree<KeyType>::InsertClosure::onReadRoot() {
 	/* check if we have to split the root */
-	if(p_tree->p_checkSplit(p_blockNumber, p_blockBuffer, nullptr, 0)) {
-		p_tree->p_writeBlock(p_blockNumber, p_blockBuffer);
-
-		p_blockNumber = p_tree->p_curFileHead.rootBlock;
-		p_tree->p_readBlock(p_blockNumber, p_blockBuffer);
-		descend();
+	if(p_tree->blockIsFull(p_blockNumber, p_blockBuffer)) {
+		p_splitClosure.split(p_blockNumber, p_blockBuffer, nullptr, 0,
+				ASYNC_MEMBER(this, &InsertClosure::onSplitRoot));
 	}else{
 		descend();
 	}
+}
+template<typename KeyType>
+void Btree<KeyType>::InsertClosure::onSplitRoot() {
+	p_tree->p_writeBlock(p_blockNumber, p_blockBuffer);
+
+	p_blockNumber = p_tree->p_curFileHead.rootBlock;
+	p_tree->p_readBlock(p_blockNumber, p_blockBuffer);
+
+	descend();
 }
 template<typename KeyType>
 void Btree<KeyType>::InsertClosure::descend() {
@@ -458,17 +489,24 @@ void Btree<KeyType>::InsertClosure::descend() {
 template<typename KeyType>
 void Btree<KeyType>::InsertClosure::onReadChild() {
 	/* check if we have to split the child */
-	if(p_tree->p_checkSplit(p_childNumber, p_childBuffer,
-			p_blockBuffer, p_childIndex)) {
-		p_tree->p_writeBlock(p_blockNumber, p_blockBuffer);
-		p_tree->p_writeBlock(p_childNumber, p_childBuffer);
-		delete[] p_childBuffer;
+	if(p_tree->blockIsFull(p_childNumber, p_childBuffer)) {
+		p_splitClosure.split(p_childNumber, p_childBuffer,
+				p_blockBuffer, p_childIndex,
+				ASYNC_MEMBER(this, &InsertClosure::onSplitChild));
 	}else{
 		delete[] p_blockBuffer;
 		p_blockBuffer = p_childBuffer;
 		p_blockNumber = p_childNumber;
+		
+		descend();
 	}
-	
+}
+template<typename KeyType>
+void Btree<KeyType>::InsertClosure::onSplitChild() {
+	p_tree->p_writeBlock(p_blockNumber, p_blockBuffer);
+	p_tree->p_writeBlock(p_childNumber, p_childBuffer);
+	delete[] p_childBuffer;
+
 	descend();
 }
 template<typename KeyType>
@@ -542,17 +580,14 @@ typename Btree<KeyType>::Ref Btree<KeyType>::refToFirst() {
  * ------------------------------------------------------------------------- */
 
 template<typename KeyType>
-bool Btree<KeyType>::p_checkSplit(blknum_type block_num, char *block_buf,
-		char *parent_buf, blknum_type parent_i) {
+bool Btree<KeyType>::blockIsFull(blknum_type block_num, char *block_buf) {
 	flags_type flags = OS::fromLeU32(*((flags_type*)block_buf));
 	if((flags & 1) != 0) {
 		if(p_leafGetEntCount(block_buf) >= p_entsPerLeaf() - 1) {
-			p_splitLeaf(block_buf, block_num, parent_buf, parent_i);
 			return true;
 		}
 	}else{
 		if(p_innerGetEntCount(block_buf) >= p_entsPerInner() - 1) {
-			p_splitInner(block_buf, block_num, parent_buf, parent_i);
 			return true;
 		}
 	}
@@ -560,115 +595,142 @@ bool Btree<KeyType>::p_checkSplit(blknum_type block_num, char *block_buf,
 }
 
 template<typename KeyType>
-void Btree<KeyType>::p_splitLeaf(char *block, blknum_type blk_num,
-		char *parent_buf, int parent_i) {
-//	std::cout << "split leaf" << std::endl;
-	blknum_type split_num = p_allocBlock();
+void Btree<KeyType>::SplitClosure::split(blknum_type block_num, char *block_buf,
+		char *parent_buf, blknum_type block_index,
+		Async::Callback<void()> on_complete) {
+	p_blockNumber = block_num;
+	p_blockBuffer = block_buf;
+	p_parentBuffer = parent_buf;
+	p_blockIndex = block_index;
+	p_onComplete = on_complete;
 
-	blknum_type ent_count = p_leafGetEntCount(block);
-	blknum_type right_link = p_leafGetRightLink(block);
+	flags_type flags = OS::fromLeU32(*((flags_type*)block_buf));
+	if((flags & 1) != 0) {
+		if(p_tree->p_leafGetEntCount(block_buf) >= p_tree->p_entsPerLeaf() - 1) {
+			splitLeaf();
+			return;
+		}
+	}else{
+		if(p_tree->p_innerGetEntCount(block_buf) >= p_tree->p_entsPerInner() - 1) {
+			splitInner();
+			return;
+		}
+	}
+	throw std::logic_error("No need to split");
+}
+template<typename KeyType>
+void Btree<KeyType>::SplitClosure::splitLeaf() {
+//	std::cout << "split leaf" << std::endl;
+	p_splitNumber = p_tree->p_allocBlock();
+
+	blknum_type ent_count = p_tree->p_leafGetEntCount(p_blockBuffer);
+	p_rightLinkNumber = p_tree->p_leafGetRightLink(p_blockBuffer);
 	int left_n = ent_count / 2;
 	int right_n = ent_count - left_n;
 	assert(left_n > 0 && right_n > 0
-			&& left_n < p_entsPerLeaf() - 1
-			&& right_n < p_entsPerLeaf() - 1);
-	p_leafSetEntCount(block, left_n);
-	p_leafSetRightLink(block, split_num);
+			&& left_n < p_tree->p_entsPerLeaf() - 1
+			&& right_n < p_tree->p_entsPerLeaf() - 1);
+	p_tree->p_leafSetEntCount(p_blockBuffer, left_n);
+	p_tree->p_leafSetRightLink(p_blockBuffer, p_splitNumber);
 //		std::cout << "split leaf into: " << left_n << ", " << right_n << std::endl;
 	
-	char *split_block = new char[p_blockSize];
-	p_headSetFlags(split_block, 1);
-	p_leafSetEntCount(split_block, right_n);
-	p_leafSetLeftLink(split_block, blk_num);
-	p_leafSetRightLink(split_block, right_link);
-
-	if(right_link != 0) {
-		char *right_buf = new char[p_blockSize];
-		p_readBlock(right_link, right_buf);
-		p_leafSetLeftLink(right_buf, split_num);
-		p_writeBlock(right_link, right_buf);
-		delete[] right_buf;
-	}
+	char *split_block = new char[p_tree->p_blockSize];
+	p_tree->p_headSetFlags(split_block, 1);
+	p_tree->p_leafSetEntCount(split_block, right_n);
+	p_tree->p_leafSetLeftLink(split_block, p_blockNumber);
+	p_tree->p_leafSetRightLink(split_block, p_rightLinkNumber);
 
 	/* setup the entries of the new block */
-	KeyType split_key = p_readKey(block + p_keyOffLeaf(left_n - 1));
-	std::memcpy(split_block + p_entOffLeaf(0),
-			block + p_entOffLeaf(left_n),
-			right_n * p_entSizeLeaf());
+	p_splitKey = p_tree->p_readKey(p_blockBuffer + p_tree->p_keyOffLeaf(left_n - 1));
+	std::memcpy(split_block + p_tree->p_entOffLeaf(0),
+			p_blockBuffer + p_tree->p_entOffLeaf(left_n),
+			right_n * p_tree->p_entSizeLeaf());
 	/* FIXME: for debugging only! */
-	std::memset(block + p_entOffLeaf(left_n), 0, right_n * p_entSizeLeaf());
-	p_writeBlock(split_num, split_block);
+	std::memset(p_blockBuffer + p_tree->p_entOffLeaf(left_n), 0, right_n * p_tree->p_entSizeLeaf());
+	p_tree->p_writeBlock(p_splitNumber, split_block);
 	delete[] split_block;
-	
-	p_fixParent(parent_buf, parent_i, split_key, blk_num, split_num);
-}
 
+	if(p_rightLinkNumber != 0) {
+		p_rightLinkBuffer = new char[p_tree->p_blockSize];
+		p_tree->p_readBlock(p_rightLinkNumber, p_rightLinkBuffer);
+		onReadRightLink();
+	}else{
+		fixParent();
+	}
+}
 template<typename KeyType>
-void Btree<KeyType>::p_splitInner(char *block, blknum_type blk_num,
-		char *parent_buf, int parent_i) {
+void Btree<KeyType>::SplitClosure::onReadRightLink() {
+	p_tree->p_leafSetLeftLink(p_rightLinkBuffer, p_splitNumber);
+	p_tree->p_writeBlock(p_rightLinkNumber, p_rightLinkBuffer);
+	delete[] p_rightLinkBuffer;
+
+	fixParent();
+}
+template<typename KeyType>
+void Btree<KeyType>::SplitClosure::splitInner() {
 //	std::cout << "split inner" << std::endl;
-	blknum_type split_num = p_allocBlock();
+	p_splitNumber = p_tree->p_allocBlock();
 
 	/* note: left_n + right_n = ent_count - 1
 		because one of the keys moves to the parent node */
-	blknum_type ent_count = p_innerGetEntCount(block);
+	blknum_type ent_count = p_tree->p_innerGetEntCount(p_blockBuffer);
 	int left_n = ent_count / 2;
 	int right_n = ent_count - left_n - 1;
 	assert(left_n > 0 && right_n > 0
-			&& left_n < p_entsPerInner() - 2
-			&& right_n < p_entsPerInner() - 1);
-	p_innerSetEntCount(block, left_n);
+			&& left_n < p_tree->p_entsPerInner() - 2
+			&& right_n < p_tree->p_entsPerInner() - 1);
+	p_tree->p_innerSetEntCount(p_blockBuffer, left_n);
 //		std::cout << "split inner into: " << left_n << ", " << right_n << std::endl;
 	
-	char *split_block = new char[p_blockSize];
-	p_headSetFlags(split_block, 0);
-	p_innerSetEntCount(split_block, right_n);	
+	char *split_block = new char[p_tree->p_blockSize];
+	p_tree->p_headSetFlags(split_block, 0);
+	p_tree->p_innerSetEntCount(split_block, right_n);	
 	
 	/* setup the leftmost child reference of the new block */
-	char *block_rref = block + p_refOffInner(left_n);
-	char *split_lref = split_block + p_lrefOffInner();
+	char *block_rref = p_blockBuffer + p_tree->p_refOffInner(left_n);
+	char *split_lref = split_block + p_tree->p_lrefOffInner();
 	*(blknum_type*)split_lref = *(blknum_type*)block_rref;
-	KeyType split_key = p_readKey(block + p_keyOffInner(left_n));
+	p_splitKey = p_tree->p_readKey(p_blockBuffer + p_tree->p_keyOffInner(left_n));
 
 	/* setup the remaining entries of the new block */
-	std::memcpy(split_block + p_entOffInner(0),
-			block + p_entOffInner(left_n + 1),
-			right_n * p_entSizeInner());
+	std::memcpy(split_block + p_tree->p_entOffInner(0),
+			p_blockBuffer + p_tree->p_entOffInner(left_n + 1),
+			right_n * p_tree->p_entSizeInner());
 	/* FIXME: for debugging only! */
-	std::memset(block + p_entOffInner(left_n), 0, (right_n + 1) * p_entSizeInner());
-	p_writeBlock(split_num, split_block);
+	std::memset(p_blockBuffer + p_tree->p_entOffInner(left_n), 0, (right_n + 1) * p_tree->p_entSizeInner());
+	p_tree->p_writeBlock(p_splitNumber, split_block);
 	delete[] split_block;
 	
-	p_fixParent(parent_buf, parent_i, split_key, blk_num, split_num);
+	fixParent();
 }
-
 template<typename KeyType>
-void Btree<KeyType>::p_fixParent(char *parent_buf, int parent_i,
-		KeyType &split_key, blknum_type block_num, blknum_type split_num) {
-	if(parent_buf != nullptr) {
-		blknum_type parent_count = p_innerGetEntCount(parent_buf);
-		assert(parent_count < p_entsPerInner());
+void Btree<KeyType>::SplitClosure::fixParent() {
+	if(p_parentBuffer != nullptr) {
+		blknum_type parent_count = p_tree->p_innerGetEntCount(p_parentBuffer);
+		assert(parent_count < p_tree->p_entsPerInner());
 
-		p_insertAtInnerR(parent_buf, parent_i + 1, split_key, split_num);
+		p_tree->p_insertAtInnerR(p_parentBuffer, p_blockIndex + 1, p_splitKey, p_splitNumber);
 	}else{
-		blknum_type root_num = p_allocBlock();
-		p_curFileHead.rootBlock = root_num;
-		p_curFileHead.depth++;
-		p_writeFileHead();
+		blknum_type new_root_num = p_tree->p_allocBlock();
+		p_tree->p_curFileHead.rootBlock = new_root_num;
+		p_tree->p_curFileHead.depth++;
+		p_tree->p_writeFileHead();
 		
-		char *root_block = new char[p_blockSize];
-		p_headSetFlags(root_block, 0);
-		p_innerSetEntCount(root_block, 1);
+		char *new_root_buffer = new char[p_tree->p_blockSize];
+		p_tree->p_headSetFlags(new_root_buffer, 0);
+		p_tree->p_innerSetEntCount(new_root_buffer, 1);
 		
-		char *lref = root_block + p_lrefOffInner();
-		char *ref0 = root_block + p_refOffInner(0);
-		*((blknum_type*)lref) = OS::toLeU32(block_num);
-		*((blknum_type*)ref0) = OS::toLeU32(split_num);
-		p_writeKey(root_block + p_keyOffInner(0), split_key);
+		char *lref = new_root_buffer + p_tree->p_lrefOffInner();
+		char *ref0 = new_root_buffer + p_tree->p_refOffInner(0);
+		*((blknum_type*)lref) = OS::toLeU32(p_blockNumber);
+		*((blknum_type*)ref0) = OS::toLeU32(p_splitNumber);
+		p_tree->p_writeKey(new_root_buffer + p_tree->p_keyOffInner(0), p_splitKey);
 
-		p_writeBlock(root_num, root_block);
-		delete[] root_block;
+		p_tree->p_writeBlock(new_root_num, new_root_buffer);
+		delete[] new_root_buffer;
 	}
+
+	p_onComplete();
 }
 
 /* ------------------------------------------------------------------------- *
