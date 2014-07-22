@@ -1,6 +1,7 @@
 
 #include <cstdint>
 #include <string>
+#include <iostream>
 
 #include "Os/Linux.hpp"
 #include "Db/Types.hpp"
@@ -13,18 +14,32 @@
 namespace Db {
 
 FlexStorage::FlexStorage(Engine *engine)
-		: StorageDriver(engine), p_docStore("documents") {
+		: StorageDriver(engine), p_lastDocumentId(0), p_dataPointer(0),
+			p_indexTree("index", 4096, Index::kStructSize, Reference::kStructSize) {
+	p_indexTree.setWriteKey(ASYNC_MEMBER(this, &FlexStorage::writeIndex));
+	p_indexTree.setReadKey(ASYNC_MEMBER(this, &FlexStorage::readIndex));
+
+	p_dataFile = osIntf->createFile();
 }
 
 void FlexStorage::createStorage() {
-	p_docStore.setPath(this->getPath());
-	p_docStore.createStore();
+	p_indexTree.setPath(this->getPath());
+	p_indexTree.createTree();
+
+	std::string data_path = p_path + "/data.bin";
+	p_dataFile->openSync(data_path, Linux::kFileCreate | Linux::kFileTrunc
+				| Linux::FileMode::read | Linux::FileMode::write);
 }
 
 void FlexStorage::loadStorage() {
-	p_docStore.setPath(this->getPath());
+	p_indexTree.setPath(this->getPath());
 	//NOTE: to test the durability implementation we always delete the data on load!
-	p_docStore.createStore();
+	p_indexTree.createTree();
+
+	std::string data_path = p_path + "/data.bin";
+	//NOTE: to test the durability implementation we always delete the data on load!
+	p_dataFile->openSync(data_path, Linux::kFileCreate | Linux::kFileTrunc
+				| Linux::FileMode::read | Linux::FileMode::write);
 }
 
 Proto::StorageConfig FlexStorage::writeConfig() {
@@ -38,47 +53,33 @@ void FlexStorage::readConfig(const Proto::StorageConfig &config) {
 }
 
 DocumentId FlexStorage::allocate() {
-	DataStore::Object object = p_docStore.createObject();
-	return p_docStore.objectLid(object);
+	p_lastDocumentId++;
+	return p_lastDocumentId;
 }
 
 void FlexStorage::sequence(std::vector<Mutation> &mutations,
 		Async::Callback<void()> callback) {
-	for(auto it = mutations.begin(); it != mutations.end(); ++it) {
-		Mutation &mutation = *it;
-		if(mutation.type == Mutation::kTypeInsert) {
-			DataStore::Object object = p_docStore.getObject(mutation.documentId);
-			p_docStore.allocObject(object, mutation.buffer.size());
-			p_docStore.writeObject(object, 0, mutation.buffer.size(),
-					mutation.buffer.data());
-		}else if(mutation.type == Mutation::kTypeModify) {
-			DataStore::Object object = p_docStore.getObject(mutation.documentId);
-			p_docStore.allocObject(object, mutation.buffer.size());
-			p_docStore.writeObject(object, 0, mutation.buffer.size(),
-					mutation.buffer.data());
-		}else{
-			throw std::logic_error("Illegal mutation");
-		}
-	}
-	callback();
+	auto closure = new SequenceClosure(this, mutations, callback);
+	closure->apply();
 }
 
 void FlexStorage::processFetch(FetchRequest *fetch,
 		Async::Callback<void(FetchData &)> on_data,
 		Async::Callback<void(Error)> callback) {
-	DataStore::Object object = p_docStore.getObject(fetch->documentId);
-	
-	Linux::size_type length = p_docStore.objectLength(object);
-	char *buffer = new char[length];
-	p_docStore.readObject(object, 0, length, buffer);
-	
-	FetchData result;
-	result.documentId = fetch->documentId;
-	result.buffer = std::string(buffer, length);
-	on_data(result);
-	
-	delete[] buffer;
-	callback(Error(true));
+	auto closure = new FetchClosure(this, fetch->documentId, 0,
+			on_data, callback);
+	closure->process();
+}
+
+void FlexStorage::writeIndex(void *buffer, const Index &index) {
+	OS::packLe64((char*)buffer + Index::kDocumentId, index.documentId);
+	OS::packLe64((char*)buffer + Index::kSequenceId, index.sequenceId);
+}
+FlexStorage::Index FlexStorage::readIndex(const void *buffer) {
+	Index index;
+	index.documentId = OS::unpackLe64((char*)buffer + Index::kDocumentId);
+	index.sequenceId = OS::unpackLe64((char*)buffer + Index::kSequenceId);
+	return index;
 }
 
 FlexStorage::Factory::Factory()
@@ -89,5 +90,153 @@ StorageDriver *FlexStorage::Factory::newDriver(Engine *engine) {
 	return new FlexStorage(engine);
 }
 
-};
+// --------------------------------------------------------
+// SequenceClosure
+// --------------------------------------------------------
+
+FlexStorage::SequenceClosure::SequenceClosure(FlexStorage *storage,
+		std::vector<Mutation> &mutations,
+		Async::Callback<void()> callback)
+	: p_storage(storage), p_mutations(mutations), p_callback(callback), p_index(0) { }
+
+void FlexStorage::SequenceClosure::apply() {
+	if(p_index == p_mutations.size()) {
+		complete();
+		return;
+	}
+	
+	Mutation &mutation = p_mutations[p_index];
+	if(mutation.type == Mutation::kTypeInsert) {
+		auto closure = new InsertClosure(p_storage,
+				mutation.documentId, mutation.buffer,
+				ASYNC_MEMBER(this, &SequenceClosure::onCompleteItem));
+		closure->apply();
+	}else if(mutation.type == Mutation::kTypeModify) {
+		//TODO:
+	}else throw std::logic_error("Illegal mutation type");
+}
+void FlexStorage::SequenceClosure::onCompleteItem(Error error) {
+	//FIXME: don't ignore error
+	p_index++;
+	apply();
+}
+void FlexStorage::SequenceClosure::complete() {
+	p_callback();
+}
+
+// --------------------------------------------------------
+// InsertClosure
+// --------------------------------------------------------
+
+FlexStorage::InsertClosure::InsertClosure(FlexStorage *storage,
+		DocumentId document_id, std::string buffer,
+		Async::Callback<void(Error)> callback)
+	: p_storage(storage), p_documentId(document_id), p_buffer(buffer),
+		p_callback(callback), p_btreeInsert(&storage->p_indexTree) { }
+
+void FlexStorage::InsertClosure::apply() {
+	size_t data_pointer = p_storage->p_dataPointer;
+	p_storage->p_dataPointer += p_buffer.size();
+
+	p_storage->p_dataFile->pwriteSync(data_pointer, p_buffer.size(), p_buffer.data());
+	
+	p_index.documentId = p_documentId;
+	p_index.sequenceId = 0;
+	
+	OS::packLe64(p_refBuffer + Reference::kOffset, data_pointer);
+	OS::packLe64(p_refBuffer + Reference::kLength, p_buffer.size());
+	
+	p_btreeInsert.insert(&p_index, p_refBuffer,
+			ASYNC_MEMBER(this, &InsertClosure::compareToInserted),
+			ASYNC_MEMBER(this, &InsertClosure::onIndexInsert));
+}
+void FlexStorage::InsertClosure::compareToInserted(const Index &other,
+		Async::Callback<void(int)> callback) {
+	if(other.documentId < p_index.documentId) {
+		callback(-1);
+		return;
+	}else if(other.documentId > p_index.documentId) {
+		callback(1);
+		return;
+	}
+	if(other.sequenceId < p_index.sequenceId) {
+		callback(-1);
+		return;
+	}else if(other.sequenceId > p_index.sequenceId) {
+		callback(1);
+		return;
+	}
+	callback(0);
+}
+void FlexStorage::InsertClosure::onIndexInsert() {
+	p_callback(Error(true));
+}
+
+// --------------------------------------------------------
+// FetchClosure
+// --------------------------------------------------------
+
+FlexStorage::FetchClosure::FetchClosure(FlexStorage *storage,
+		DocumentId document_id, SequenceId sequence_id,
+		Async::Callback<void(FetchData &)> on_data,
+		Async::Callback<void(Error)> callback)
+	: p_storage(storage), p_documentId(document_id), p_sequenceId(sequence_id),
+		p_onData(on_data), p_callback(callback),
+		p_btreeFind(&storage->p_indexTree),
+		p_btreeIterate(&storage->p_indexTree) { }
+
+void FlexStorage::FetchClosure::process() {
+	//FIXME: this should be findPrev!
+	p_btreeFind.findNext(ASYNC_MEMBER(this, &FetchClosure::compareToFetched),
+			ASYNC_MEMBER(this, &FetchClosure::onIndexFound));
+}
+void FlexStorage::FetchClosure::compareToFetched(const Index &other,
+		Async::Callback<void(int)> callback) {
+	if(other.documentId < p_documentId) {
+		callback(-1);
+		return;
+	}else if(other.documentId > p_documentId) {
+		callback(1);
+		return;
+	}
+	if(other.sequenceId < p_sequenceId) {
+		callback(-1);
+		return;
+	}else if(other.sequenceId > p_sequenceId) {
+		callback(1);
+		return;
+	}
+	callback(0);
+}
+void FlexStorage::FetchClosure::onIndexFound(Btree<Index>::Ref ref) {
+	//TODO: handle missing documents
+	if(!ref.valid())
+		throw std::runtime_error("Ref not valid!");
+	p_btreeIterate.seek(ref, ASYNC_MEMBER(this, &FetchClosure::onSeek));
+}
+void FlexStorage::FetchClosure::onSeek() {
+	Index index = p_btreeIterate.getKey();
+	//TODO: handle missing documents
+	if(index.documentId != p_documentId)
+		throw std::runtime_error("Document not found!");
+
+	char ref_buffer[Reference::kStructSize];
+	p_btreeIterate.getValue(&ref_buffer);
+
+	size_t offset = OS::unpackLe64(ref_buffer + Reference::kOffset);
+	p_fetchLength = OS::unpackLe64(ref_buffer + Reference::kLength);
+
+	p_fetchBuffer = new char[p_fetchLength];
+	p_storage->p_dataFile->preadSync(offset, p_fetchLength, p_fetchBuffer);
+	
+	p_fetchData.documentId = p_documentId;
+	p_fetchData.buffer = std::string(p_fetchBuffer, p_fetchLength);
+	delete[] p_fetchBuffer;
+
+	p_onData(p_fetchData);
+
+	p_callback(Error(true));
+}
+
+}; // namespace Db
 

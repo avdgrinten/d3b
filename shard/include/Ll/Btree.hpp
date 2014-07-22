@@ -1,4 +1,9 @@
 
+#ifndef D3B_LL_BTREE_HPP
+#define D3B_LL_BTREE_HPP
+
+#include <cstring>
+
 template<typename KeyType>
 class Btree {
 public:
@@ -1100,4 +1105,6 @@ void Btree<KeyType>::p_leafSetRightLink(char *block_buf,
 	LeafHead *head = (LeafHead*)block_buf;
 	head->rightLink2 = OS::toLeU32(ent_count);
 }
+
+#endif
 

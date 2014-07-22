@@ -34,8 +34,8 @@ class OS {
 public:
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 	static uint32_t toLeU32(uint32_t v) { return v; }
-	static uint32_t toLeU64(uint32_t v) { return v; }
 	static uint32_t fromLeU32(uint32_t v) { return v; }
+	static uint64_t toLeU64(uint64_t v) { return v; }
 	static uint64_t fromLeU64(uint64_t v) { return v; }
 #elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 	static uint32_t toLeU32(uint32_t v) {
@@ -73,6 +73,19 @@ public:
 #else
 	#error "GCC byte order defines not available"
 #endif
+	
+	static void packLe32(void *pointer, uint32_t value) {
+		*((uint32_t*)pointer) = toLeU32(value);
+	}
+	static uint32_t unpackLe32(void *pointer) {
+		return fromLeU64(*((uint32_t*)pointer));
+	}
+	static void packLe64(void *pointer, uint64_t value) {
+		*((uint64_t*)pointer) = toLeU64(value);
+	}
+	static uint64_t unpackLe64(void *pointer) {
+		return fromLeU64(*((uint64_t*)pointer));
+	}
 	
 	static uint64_t toLe(uint64_t v) { return toLeU64(v); }
 	static uint64_t fromLe(uint64_t v) { return fromLeU64(v); }
