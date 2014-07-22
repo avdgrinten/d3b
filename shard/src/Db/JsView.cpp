@@ -201,7 +201,7 @@ void JsView::sequence(std::vector<Mutation *> &mutations) {
 JsView::InsertClosure::InsertClosure(JsView *view, DocumentId document_id,
 		std::string buffer, Async::Callback<void(Error)> callback)
 	: p_view(view), p_documentId(document_id), p_buffer(buffer),
-		p_callback(callback) { }
+		p_callback(callback), p_btreeInsert(&view->p_orderTree) { }
 
 void JsView::InsertClosure::apply() {
 	v8::Context::Scope context_scope(p_view->p_context);
@@ -218,19 +218,17 @@ void JsView::InsertClosure::apply() {
 	auto key_object = p_view->p_keyStore.createObject();
 	p_view->p_keyStore.allocObject(key_object, ser_value.length());
 	p_view->p_keyStore.writeObject(key_object, 0, ser_value.length(), *ser_value);
-	DocumentId key_id = p_view->p_keyStore.objectLid(key_object);
+	p_insertKey = p_view->p_keyStore.objectLid(key_object);
 
 	DocumentId written_id = OS::toLe(p_documentId);
 
 	/* TODO: re-use removed document entries */
 	
-	p_view->p_orderTree.insert(key_id, &written_id,
-		ASYNC_MEMBER(this, &InsertClosure::compareToNew));
-	
-	p_callback(Error(true));
-	delete this;
+	p_btreeInsert.insert(&p_insertKey, &written_id,
+		ASYNC_MEMBER(this, &InsertClosure::compareToNew),
+		ASYNC_MEMBER(this, &InsertClosure::onComplete));
 }
-int JsView::InsertClosure::compareToNew(DocumentId keyid_a) {
+int JsView::InsertClosure::compareToNew(const DocumentId &keyid_a) {
 	auto object_a = p_view->p_keyStore.getObject(keyid_a);
 	auto length_a = p_view->p_keyStore.objectLength(object_a);
 	char *buf_a = new char[length_a];
@@ -244,6 +242,10 @@ int JsView::InsertClosure::compareToNew(DocumentId keyid_a) {
 	v8::Local<v8::Value> key_a = p_view->p_deserializeKey(ser_a);
 	v8::Local<v8::Value> result = p_view->p_compare(key_a, p_newKey);
 	return result->Int32Value();
+}
+void JsView::InsertClosure::onComplete() {
+	p_callback(Error(true));
+	delete this;
 }
 
 JsView::RemoveClosure::RemoveClosure(JsView *view, DocumentId document_id,

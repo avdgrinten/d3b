@@ -90,6 +90,28 @@ public:
 		blknum_type p_entry;
 	};
 
+	class InsertClosure {
+	public:
+		InsertClosure(Btree *tree) : p_tree(tree) { }
+
+		void insert(KeyType *key, void *value,
+				Async::Callback<int(const KeyType&)> compare,
+				Async::Callback<void()> on_complete) {
+			p_keyPtr = key;
+			p_valuePtr = value;
+			p_compare = compare;
+
+			p_tree->insert(*p_keyPtr, p_valuePtr, p_compare);
+			on_complete();
+		}
+
+	private:
+		Btree *p_tree;
+		KeyType *p_keyPtr;
+		void *p_valuePtr;
+		Async::Callback<int(const KeyType&)> p_compare;
+	};
+
 	void setPath(const std::string &path) {
 		p_path = path;
 	}

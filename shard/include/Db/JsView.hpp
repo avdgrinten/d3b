@@ -120,7 +120,8 @@ private:
 		void apply();
 
 	private:
-		int compareToNew(DocumentId id);
+		int compareToNew(const DocumentId &id);
+		void onComplete();
 
 		JsView *p_view;
 		DocumentId p_documentId;
@@ -128,6 +129,8 @@ private:
 		Async::Callback<void(Error)> p_callback;
 
 		v8::Persistent<v8::Value> p_newKey;
+		Btree<DocumentId>::InsertClosure p_btreeInsert;
+		DocumentId p_insertKey;
 	};
 	
 	class RemoveClosure {
