@@ -96,20 +96,25 @@ public:
 
 		void insert(KeyType *key, void *value,
 				Async::Callback<int(const KeyType&)> compare,
-				Async::Callback<void()> on_complete) {
-			p_keyPtr = key;
-			p_valuePtr = value;
-			p_compare = compare;
-
-			p_tree->insert(*p_keyPtr, p_valuePtr, p_compare);
-			on_complete();
-		}
+				Async::Callback<void()> on_complete);
 
 	private:
+		void onReadRoot();
+		void descend();
+		void onReadChild();
+		void complete();
+
 		Btree *p_tree;
 		KeyType *p_keyPtr;
 		void *p_valuePtr;
 		Async::Callback<int(const KeyType&)> p_compare;
+		Async::Callback<void()> p_onComplete;
+
+		blknum_type p_blockNumber;
+		blknum_type p_childNumber;
+		blknum_type p_childIndex;
+		char *p_blockBuffer;
+		char *p_childBuffer;
 	};
 
 	void setPath(const std::string &path) {
@@ -169,8 +174,6 @@ public:
 		p_blockIntegrity(p_curFileHead.rootBlock, min, max);
 	}
 
-	void insert(const KeyType &key, void *value,
-			std::function<int(const KeyType&)> compare);
 	Ref findNext(std::function<int(const KeyType&)> compare,
 			KeyType *found, void *value);
 	Ref refToFirst();
@@ -395,59 +398,82 @@ void Btree<KeyType>::Seq::setValue(void *value) {
  * ------------------------------------------------------------------------- */
 
 template<typename KeyType>
-void Btree<KeyType>::insert(const KeyType &key, void *value,
-		std::function<int(const KeyType&)> compare) {
-//		std::cout << "insert: " << key << std::endl;
-	blknum_type block_num = p_curFileHead.rootBlock;
-	char *block_buf = new char[p_blockSize];
-	p_readBlock(block_num, block_buf);
+void Btree<KeyType>::InsertClosure::insert(KeyType *key, void *value,
+		Async::Callback<int(const KeyType&)> compare,
+		Async::Callback<void()> on_complete) {
+	p_keyPtr = key;
+	p_valuePtr = value;
+	p_compare = compare;
+	p_onComplete = on_complete;
 
+	p_blockNumber = p_tree->p_curFileHead.rootBlock;
+	p_blockBuffer = new char[p_tree->p_blockSize];
+	p_tree->p_readBlock(p_blockNumber, p_blockBuffer);
+	onReadRoot();
+}
+template<typename KeyType>
+void Btree<KeyType>::InsertClosure::onReadRoot() {
 	/* check if we have to split the root */
-	if(p_checkSplit(block_num, block_buf, nullptr, 0)) {
-		p_writeBlock(block_num, block_buf);
+	if(p_tree->p_checkSplit(p_blockNumber, p_blockBuffer, nullptr, 0)) {
+		p_tree->p_writeBlock(p_blockNumber, p_blockBuffer);
 
-		block_num = p_curFileHead.rootBlock;
-		p_readBlock(block_num, block_buf);
+		p_blockNumber = p_tree->p_curFileHead.rootBlock;
+		p_tree->p_readBlock(p_blockNumber, p_blockBuffer);
+		descend();
+	}else{
+		descend();
+	}
+}
+template<typename KeyType>
+void Btree<KeyType>::InsertClosure::descend() {
+	int flags = p_tree->p_headGetFlags(p_blockBuffer);
+	if((flags & 1) != 0) {
+		assert(p_tree->p_leafGetEntCount(p_blockBuffer) < p_tree->p_entsPerLeaf());
+	}else{
+		assert(p_tree->p_innerGetEntCount(p_blockBuffer) < p_tree->p_entsPerInner());
+	}
+	if((flags & 1) != 0) {
+		int i = p_tree->p_prevInLeaf(p_blockBuffer, p_compare);
+		if(i >= 0) {
+			p_tree->p_insertAtLeaf(p_blockBuffer, i + 1, *p_keyPtr, p_valuePtr);
+		}else{
+			p_tree->p_insertAtLeaf(p_blockBuffer, 0, *p_keyPtr, p_valuePtr);
+		}
+		p_tree->p_writeBlock(p_blockNumber, p_blockBuffer);
+		delete[] p_blockBuffer;
+
+		complete();
+		return;
 	}
 	
-	while(true) {
-		int flags = p_headGetFlags(block_buf);
-		if((flags & 1) != 0) {
-			assert(p_leafGetEntCount(block_buf) < p_entsPerLeaf());
-		}else{
-			assert(p_innerGetEntCount(block_buf) < p_entsPerInner());
-		}
-		if((flags & 1) != 0) {
-			int i = p_prevInLeaf(block_buf, compare);
-			if(i >= 0) {
-				p_insertAtLeaf(block_buf, i + 1, key, value);
-			}else{
-				p_insertAtLeaf(block_buf, 0, key, value);
-			}
-			p_writeBlock(block_num, block_buf);
-			delete[] block_buf;
-			return;
-		}
-		
-		int i = p_prevInInner(block_buf, compare);
-		char *ref_ptr = block_buf
-				+ (i >= 0 ? p_refOffInner(i) : p_lrefOffInner());
-		blknum_type child_num = OS::fromLeU32(*((blknum_type*)ref_ptr));
-		
-		char *child_buf = new char[p_blockSize];
-		p_readBlock(child_num, child_buf);
-		
-		/* check if we have to split the child */
-		if(p_checkSplit(child_num, child_buf, block_buf, i)) {
-			p_writeBlock(block_num, block_buf);
-			p_writeBlock(child_num, child_buf);
-			delete[] child_buf;
-		}else{
-			delete[] block_buf;
-			block_buf = child_buf;
-			block_num = child_num;
-		}
+	p_childIndex = p_tree->p_prevInInner(p_blockBuffer, p_compare);
+	char *ref_ptr = p_blockBuffer + (p_childIndex >= 0
+			? p_tree->p_refOffInner(p_childIndex) : p_tree->p_lrefOffInner());
+	
+	p_childNumber = OS::fromLeU32(*((blknum_type*)ref_ptr));
+	p_childBuffer = new char[p_tree->p_blockSize];
+	p_tree->p_readBlock(p_childNumber, p_childBuffer);
+	onReadChild();
+}
+template<typename KeyType>
+void Btree<KeyType>::InsertClosure::onReadChild() {
+	/* check if we have to split the child */
+	if(p_tree->p_checkSplit(p_childNumber, p_childBuffer,
+			p_blockBuffer, p_childIndex)) {
+		p_tree->p_writeBlock(p_blockNumber, p_blockBuffer);
+		p_tree->p_writeBlock(p_childNumber, p_childBuffer);
+		delete[] p_childBuffer;
+	}else{
+		delete[] p_blockBuffer;
+		p_blockBuffer = p_childBuffer;
+		p_blockNumber = p_childNumber;
 	}
+	
+	descend();
+}
+template<typename KeyType>
+void Btree<KeyType>::InsertClosure::complete() {
+	p_onComplete();
 }
 
 template<typename KeyType>
