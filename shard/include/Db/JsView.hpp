@@ -42,6 +42,10 @@ private:
 	v8::Persistent<v8::ObjectTemplate> p_global;
 	v8::Persistent<v8::Context> p_context;
 
+	int compare(const DocumentId &key_a, const DocumentId &key_b);
+	void writeKey(void *buffer, const DocumentId &key);
+	DocumentId readKey(const void *buffer);
+
 	bool p_enableLog;
 	static v8::Handle<v8::Value> p_jsLog(const v8::Arguments &args);
 	static v8::Handle<v8::Value> p_jsHook(const v8::Arguments &args);

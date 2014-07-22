@@ -4,11 +4,10 @@ class Btree {
 public:
 	typedef int32_t blknum_type;
 
-	typedef std::function<int(KeyType, KeyType)> Compare;
-	typedef std::function<void(void*, KeyType)> WriteKey;
-	typedef std::function<KeyType(const void*)> ReadKey;
-
-	typedef Async::Callback<void(const KeyType&, Async::Callback<void(int)>)> UnaryCompareCallback;
+	typedef Async::Callback<void(void *, const KeyType &)> WriteKeyCallback;
+	typedef Async::Callback<KeyType(const void*)> ReadKeyCallback;
+	typedef Async::Callback<void(const KeyType &, Async::Callback<void(int)>)> UnaryCompareCallback;
+	typedef Async::Callback<int(const KeyType &, const KeyType &)> BinaryCompareCallback;
 
 	Btree(std::string name,
 			Linux::size_type block_size,
@@ -205,13 +204,13 @@ public:
 		return p_path;
 	}
 	
-	void setCompare(const Compare &compare) {
+	void setCompare(BinaryCompareCallback compare) {
 		p_compare = compare;
 	}
-	void setWriteKey(const WriteKey &write_key) {
+	void setWriteKey(WriteKeyCallback write_key) {
 		p_writeKey = write_key;
 	}
-	void setReadKey(const ReadKey &read_key) {
+	void setReadKey(ReadKeyCallback read_key) {
 		p_readKey = read_key;
 	}
 
@@ -280,9 +279,9 @@ private:
 		blknum_type rightLink2;
 	};
 
-	Compare p_compare;
-	ReadKey p_readKey;
-	WriteKey p_writeKey;
+	BinaryCompareCallback p_compare;
+	ReadKeyCallback p_readKey;
+	WriteKeyCallback p_writeKey;
 
 	std::string p_path;
 	std::string p_name;

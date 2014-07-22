@@ -77,39 +77,43 @@ JsView::JsView(Engine *engine) : ViewDriver(engine),
 	
 	p_context = v8::Context::New(NULL, p_global);
 	
-	p_orderTree.setCompare([this] (DocumentId keyid_a, DocumentId keyid_b) -> int {
-		auto object_a = p_keyStore.getObject(keyid_a);
-		auto object_b = p_keyStore.getObject(keyid_b);
+	p_orderTree.setCompare(ASYNC_MEMBER(this, &JsView::compare));
+	p_orderTree.setWriteKey(ASYNC_MEMBER(this, &JsView::writeKey));
+	p_orderTree.setReadKey(ASYNC_MEMBER(this, &JsView::readKey));
+}
 
-		auto length_a = p_keyStore.objectLength(object_a);
-		auto length_b = p_keyStore.objectLength(object_b);
-		char *buf_a = new char[length_a];
-		char *buf_b = new char[length_b];
-		p_keyStore.readObject(object_a, 0, length_a, buf_a);
-		p_keyStore.readObject(object_b, 0, length_b, buf_b);
-		
-		v8::Context::Scope context_scope(p_context);
-		v8::HandleScope handle_scope;
-		v8::TryCatch trycatch;
+int JsView::compare(const DocumentId &keyid_a, const DocumentId &keyid_b) {
+	auto object_a = p_keyStore.getObject(keyid_a);
+	auto object_b = p_keyStore.getObject(keyid_b);
 
-		v8::Local<v8::Value> ser_a = v8::String::New(buf_a, length_a);
-		v8::Local<v8::Value> ser_b = v8::String::New(buf_b, length_b);
-		delete[] buf_a;
-		delete[] buf_b;
+	auto length_a = p_keyStore.objectLength(object_a);
+	auto length_b = p_keyStore.objectLength(object_b);
+	char *buf_a = new char[length_a];
+	char *buf_b = new char[length_b];
+	p_keyStore.readObject(object_a, 0, length_a, buf_a);
+	p_keyStore.readObject(object_b, 0, length_b, buf_b);
+	
+	v8::Context::Scope context_scope(p_context);
+	v8::HandleScope handle_scope;
+	v8::TryCatch trycatch;
 
-		v8::Local<v8::Value> key_a = p_deserializeKey(ser_a);
-		v8::Local<v8::Value> key_b = p_deserializeKey(ser_b);
-		v8::Local<v8::Value> result = p_compare(key_a, key_b);
-		if(trycatch.HasCaught())
-			throw std::runtime_error("Unexpected javascript exception");
-		return result->Int32Value();
-	});
-	p_orderTree.setWriteKey([] (void *buffer, DocumentId id) {
-		*(DocumentId*)buffer = OS::toLe(id);
-	});
-	p_orderTree.setReadKey([] (const void *buffer) -> DocumentId {
-		return OS::fromLe(*(DocumentId*)buffer);
-	});
+	v8::Local<v8::Value> ser_a = v8::String::New(buf_a, length_a);
+	v8::Local<v8::Value> ser_b = v8::String::New(buf_b, length_b);
+	delete[] buf_a;
+	delete[] buf_b;
+
+	v8::Local<v8::Value> key_a = p_deserializeKey(ser_a);
+	v8::Local<v8::Value> key_b = p_deserializeKey(ser_b);
+	v8::Local<v8::Value> result = p_compare(key_a, key_b);
+	if(trycatch.HasCaught())
+		throw std::runtime_error("Unexpected javascript exception");
+	return result->Int32Value();
+};
+void JsView::writeKey(void *buffer, const DocumentId &key) {
+	*(DocumentId*)buffer = OS::toLe(key);
+}
+DocumentId JsView::readKey(const void *buffer) {
+	return OS::fromLe(*(DocumentId*)buffer);
 }
 
 void JsView::createView() {
