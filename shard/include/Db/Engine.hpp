@@ -86,6 +86,7 @@ private:
 	};
 
 	TransactionId p_nextTransactId;
+	SequenceId p_nextSequenceId;
 	std::unordered_map<TransactionId, Transaction *> p_openTransactions;
 
 	Ll::WriteAhead p_writeAhead;
@@ -116,6 +117,7 @@ private:
 		
 		Queued p_queueItem;
 		Transaction *p_transaction;
+		SequenceId p_sequenceId;
 		Proto::LogEntry p_logEntry;
 
 		Async::Callback<void()> p_callback;

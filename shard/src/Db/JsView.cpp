@@ -63,7 +63,8 @@ v8::Handle<v8::Value> JsView::p_jsHook(const v8::Arguments &args) {
 
 JsView::JsView(Engine *engine) : ViewDriver(engine),
 		p_enableLog(true), p_keyStore("keys"),
-		p_orderTree("order", 4096, sizeof(DocumentId), sizeof(DocumentId)) {
+		p_orderTree("order", 4096, sizeof(DocumentId), sizeof(DocumentId)),
+		p_currentSequenceId(0) {
 	v8::HandleScope handle_scope;
 	
 	v8::Local<v8::External> js_this = v8::External::New(this);
@@ -154,9 +155,11 @@ void JsView::readConfig(const Proto::ViewConfig &config) {
 	p_scriptFile = config.script_file();
 }
 
-JsView::SequenceClosure::SequenceClosure(JsView *view, std::vector<Mutation> &mutations,
+JsView::SequenceClosure::SequenceClosure(JsView *view, SequenceId sequence_id,
+		std::vector<Mutation> &mutations,
 		Async::Callback<void()> callback)
-	: p_view(view), p_mutations(mutations), p_callback(callback), p_index(0) { }
+	: p_view(view), p_sequenceId(sequence_id), p_mutations(mutations),
+		p_callback(callback), p_index(0) { }
 
 void JsView::SequenceClosure::apply() {
 	if(p_index == p_mutations.size()) {
@@ -195,13 +198,15 @@ void JsView::SequenceClosure::modifyOnInsert(Error error) {
 	apply();
 }
 void JsView::SequenceClosure::complete() {
+	p_view->p_currentSequenceId = p_sequenceId;
 	p_callback();
 	delete this;
 }
 
-void JsView::sequence(std::vector<Mutation> &mutations,
+void JsView::sequence(SequenceId sequence_id,
+		std::vector<Mutation> &mutations,
 		Async::Callback<void()> callback) {
-	auto closure = new SequenceClosure(this, mutations, callback);
+	auto closure = new SequenceClosure(this, sequence_id, mutations, callback);
 	closure->apply();
 }
 
@@ -390,6 +395,8 @@ void JsView::QueryClosure::fetchItem() {
 	
 	p_fetch.storageIndex = p_view->p_storage;
 	p_fetch.documentId = id;
+	//TODO: use sequence id from query
+	p_fetch.sequenceId = p_view->p_currentSequenceId;
 	p_view->getEngine()->fetch(&p_fetch,
 			ASYNC_MEMBER(this, &QueryClosure::onFetchData),
 			ASYNC_MEMBER(this, &QueryClosure::onFetchComplete));

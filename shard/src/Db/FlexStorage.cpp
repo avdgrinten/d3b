@@ -57,17 +57,18 @@ DocumentId FlexStorage::allocate() {
 	return p_lastDocumentId;
 }
 
-void FlexStorage::sequence(std::vector<Mutation> &mutations,
+void FlexStorage::sequence(SequenceId sequence_id,
+		std::vector<Mutation> &mutations,
 		Async::Callback<void()> callback) {
-	auto closure = new SequenceClosure(this, mutations, callback);
+	auto closure = new SequenceClosure(this, sequence_id, mutations, callback);
 	closure->apply();
 }
 
 void FlexStorage::processFetch(FetchRequest *fetch,
 		Async::Callback<void(FetchData &)> on_data,
 		Async::Callback<void(Error)> callback) {
-	auto closure = new FetchClosure(this, fetch->documentId, 0,
-			on_data, callback);
+	auto closure = new FetchClosure(this, fetch->documentId,
+			fetch->sequenceId, on_data, callback);
 	closure->process();
 }
 
@@ -95,9 +96,11 @@ StorageDriver *FlexStorage::Factory::newDriver(Engine *engine) {
 // --------------------------------------------------------
 
 FlexStorage::SequenceClosure::SequenceClosure(FlexStorage *storage,
+		SequenceId sequence_id,
 		std::vector<Mutation> &mutations,
 		Async::Callback<void()> callback)
-	: p_storage(storage), p_mutations(mutations), p_callback(callback), p_index(0) { }
+	: p_storage(storage), p_sequenceId(sequence_id), p_mutations(mutations),
+		p_callback(callback), p_index(0) { }
 
 void FlexStorage::SequenceClosure::apply() {
 	if(p_index == p_mutations.size()) {
@@ -108,7 +111,7 @@ void FlexStorage::SequenceClosure::apply() {
 	Mutation &mutation = p_mutations[p_index];
 	if(mutation.type == Mutation::kTypeInsert) {
 		auto closure = new InsertClosure(p_storage,
-				mutation.documentId, mutation.buffer,
+				mutation.documentId, p_sequenceId, mutation.buffer,
 				ASYNC_MEMBER(this, &SequenceClosure::onCompleteItem));
 		closure->apply();
 	}else if(mutation.type == Mutation::kTypeModify) {
@@ -121,7 +124,10 @@ void FlexStorage::SequenceClosure::onCompleteItem(Error error) {
 	apply();
 }
 void FlexStorage::SequenceClosure::complete() {
+	p_storage->p_currentSequenceId = p_sequenceId;
+	
 	p_callback();
+	delete this;
 }
 
 // --------------------------------------------------------
@@ -129,9 +135,10 @@ void FlexStorage::SequenceClosure::complete() {
 // --------------------------------------------------------
 
 FlexStorage::InsertClosure::InsertClosure(FlexStorage *storage,
-		DocumentId document_id, std::string buffer,
+		DocumentId document_id, SequenceId sequence_id, std::string buffer,
 		Async::Callback<void(Error)> callback)
-	: p_storage(storage), p_documentId(document_id), p_buffer(buffer),
+	: p_storage(storage), p_documentId(document_id),
+		p_sequenceId(sequence_id), p_buffer(buffer),
 		p_callback(callback), p_btreeInsert(&storage->p_indexTree) { }
 
 void FlexStorage::InsertClosure::apply() {
@@ -141,7 +148,7 @@ void FlexStorage::InsertClosure::apply() {
 	p_storage->p_dataFile->pwriteSync(data_pointer, p_buffer.size(), p_buffer.data());
 	
 	p_index.documentId = p_documentId;
-	p_index.sequenceId = 0;
+	p_index.sequenceId = p_sequenceId;
 	
 	OS::packLe64(p_refBuffer + Reference::kOffset, data_pointer);
 	OS::packLe64(p_refBuffer + Reference::kLength, p_buffer.size());
@@ -186,8 +193,7 @@ FlexStorage::FetchClosure::FetchClosure(FlexStorage *storage,
 		p_btreeIterate(&storage->p_indexTree) { }
 
 void FlexStorage::FetchClosure::process() {
-	//FIXME: this should be findPrev!
-	p_btreeFind.findNext(ASYNC_MEMBER(this, &FetchClosure::compareToFetched),
+	p_btreeFind.findPrev(ASYNC_MEMBER(this, &FetchClosure::compareToFetched),
 			ASYNC_MEMBER(this, &FetchClosure::onIndexFound));
 }
 void FlexStorage::FetchClosure::compareToFetched(const Index &other,
@@ -236,6 +242,7 @@ void FlexStorage::FetchClosure::onSeek() {
 	p_onData(p_fetchData);
 
 	p_callback(Error(true));
+	delete this;
 }
 
 }; // namespace Db

@@ -10,6 +10,7 @@ class Engine;
 struct FetchRequest {
 	int storageIndex;
 	DocumentId documentId;
+	SequenceId sequenceId;
 };
 
 struct FetchData {
@@ -47,7 +48,8 @@ public:
 	virtual DocumentId allocate() = 0;
 
 	/* commits a transaction to the storage */
-	virtual void sequence(std::vector<Mutation> &mutations,
+	virtual void sequence(SequenceId sequence_id,
+			std::vector<Mutation> &mutations,
 			Async::Callback<void()> callback) = 0;
 
 	/* processes a query */

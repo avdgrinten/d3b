@@ -25,7 +25,8 @@ public:
 	virtual Proto::ViewConfig writeConfig();
 	virtual void readConfig(const Proto::ViewConfig &config);
 	
-	virtual void sequence(std::vector<Mutation> &mutations,
+	virtual void sequence(SequenceId sequence_id,
+			std::vector<Mutation> &mutations,
 			Async::Callback<void()> callback);
 
 	virtual void processQuery(Query *request,
@@ -41,6 +42,8 @@ private:
 	Btree<DocumentId> p_orderTree;
 	v8::Persistent<v8::ObjectTemplate> p_global;
 	v8::Persistent<v8::Context> p_context;
+
+	SequenceId p_currentSequenceId;
 
 	int compare(const DocumentId &key_a, const DocumentId &key_b);
 	void writeKey(void *buffer, const DocumentId &key);
@@ -106,7 +109,8 @@ private:
 
 	class SequenceClosure {
 	public:
-		SequenceClosure(JsView *view, std::vector<Mutation> &mutations,
+		SequenceClosure(JsView *view, SequenceId sequence_id,
+				std::vector<Mutation> &mutations,
 				Async::Callback<void()> callback);
 
 		void apply();
@@ -118,6 +122,7 @@ private:
 		void complete();
 
 		JsView *p_view;
+		SequenceId p_sequenceId;
 		std::vector<Mutation> &p_mutations;
 		Async::Callback<void()> p_callback;
 

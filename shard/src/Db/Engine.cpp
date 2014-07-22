@@ -14,7 +14,7 @@ namespace Db {
 StorageRegistry globStorageRegistry;
 ViewRegistry globViewRegistry;
 
-Engine::Engine() : p_nextTransactId(1) {
+Engine::Engine() : p_nextTransactId(1), p_nextSequenceId(1) {
 	p_storage.push_back(nullptr);
 	p_views.push_back(nullptr);
 
@@ -112,7 +112,7 @@ void Engine::ReplayClosure::onEntry(Proto::LogEntry &log_entry) {
 			if(driver == nullptr)
 				continue;
 			transaction->refIncrement();
-			driver->sequence(transaction->mutations,
+			driver->sequence(log_entry.sequence_id(), transaction->mutations,
 					ASYNC_MEMBER(transaction, &Transaction::refDecrement));
 		}
 		for(auto it = p_engine->p_views.begin(); it != p_engine->p_views.end(); ++it) {
@@ -120,7 +120,7 @@ void Engine::ReplayClosure::onEntry(Proto::LogEntry &log_entry) {
 			if(driver == nullptr)
 				continue;
 			transaction->refIncrement();
-			driver->sequence(transaction->mutations,
+			driver->sequence(log_entry.sequence_id(), transaction->mutations,
 					ASYNC_MEMBER(transaction, &Transaction::refDecrement));
 		}
 		
@@ -303,9 +303,13 @@ void Engine::ProcessQueueClosure::processCommit() {
 	if(transact_it == p_engine->p_openTransactions.end())
 		throw std::runtime_error("Illegal transaction");
 	p_transaction = transact_it->second;
+
+	p_sequenceId = p_engine->p_nextSequenceId;
+	p_engine->p_nextSequenceId++;
 	
 	p_logEntry.set_type(Proto::LogEntry::kTypeCommit);
 	p_logEntry.set_transaction_id(p_queueItem.trid);
+	p_logEntry.set_sequence_id(p_sequenceId);
 
 	p_engine->p_writeAhead.log(p_logEntry,
 			ASYNC_MEMBER(this, &ProcessQueueClosure::onCommitWriteAhead));
@@ -318,7 +322,7 @@ void Engine::ProcessQueueClosure::onCommitWriteAhead(Error error) {
 		if(driver == nullptr)
 			continue;
 		p_transaction->refIncrement();
-		driver->sequence(p_transaction->mutations,
+		driver->sequence(p_sequenceId, p_transaction->mutations,
 				ASYNC_MEMBER(p_transaction, &Transaction::refDecrement));
 	}
 	for(auto it = p_engine->p_views.begin(); it != p_engine->p_views.end(); ++it) {
@@ -326,7 +330,7 @@ void Engine::ProcessQueueClosure::onCommitWriteAhead(Error error) {
 		if(driver == nullptr)
 			continue;
 		p_transaction->refIncrement();
-		driver->sequence(p_transaction->mutations,
+		driver->sequence(p_sequenceId, p_transaction->mutations,
 				ASYNC_MEMBER(p_transaction, &Transaction::refDecrement));
 	}
 	

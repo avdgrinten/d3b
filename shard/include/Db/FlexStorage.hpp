@@ -21,7 +21,8 @@ public:
 	virtual void readConfig(const Proto::StorageConfig &config);
 
 	virtual DocumentId allocate();
-	virtual void sequence(std::vector<Mutation> &mutations,
+	virtual void sequence(SequenceId sequence_id,
+			std::vector<Mutation> &mutations,
 			Async::Callback<void()> callback);
 	virtual void processFetch(FetchRequest *fetch,
 			Async::Callback<void(FetchData &)> on_data,
@@ -54,6 +55,7 @@ private:
 	void writeIndex(void *buffer, const Index &index);
 	Index readIndex(const void *buffer);
 	
+	SequenceId p_currentSequenceId;
 	DocumentId p_lastDocumentId;
 	size_t p_dataPointer;
 	
@@ -62,7 +64,9 @@ private:
 	
 	class SequenceClosure {
 	public:
-		SequenceClosure(FlexStorage *storage, std::vector<Mutation> &mutations,
+		SequenceClosure(FlexStorage *storage,
+				SequenceId sequence_id,
+				std::vector<Mutation> &mutations,
 				Async::Callback<void()> callback);
 
 		void apply();
@@ -72,6 +76,7 @@ private:
 		void complete();
 
 		FlexStorage *p_storage;
+		SequenceId p_sequenceId;
 		std::vector<Mutation> &p_mutations;
 		Async::Callback<void()> p_callback;
 
@@ -81,7 +86,8 @@ private:
 	class InsertClosure {
 	public:
 		InsertClosure(FlexStorage *storage, DocumentId document_id,
-				std::string buffer, Async::Callback<void(Error)> callback);
+				SequenceId sequence_id, std::string buffer,
+				Async::Callback<void(Error)> callback);
 
 		void apply();
 	
@@ -92,6 +98,7 @@ private:
 
 		FlexStorage *p_storage;
 		DocumentId p_documentId;
+		SequenceId p_sequenceId;
 		std::string p_buffer;
 		Async::Callback<void(Error)> p_callback;
 		
