@@ -75,7 +75,8 @@ private:
 		void process();
 	
 	private:
-		int compareToBegin(const DocumentId &id);
+		void compareToBegin(const DocumentId &id,
+				Async::Callback<void(int)> callback);
 		void onFindBegin(Btree<DocumentId>::Ref ref);
 		void fetchItem();
 		void fetchItemLoop();
@@ -124,7 +125,8 @@ private:
 		void apply();
 
 	private:
-		int compareToNew(const DocumentId &id);
+		void compareToNew(const DocumentId &id,
+				Async::Callback<void(int)> callback);
 		void onComplete();
 
 		JsView *p_view;
@@ -145,7 +147,8 @@ private:
 		void apply();
 
 	private:
-		int compareToRemoved(const DocumentId &id);
+		void compareToRemoved(const DocumentId &id,
+				Async::Callback<void(int)> callback);
 		void onFindRemoved(Btree<DocumentId>::Ref ref);
 		void processItem();
 		void onFetchData(FetchData &data);

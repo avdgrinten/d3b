@@ -228,7 +228,8 @@ void JsView::InsertClosure::apply() {
 		ASYNC_MEMBER(this, &InsertClosure::compareToNew),
 		ASYNC_MEMBER(this, &InsertClosure::onComplete));
 }
-int JsView::InsertClosure::compareToNew(const DocumentId &keyid_a) {
+void JsView::InsertClosure::compareToNew(const DocumentId &keyid_a,
+		Async::Callback<void(int)> callback) {
 	auto object_a = p_view->p_keyStore.getObject(keyid_a);
 	auto length_a = p_view->p_keyStore.objectLength(object_a);
 	char *buf_a = new char[length_a];
@@ -241,7 +242,7 @@ int JsView::InsertClosure::compareToNew(const DocumentId &keyid_a) {
 	delete[] buf_a;
 	v8::Local<v8::Value> key_a = p_view->p_deserializeKey(ser_a);
 	v8::Local<v8::Value> result = p_view->p_compare(key_a, p_newKey);
-	return result->Int32Value();
+	callback(result->Int32Value());
 }
 void JsView::InsertClosure::onComplete() {
 	p_callback(Error(true));
@@ -277,7 +278,8 @@ void JsView::RemoveClosure::onFetchData(FetchData &data) {
 	p_btreeFind.findNext(ASYNC_MEMBER(this, &RemoveClosure::compareToRemoved),
 			ASYNC_MEMBER(this, &RemoveClosure::onFindRemoved));
 }
-int JsView::RemoveClosure::compareToRemoved(const DocumentId &keyid_a) {
+void JsView::RemoveClosure::compareToRemoved(const DocumentId &keyid_a,
+		Async::Callback<void(int)> callback) {
 	auto object_a = p_view->p_keyStore.getObject(keyid_a);
 	auto length_a = p_view->p_keyStore.objectLength(object_a);
 	char *buf_a = new char[length_a];
@@ -290,7 +292,7 @@ int JsView::RemoveClosure::compareToRemoved(const DocumentId &keyid_a) {
 	delete[] buf_a;
 	v8::Local<v8::Value> key_a = p_view->p_deserializeKey(ser_a);
 	v8::Local<v8::Value> result = p_view->p_compare(key_a, p_removedKey);
-	return result->Int32Value();
+	callback(result->Int32Value());
 }
 void JsView::RemoveClosure::onFindRemoved(Btree<DocumentId>::Ref ref) {
 	p_btreeIterate.seek(ref, ASYNC_MEMBER(this, &RemoveClosure::processItem));
@@ -343,7 +345,8 @@ void JsView::QueryClosure::process() {
 void JsView::QueryClosure::onFindBegin(Btree<DocumentId>::Ref ref) {
 	p_btreeIterate.seek(ref, ASYNC_MEMBER(this, &QueryClosure::fetchItem));
 }
-int JsView::QueryClosure::compareToBegin(const DocumentId &keyid_a) {
+void JsView::QueryClosure::compareToBegin(const DocumentId &keyid_a,
+		Async::Callback<void(int)> callback) {
 	auto object_a = p_view->p_keyStore.getObject(keyid_a);
 	auto length_a = p_view->p_keyStore.objectLength(object_a);
 	char *buf_a = new char[length_a];
@@ -356,7 +359,7 @@ int JsView::QueryClosure::compareToBegin(const DocumentId &keyid_a) {
 	delete[] buf_a;
 	v8::Local<v8::Value> key_a = p_view->p_deserializeKey(ser_a);
 	v8::Local<v8::Value> result = p_view->p_compare(key_a, p_beginKey);
-	return result->Int32Value();
+	callback(result->Int32Value());
 }
 void JsView::QueryClosure::fetchItem() {
 	if(!p_btreeIterate.valid()) {
