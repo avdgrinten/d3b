@@ -78,6 +78,7 @@ private:
 		int compareToBegin(const DocumentId &id);
 		void onFindBegin(Btree<DocumentId>::Ref ref);
 		void fetchItem();
+		void fetchItemLoop();
 		void onFetchData(FetchData &data);
 		void onFetchComplete(Error error);
 		void complete();
@@ -89,11 +90,12 @@ private:
 
 		v8::Persistent<v8::Value> p_beginKey;
 		v8::Persistent<v8::Value> p_endKey;
-		Btree<DocumentId>::Seq p_btreeIterator;
 		FetchRequest p_fetch;
 		QueryData p_queryData;
 		int p_fetchedCount;
+
 		Btree<DocumentId>::FindClosure p_btreeFind;
+		Btree<DocumentId>::IterateClosure p_btreeIterate;
 	};
 
 	class SequenceClosure {
@@ -145,6 +147,7 @@ private:
 	private:
 		int compareToRemoved(const DocumentId &id);
 		void onFindRemoved(Btree<DocumentId>::Ref ref);
+		void processItem();
 		void onFetchData(FetchData &data);
 		void onFetchComplete(Error error);
 
@@ -154,7 +157,9 @@ private:
 		
 		FetchRequest p_fetch;
 		v8::Persistent<v8::Value> p_removedKey;
+
 		Btree<DocumentId>::FindClosure p_btreeFind;
+		Btree<DocumentId>::IterateClosure p_btreeIterate;
 	};
 };
 

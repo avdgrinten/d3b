@@ -40,54 +40,37 @@ public:
 		blknum_type entry;
 	};
 
-	// FIXME: Seq should properly deallocate memory
-	class Seq {
-	friend class Btree;
+	// FIXME: IterateClosure should properly deallocate memory
+	class IterateClosure {
 	public:
-		~Seq() {
+		IterateClosure(Btree *tree) : p_tree(tree), p_block(0), p_entry(0),
+				p_buffer(new char[tree->p_blockSize]) { }
+		~IterateClosure() {
 			delete[] p_buffer;
 		}
-		Seq() : p_tree(nullptr), p_buffer(nullptr), p_block(0), p_entry(0) { }
-		Seq(Seq &&other) :
-				p_tree(other.p_tree), p_buffer(other.p_buffer),
-				p_block(other.p_block), p_entry(other.p_entry) {
-		}
-
-		void operator= (Seq &&other) {
-			p_tree = other.p_tree;
-			p_buffer = other.p_buffer;
-			p_block = other.p_block;
-			p_entry = other.p_entry;
-			
-			other.p_buffer = nullptr;
-			other.p_block = 0;
-			other.p_entry = 0;
-		}
-		Seq(const Seq &other) = delete;
 		
-		Ref position() {
-			return Ref(p_block, p_entry);
-		}
+		Ref position();
+		void seek(Ref ref, Async::Callback<void()> callback);
+		void forward(Async::Callback<void()> callback);
 		
 		bool valid() const {
 			return p_block > 0 && p_entry >= 0;
 		}
 		
-		void operator++ ();
 		KeyType getKey();
 		void getValue(void *value);
 		void setValue(void *value);
 		
 	private:
-		Seq(Btree *tree, blknum_type block, blknum_type entry)
-				: p_tree(tree), p_block(block), p_entry(entry) {
-			p_buffer = new char[tree->p_blockSize];
-		}
-		
+		void seekOnRead();
+		void forwardOnRead();
+
 		Btree *p_tree;
-		char *p_buffer;
+		Async::Callback<void()> p_callback;
+
 		blknum_type p_block;
 		blknum_type p_entry;
+		char *p_buffer;
 	};
 
 	class SplitClosure {
@@ -226,13 +209,6 @@ public:
 	
 	void integrity(KeyType min, KeyType max) {
 		p_blockIntegrity(p_curFileHead.rootBlock, min, max);
-	}
-	
-	Seq sequence(const Ref &ref) {
-		Seq result(this, ref.block, ref.entry);
-		if(ref.block > 0)
-			p_readBlock(ref.block, result.p_buffer);
-		return result;
 	}
 	
 	int32_t getDepth() {
@@ -399,37 +375,68 @@ Btree<KeyType>::Btree
  * ------------------------------------------------------------------------- */
 
 template<typename KeyType>
-void Btree<KeyType>::Seq::operator++() {
+typename Btree<KeyType>::Ref Btree<KeyType>::IterateClosure::position() {
+	return Ref(p_block, p_entry);
+}
+template<typename KeyType>
+void Btree<KeyType>::IterateClosure::seek(Ref ref, Async::Callback<void()> callback) {
+	p_callback = callback;
+
+	p_block = ref.block;
+	p_entry = ref.entry;
+	if(ref.block > 0) {
+		p_tree->p_readBlock(ref.block, p_buffer);
+		seekOnRead();
+	}else{
+		p_callback();
+	}
+}
+template<typename KeyType>
+void Btree<KeyType>::IterateClosure::seekOnRead() {
+	p_callback();
+}
+template<typename KeyType>
+void Btree<KeyType>::IterateClosure::forward(Async::Callback<void()> callback) {
+	p_callback = callback;
+
 	assert(p_block > 0 && p_entry < p_tree->p_leafGetEntCount(p_buffer));
 	p_entry++;
 
 	blknum_type right_link = p_tree->p_leafGetRightLink(p_buffer);
 	if(p_entry == p_tree->p_leafGetEntCount(p_buffer)) {
 		if(right_link != 0) {
-			p_tree->p_readBlock(right_link, p_buffer);
 			p_block = right_link;
 			p_entry = 0;
+			p_tree->p_readBlock(right_link, p_buffer);
+			forwardOnRead();
 		}else{
 			p_block = -1;
 			p_entry = -1;
+			p_callback();
 		}
+	}else{
+		p_callback();
 	}
+}
+template<typename KeyType>
+void Btree<KeyType>::IterateClosure::forwardOnRead() {
+	p_callback();
 }
 
 template<typename KeyType>
-KeyType Btree<KeyType>::Seq::getKey() {
+KeyType Btree<KeyType>::IterateClosure::getKey() {
 	assert(p_block > 0 && p_entry >= 0);
 	return p_tree->p_readKey(p_buffer + p_tree->p_keyOffLeaf(p_entry));
 }
 
 template<typename KeyType>
-void Btree<KeyType>::Seq::getValue(void *value) {
+void Btree<KeyType>::IterateClosure::getValue(void *value) {
 	assert(p_block > 0 && p_entry >= 0);
 	std::memcpy(value, p_buffer + p_tree->p_valOffLeaf(p_entry),
 			p_tree->p_valSize);
 }
 template<typename KeyType>
-void Btree<KeyType>::Seq::setValue(void *value) {
+void Btree<KeyType>::IterateClosure::setValue(void *value) {
 	assert(p_block > 0 && p_entry >= 0);
 	std::memcpy(p_buffer + p_tree->p_valOffLeaf(p_entry), value,
 			p_tree->p_valSize);

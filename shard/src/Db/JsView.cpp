@@ -251,7 +251,7 @@ void JsView::InsertClosure::onComplete() {
 JsView::RemoveClosure::RemoveClosure(JsView *view, DocumentId document_id,
 		Async::Callback<void(Error)> callback)
 	: p_view(view), p_documentId(document_id), p_callback(callback),
-		p_btreeFind(&view->p_orderTree) { }
+		p_btreeFind(&view->p_orderTree), p_btreeIterate(&view->p_orderTree) { }
 
 void JsView::RemoveClosure::apply() {
 	p_fetch.storageIndex = p_view->p_storage;
@@ -260,6 +260,11 @@ void JsView::RemoveClosure::apply() {
 	p_view->getEngine()->fetch(&p_fetch,
 		ASYNC_MEMBER(this, &RemoveClosure::onFetchData),
 		ASYNC_MEMBER(this, &RemoveClosure::onFetchComplete));
+}
+void JsView::RemoveClosure::onFetchComplete(Error error) {
+	//FIXME: don't ignore error
+	p_callback(Error(true));
+	delete(this);
 }
 void JsView::RemoveClosure::onFetchData(FetchData &data) {
 	v8::Context::Scope context_scope(p_view->p_context);
@@ -288,38 +293,34 @@ int JsView::RemoveClosure::compareToRemoved(const DocumentId &keyid_a) {
 	return result->Int32Value();
 }
 void JsView::RemoveClosure::onFindRemoved(Btree<DocumentId>::Ref ref) {
-	Btree<DocumentId>::Seq seq = p_view->p_orderTree.sequence(ref);
-
+	p_btreeIterate.seek(ref, ASYNC_MEMBER(this, &RemoveClosure::processItem));
+}
+void JsView::RemoveClosure::processItem() {
 	/* advance the sequence position until we reach
 			the specified document id */
-	while(true) {
-		if(!seq.valid())
-			throw std::runtime_error("Specified document not in tree");
+	if(!p_btreeIterate.valid())
+		throw std::runtime_error("Specified document not in tree");
 		
-		DocumentId read_id;
-		seq.getValue(&read_id);
-		DocumentId cur_id = OS::fromLe(read_id);
+	DocumentId read_id;
+	p_btreeIterate.getValue(&read_id);
+	DocumentId cur_id = OS::fromLe(read_id);
 		
-		if(cur_id == p_documentId)
-			break;
-		++seq;
+	if(cur_id == p_documentId) {
+		// set the id to zero to remove the document
+		DocumentId write_id = 0;
+		p_btreeIterate.setValue(&write_id);
+	}else{
+		//TODO: use nextTick() to prevent buffer overflow
+		p_btreeIterate.forward(ASYNC_MEMBER(this, &RemoveClosure::processItem));
 	}
-	
-	// set the id to zero to remove the document
-	DocumentId write_id = 0;
-	seq.setValue(&write_id);
-}
-void JsView::RemoveClosure::onFetchComplete(Error error) {
-	//FIXME: don't ignore error
-	p_callback(Error(true));
-	delete(this);
 }
 
 JsView::QueryClosure::QueryClosure(JsView *view, Query *query,
 		Async::Callback<void(QueryData &)> on_data,
 		Async::Callback<void(Error)> on_complete)
 	: p_view(view), p_query(query), p_onData(on_data),
-		p_onComplete(on_complete), p_btreeFind(&view->p_orderTree) { }
+		p_onComplete(on_complete), p_btreeFind(&view->p_orderTree),
+		p_btreeIterate(&view->p_orderTree) { }
 
 void JsView::QueryClosure::process() {
 	v8::Context::Scope context_scope(p_view->p_context);
@@ -340,9 +341,7 @@ void JsView::QueryClosure::process() {
 	}
 }
 void JsView::QueryClosure::onFindBegin(Btree<DocumentId>::Ref ref) {
-	p_btreeIterator = std::move(p_view->p_orderTree.sequence(ref));
-
-	fetchItem();
+	p_btreeIterate.seek(ref, ASYNC_MEMBER(this, &QueryClosure::fetchItem));
 }
 int JsView::QueryClosure::compareToBegin(const DocumentId &keyid_a) {
 	auto object_a = p_view->p_keyStore.getObject(keyid_a);
@@ -360,7 +359,7 @@ int JsView::QueryClosure::compareToBegin(const DocumentId &keyid_a) {
 	return result->Int32Value();
 }
 void JsView::QueryClosure::fetchItem() {
-	if(!p_btreeIterator.valid()) {
+	if(!p_btreeIterate.valid()) {
 		complete();
 		return;
 	}
@@ -370,13 +369,12 @@ void JsView::QueryClosure::fetchItem() {
 	}
 
 	DocumentId read_id;
-	p_btreeIterator.getValue(&read_id);
+	p_btreeIterate.getValue(&read_id);
 	DocumentId id = OS::fromLe(read_id);
 
 	// skip removed documents
 	if(id == 0) {
-		++p_btreeIterator;
-		osIntf->nextTick(ASYNC_MEMBER(this, &QueryClosure::fetchItem));
+		p_btreeIterate.forward(ASYNC_MEMBER(this, &QueryClosure::fetchItemLoop));
 		return;
 	}
 	
@@ -385,6 +383,9 @@ void JsView::QueryClosure::fetchItem() {
 	p_view->getEngine()->fetch(&p_fetch,
 			ASYNC_MEMBER(this, &QueryClosure::onFetchData),
 			ASYNC_MEMBER(this, &QueryClosure::onFetchComplete));
+}
+void JsView::QueryClosure::fetchItemLoop() {
+	osIntf->nextTick(ASYNC_MEMBER(this, &QueryClosure::fetchItem));
 }
 void JsView::QueryClosure::onFetchData(FetchData &data) {
 	v8::Context::Scope context_scope(p_view->p_context);
@@ -412,9 +413,8 @@ void JsView::QueryClosure::onFetchComplete(Error error) {
 		p_queryData.items.clear();
 	}
 
-	++p_btreeIterator;
 	++p_fetchedCount;
-	osIntf->nextTick(ASYNC_MEMBER(this, &QueryClosure::fetchItem));
+	p_btreeIterate.forward(ASYNC_MEMBER(this, &QueryClosure::fetchItemLoop));
 }
 void JsView::QueryClosure::complete() {
 	if(p_queryData.items.size() > 0)
