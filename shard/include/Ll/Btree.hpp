@@ -183,6 +183,8 @@ public:
 		void findFirst(Async::Callback<void(Ref)> on_complete);
 		void findNext(UnaryCompareCallback compare,
 				Async::Callback<void(Ref)> on_complete);
+		void findPrev(UnaryCompareCallback compare,
+				Async::Callback<void(Ref)> on_complete);
 
 	private:
 		void findFirstDescend();
@@ -191,6 +193,11 @@ public:
 		void findNextOnRead();
 		void findNextOnFoundChild(int index);
 		void findNextInLeaf(int index);
+		void findPrevDescend();
+		void findPrevOnRead();
+		void findPrevOnFoundChild(int index);
+		void findPrevInLeaf(int index);
+		void findPrevReadLeft();
 
 		Btree *p_tree;
 		UnaryCompareCallback p_compare;
@@ -650,12 +657,20 @@ void Btree<KeyType>::FindClosure::findNextOnRead() {
 }
 template<typename KeyType>
 void Btree<KeyType>::FindClosure::findNextOnFoundChild(int index) {
-	blknum_type ent_count = p_tree->p_innerGetEntCount(p_blockBuffer);
-	int j = (index == -1 ? ent_count : index);
-	char *ref_ptr = p_blockBuffer
-			+ (j > 0 ? p_tree->p_refOffInner(j - 1) : p_tree->p_lrefOffInner());
-	blknum_type child_num = OS::fromLeU32(*((blknum_type*)ref_ptr));
-	p_blockNumber = child_num;
+	if(index == -1) {
+		blknum_type ent_count = p_tree->p_innerGetEntCount(p_blockBuffer);
+		char *ref_ptr = p_blockBuffer + p_tree->p_refOffInner(ent_count - 1);
+		blknum_type child_num = OS::fromLeU32(*((blknum_type*)ref_ptr));
+		p_blockNumber = child_num;
+	}else if(index == 0) {
+		char *ref_ptr = p_blockBuffer + p_tree->p_lrefOffInner();
+		blknum_type child_num = OS::fromLeU32(*((blknum_type*)ref_ptr));
+		p_blockNumber = child_num;
+	}else{
+		char *ref_ptr = p_blockBuffer + p_tree->p_refOffInner(index - 1);
+		blknum_type child_num = OS::fromLeU32(*((blknum_type*)ref_ptr));
+		p_blockNumber = child_num;
+	}
 
 	findNextDescend();
 }
@@ -668,6 +683,73 @@ void Btree<KeyType>::FindClosure::findNextInLeaf(int index) {
 	}else{
 		p_onComplete(Ref());
 	}
+}
+template<typename KeyType>
+void Btree<KeyType>::FindClosure::findPrev(UnaryCompareCallback compare,
+		Async::Callback<void(Ref)> on_complete) {
+	p_compare = compare;
+	p_onComplete = on_complete;
+
+	p_blockNumber = p_tree->p_curFileHead.rootBlock;
+	p_blockBuffer = new char[p_tree->p_blockSize];
+
+	findPrevDescend();
+}
+template<typename KeyType>
+void Btree<KeyType>::FindClosure::findPrevDescend() {
+	p_tree->p_readBlock(p_blockNumber, p_blockBuffer);
+	findPrevOnRead();
+}
+template<typename KeyType>
+void Btree<KeyType>::FindClosure::findPrevOnRead() {
+	flags_type flags = p_tree->p_headGetFlags(p_blockBuffer);
+	if((flags & 1) != 0) {
+		p_searchClosure.prevInLeaf(p_blockBuffer, p_compare,
+				ASYNC_MEMBER(this, &FindClosure::findPrevInLeaf));
+		return;
+	}
+
+	p_searchClosure.prevInInner(p_blockBuffer, p_compare,
+			ASYNC_MEMBER(this, &FindClosure::findPrevOnFoundChild));
+}
+template<typename KeyType>
+void Btree<KeyType>::FindClosure::findPrevOnFoundChild(int index) {
+	if(index == -1) {
+		char *ref_ptr = p_blockBuffer + p_tree->p_lrefOffInner();
+		blknum_type child_num = OS::fromLeU32(*((blknum_type*)ref_ptr));
+		p_blockNumber = child_num;
+	}else{
+		char *ref_ptr = p_blockBuffer + p_tree->p_refOffInner(index);
+		blknum_type child_num = OS::fromLeU32(*((blknum_type*)ref_ptr));
+		p_blockNumber = child_num;
+	}
+
+	findPrevDescend();
+}
+template<typename KeyType>
+void Btree<KeyType>::FindClosure::findPrevInLeaf(int index) {
+	if(index == -1) {
+		blknum_type left_link = p_tree->p_leafGetLeftLink(p_blockBuffer);
+		if(left_link != 0) {
+			p_blockNumber = left_link;
+			p_tree->p_readBlock(p_blockNumber, p_blockBuffer);
+			findPrevReadLeft();
+		}else{
+			delete[] p_blockBuffer;
+			p_onComplete(Ref());
+		}
+	}else{
+		delete[] p_blockBuffer;
+		p_onComplete(Ref(p_blockNumber, index));
+	}
+}
+template<typename KeyType>
+void Btree<KeyType>::FindClosure::findPrevReadLeft() {
+	blknum_type ent_count = p_tree->p_leafGetEntCount(p_blockBuffer);
+	assert(ent_count > 0);
+
+	delete[] p_blockBuffer;
+	p_onComplete(Ref(p_blockNumber, ent_count - 1));
 }
 
 /* ------------------------------------------------------------------------- *
