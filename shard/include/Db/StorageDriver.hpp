@@ -47,7 +47,8 @@ public:
 	virtual DocumentId allocate() = 0;
 
 	/* commits a transaction to the storage */
-	virtual void sequence(std::vector<Mutation *> &mutations) = 0;
+	virtual void sequence(std::vector<Mutation> &mutations,
+			Async::Callback<void()> callback) = 0;
 
 	/* processes a query */
 	virtual void processFetch(FetchRequest *fetch,

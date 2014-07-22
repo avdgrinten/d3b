@@ -76,27 +76,27 @@ void Engine::ReplayClosure::replay() {
 void Engine::ReplayClosure::onEntry(Proto::LogEntry &log_entry) {
 	if(log_entry.type() == Proto::LogEntry::kTypeSubmit) {
 		TransactionId transact_id = log_entry.transaction_id();
-		Transaction *transaction = new Transaction;
+		Transaction *transaction = Transaction::allocate();
 
 		for(int i = 0; i < log_entry.mutations_size(); i++) {
 			const Proto::LogMutation &log_mutation = log_entry.mutations(i);
 
-			auto mutation = new Mutation;
+			Mutation mutation;
 			if(log_mutation.type() == Proto::LogMutation::kTypeInsert) {
 				int storage = p_engine->getStorage(log_mutation.storage_name());
-				mutation->type = Mutation::kTypeInsert;
-				mutation->storageIndex = storage;
-				mutation->documentId = log_mutation.document_id();
-				mutation->buffer = log_mutation.buffer();
+				mutation.type = Mutation::kTypeInsert;
+				mutation.storageIndex = storage;
+				mutation.documentId = log_mutation.document_id();
+				mutation.buffer = log_mutation.buffer();
 			}else if(log_mutation.type() == Proto::LogMutation::kTypeModify) {
 				int storage = p_engine->getStorage(log_mutation.storage_name());
-				mutation->type = Mutation::kTypeInsert;
-				mutation->storageIndex = storage;
-				mutation->documentId = log_mutation.document_id();
-				mutation->buffer = log_mutation.buffer();
+				mutation.type = Mutation::kTypeInsert;
+				mutation.storageIndex = storage;
+				mutation.documentId = log_mutation.document_id();
+				mutation.buffer = log_mutation.buffer();
 			}else throw std::logic_error("Illegal log mutation type");
 
-			transaction->mutations.push_back(mutation);
+			transaction->mutations.push_back(std::move(mutation));
 		}
 
 		p_transactions.insert(std::make_pair(transact_id, transaction));
@@ -111,17 +111,21 @@ void Engine::ReplayClosure::onEntry(Proto::LogEntry &log_entry) {
 			StorageDriver *driver = *it;
 			if(driver == nullptr)
 				continue;
-			driver->sequence(transaction->mutations);
+			transaction->refIncrement();
+			driver->sequence(transaction->mutations,
+					ASYNC_MEMBER(transaction, &Transaction::refDecrement));
 		}
 		for(auto it = p_engine->p_views.begin(); it != p_engine->p_views.end(); ++it) {
 			ViewDriver *driver = *it;
 			if(driver == nullptr)
 				continue;
-			driver->sequence(transaction->mutations);
+			transaction->refIncrement();
+			driver->sequence(transaction->mutations,
+					ASYNC_MEMBER(transaction, &Transaction::refDecrement));
 		}
 		
 		p_transactions.erase(transact_it);
-		delete transaction;
+		transaction->refDecrement();
 	}else throw std::logic_error("Illegal log entry type");
 }
 
@@ -182,23 +186,23 @@ void Engine::unlinkView(int view) {
 void Engine::transaction(Async::Callback<void(Error, TransactionId)> callback) {
 	TransactionId trid = p_nextTransactId++;
 
-	Transaction *transaction = new Transaction;
+	Transaction *transaction = Transaction::allocate();
 	p_openTransactions.insert(std::make_pair(trid, transaction));
 	callback(Error(true), trid);
 }
-void Engine::updateMutation(TransactionId trid, Mutation *mutation,
+void Engine::updateMutation(TransactionId trid, Mutation &mutation,
 		Async::Callback<void(Error)> callback) {
 	auto transact_it = p_openTransactions.find(trid);
 	if(transact_it == p_openTransactions.end())
 		throw std::runtime_error("Illegal transaction");	
 	Transaction *transaction = transact_it->second;
 	
-	if(mutation->type == Mutation::kTypeInsert) {
-		StorageDriver *driver = p_storage[mutation->storageIndex];
+	if(mutation.type == Mutation::kTypeInsert) {
+		StorageDriver *driver = p_storage[mutation.storageIndex];
 		
-		mutation->documentId = driver->allocate();
+		mutation.documentId = driver->allocate();
 	}
-	transaction->mutations.push_back(mutation);
+	transaction->mutations.push_back(std::move(mutation));
 
 	callback(Error(true));
 }
@@ -261,23 +265,23 @@ void Engine::ProcessQueueClosure::processSubmit() {
 
 	for(auto it = p_transaction->mutations.begin();
 			it != p_transaction->mutations.end(); ++it) {
-		Mutation *mutation = *it;
+		Mutation &mutation = *it;
 
 		Proto::LogMutation *log_mutation = p_logEntry.add_mutations();
-		if(mutation->type == Mutation::kTypeInsert) {
-			StorageDriver *driver = p_engine->p_storage[mutation->storageIndex];
+		if(mutation.type == Mutation::kTypeInsert) {
+			StorageDriver *driver = p_engine->p_storage[mutation.storageIndex];
 			
 			log_mutation->set_type(Proto::LogMutation::kTypeInsert);
 			log_mutation->set_storage_name(driver->getIdentifier());
-			log_mutation->set_document_id(mutation->documentId);
-			log_mutation->set_buffer(mutation->buffer);
-		}else if(mutation->type == Mutation::kTypeModify) {
-			StorageDriver *driver = p_engine->p_storage[mutation->storageIndex];
+			log_mutation->set_document_id(mutation.documentId);
+			log_mutation->set_buffer(mutation.buffer);
+		}else if(mutation.type == Mutation::kTypeModify) {
+			StorageDriver *driver = p_engine->p_storage[mutation.storageIndex];
 			
 			log_mutation->set_type(Proto::LogMutation::kTypeModify);
 			log_mutation->set_storage_name(driver->getIdentifier());
-			log_mutation->set_document_id(mutation->documentId);
-			log_mutation->set_buffer(mutation->buffer);
+			log_mutation->set_document_id(mutation.documentId);
+			log_mutation->set_buffer(mutation.buffer);
 		}else throw std::logic_error("Illegal mutation type");
 	}
 
@@ -313,13 +317,17 @@ void Engine::ProcessQueueClosure::onCommitWriteAhead(Error error) {
 		StorageDriver *driver = *it;
 		if(driver == nullptr)
 			continue;
-		driver->sequence(p_transaction->mutations);
+		p_transaction->refIncrement();
+		driver->sequence(p_transaction->mutations,
+				ASYNC_MEMBER(p_transaction, &Transaction::refDecrement));
 	}
 	for(auto it = p_engine->p_views.begin(); it != p_engine->p_views.end(); ++it) {
 		ViewDriver *driver = *it;
 		if(driver == nullptr)
 			continue;
-		driver->sequence(p_transaction->mutations);
+		p_transaction->refIncrement();
+		driver->sequence(p_transaction->mutations,
+				ASYNC_MEMBER(p_transaction, &Transaction::refDecrement));
 	}
 	
 	// commit/rollback always frees the transaction
@@ -327,7 +335,7 @@ void Engine::ProcessQueueClosure::onCommitWriteAhead(Error error) {
 	if(transact_it == p_engine->p_openTransactions.end())
 		throw std::logic_error("Transaction deleted during commit");
 	p_engine->p_openTransactions.erase(transact_it);
-	delete p_transaction;
+	p_transaction->refDecrement();
 	
 	p_queueItem.callback(Error(true));
 
@@ -402,6 +410,19 @@ void Engine::p_writeConfig() {
 			| Linux::kFileCreate | Linux::kFileTrunc);
 	file->pwriteSync(0, serialized.size(), serialized.c_str());
 	file->closeSync();
+}
+
+Engine::Transaction *Engine::Transaction::allocate() {
+	return new Transaction;
+}
+void Engine::Transaction::refIncrement() {
+	p_refCount++;
+}
+void Engine::Transaction::refDecrement() {
+	assert(p_refCount > 0);
+	p_refCount--;
+	if(p_refCount == 0)
+		delete this;
 }
 
 };

@@ -42,23 +42,25 @@ DocumentId FlexStorage::allocate() {
 	return p_docStore.objectLid(object);
 }
 
-void FlexStorage::sequence(std::vector<Mutation *> &mutations) {
+void FlexStorage::sequence(std::vector<Mutation> &mutations,
+		Async::Callback<void()> callback) {
 	for(auto it = mutations.begin(); it != mutations.end(); ++it) {
-		Mutation *mutation = *it;
-		if(mutation->type == Mutation::kTypeInsert) {
-			DataStore::Object object = p_docStore.getObject(mutation->documentId);
-			p_docStore.allocObject(object, mutation->buffer.size());
-			p_docStore.writeObject(object, 0, mutation->buffer.size(),
-					mutation->buffer.data());
-		}else if(mutation->type == Mutation::kTypeModify) {
-			DataStore::Object object = p_docStore.getObject(mutation->documentId);
-			p_docStore.allocObject(object, mutation->buffer.size());
-			p_docStore.writeObject(object, 0, mutation->buffer.size(),
-					mutation->buffer.data());
+		Mutation &mutation = *it;
+		if(mutation.type == Mutation::kTypeInsert) {
+			DataStore::Object object = p_docStore.getObject(mutation.documentId);
+			p_docStore.allocObject(object, mutation.buffer.size());
+			p_docStore.writeObject(object, 0, mutation.buffer.size(),
+					mutation.buffer.data());
+		}else if(mutation.type == Mutation::kTypeModify) {
+			DataStore::Object object = p_docStore.getObject(mutation.documentId);
+			p_docStore.allocObject(object, mutation.buffer.size());
+			p_docStore.writeObject(object, 0, mutation.buffer.size(),
+					mutation.buffer.data());
 		}else{
 			throw std::logic_error("Illegal mutation");
 		}
 	}
+	callback();
 }
 
 void FlexStorage::processFetch(FetchRequest *fetch,

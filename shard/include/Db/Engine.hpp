@@ -27,7 +27,7 @@ public:
 	// begin a transaction. returns a transaction id
 	void transaction(Async::Callback<void(Error, TransactionId)> callback);
 	// add a mutation to an existing transaction
-	void updateMutation(TransactionId trid, Mutation *mutation,
+	void updateMutation(TransactionId trid, Mutation &mutation,
 			Async::Callback<void(Error)> callback);
 	// submits the transaction.
 	// after submit() return success commit() is guaranteed to succeed
@@ -71,8 +71,18 @@ private:
 	std::deque<Queued> p_submitQueue;
 
 	/* --------- active transactions -------- */
-	struct Transaction {
-		std::vector<Mutation*> mutations;
+	class Transaction {
+	public:
+		static Transaction *allocate();
+		
+		void refIncrement();
+		void refDecrement();
+
+		std::vector<Mutation> mutations;
+	private:
+		Transaction() : p_refCount(1) { }
+
+		int p_refCount;
 	};
 
 	TransactionId p_nextTransactId;

@@ -158,7 +158,7 @@ void Server::ShortTransactClosure::updateMutation() {
 				ASYNC_MEMBER(this, &ShortTransactClosure::onSubmit));
 	}else{
 		p_engine->updateMutation(p_transactionId,
-				&p_mutations[p_updatedMutationsCount],
+				p_mutations[p_updatedMutationsCount],
 				ASYNC_MEMBER(this, &ShortTransactClosure::onUpdateMutation));
 	}
 }

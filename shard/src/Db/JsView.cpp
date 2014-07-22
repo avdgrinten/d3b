@@ -150,8 +150,9 @@ void JsView::readConfig(const Proto::ViewConfig &config) {
 	p_scriptFile = config.script_file();
 }
 
-JsView::SequenceClosure::SequenceClosure(JsView *view, std::vector<Mutation*> &mutations)
-	: p_view(view), p_mutations(mutations), p_index(0) { }
+JsView::SequenceClosure::SequenceClosure(JsView *view, std::vector<Mutation> &mutations,
+		Async::Callback<void()> callback)
+	: p_view(view), p_mutations(mutations), p_callback(callback), p_index(0) { }
 
 void JsView::SequenceClosure::apply() {
 	if(p_index == p_mutations.size()) {
@@ -159,14 +160,14 @@ void JsView::SequenceClosure::apply() {
 		return;
 	}
 	
-	Mutation *mutation = p_mutations[p_index];
-	if(mutation->type == Mutation::kTypeInsert) {
+	Mutation &mutation = p_mutations[p_index];
+	if(mutation.type == Mutation::kTypeInsert) {
 		auto closure = new InsertClosure(p_view,
-				mutation->documentId, mutation->buffer,
+				mutation.documentId, mutation.buffer,
 				ASYNC_MEMBER(this, &SequenceClosure::insertOnComplete));
 		closure->apply();
-	}else if(mutation->type == Mutation::kTypeModify) {
-		auto closure = new RemoveClosure(p_view, mutation->documentId,
+	}else if(mutation.type == Mutation::kTypeModify) {
+		auto closure = new RemoveClosure(p_view, mutation.documentId,
 			ASYNC_MEMBER(this, &SequenceClosure::modifyOnRemove));
 		closure->apply();
 	}else throw std::logic_error("Illegal mutation type");
@@ -178,9 +179,9 @@ void JsView::SequenceClosure::insertOnComplete(Error error) {
 }
 void JsView::SequenceClosure::modifyOnRemove(Error error) {
 	//FIXME: don't ignore error
-	Mutation *mutation = p_mutations[p_index];
+	Mutation &mutation = p_mutations[p_index];
 	auto closure = new InsertClosure(p_view,
-			mutation->documentId, mutation->buffer,
+			mutation.documentId, mutation.buffer,
 			ASYNC_MEMBER(this, &SequenceClosure::modifyOnInsert));
 	closure->apply();
 }
@@ -190,11 +191,13 @@ void JsView::SequenceClosure::modifyOnInsert(Error error) {
 	apply();
 }
 void JsView::SequenceClosure::complete() {
+	p_callback();
 	delete this;
 }
 
-void JsView::sequence(std::vector<Mutation *> &mutations) {
-	auto closure = new SequenceClosure(this, mutations);
+void JsView::sequence(std::vector<Mutation> &mutations,
+		Async::Callback<void()> callback) {
+	auto closure = new SequenceClosure(this, mutations, callback);
 	closure->apply();
 }
 

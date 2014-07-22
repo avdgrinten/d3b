@@ -21,7 +21,8 @@ public:
 	virtual void readConfig(const Proto::StorageConfig &config);
 
 	virtual DocumentId allocate();
-	virtual void sequence(std::vector<Mutation *> &mutations);
+	virtual void sequence(std::vector<Mutation> &mutations,
+			Async::Callback<void()> callback);
 	virtual void processFetch(FetchRequest *fetch,
 			Async::Callback<void(FetchData &)> on_data,
 			Async::Callback<void(Error)> callback);

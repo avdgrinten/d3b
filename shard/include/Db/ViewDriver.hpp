@@ -49,7 +49,8 @@ public:
 	virtual Proto::ViewConfig writeConfig() = 0;
 	virtual void readConfig(const Proto::ViewConfig &config) = 0;
 
-	virtual void sequence(std::vector<Mutation *> &mutations) = 0;
+	virtual void sequence(std::vector<Mutation> &mutations,
+			Async::Callback<void()> callback) = 0;
 
 	virtual void processQuery(Query *request,
 			Async::Callback<void(QueryData &)> report,
