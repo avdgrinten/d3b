@@ -4,6 +4,8 @@
 
 #include <cstring>
 
+#include "Ll/PageCache.hpp"
+
 template<typename KeyType>
 class Btree {
 public:
@@ -50,9 +52,8 @@ public:
 	class IterateClosure {
 	public:
 		IterateClosure(Btree *tree) : p_tree(tree), p_block(0), p_entry(0),
-				p_buffer(new char[tree->p_blockSize]) { }
+				p_buffer(nullptr) { }
 		~IterateClosure() {
-			delete[] p_buffer;
 		}
 		
 		Ref position();
@@ -68,8 +69,8 @@ public:
 		void setValue(void *value);
 		
 	private:
-		void seekOnRead();
-		void forwardOnRead();
+		void seekOnRead(char *buffer);
+		void forwardOnRead(char *buffer);
 
 		Btree *p_tree;
 		Async::Callback<void()> p_callback;
@@ -125,7 +126,7 @@ public:
 	
 	private:
 		void splitLeaf();
-		void onReadRightLink();
+		void onReadRightLink(char *link_buffer);
 		void splitInner();
 		void fixParent();
 
@@ -138,7 +139,6 @@ public:
 		blknum_type p_rightLinkNumber;
 		char *p_blockBuffer;
 		char *p_parentBuffer;
-		char *p_rightLinkBuffer;
 		KeyType p_splitKey;
 	};
 
@@ -152,11 +152,11 @@ public:
 				Async::Callback<void()> on_complete);
 
 	private:
-		void onReadRoot();
+		void onReadRoot(char *buffer);
 		void onSplitRoot();
 		void descend();
 		void onFoundChild(int index);
-		void onReadChild();
+		void onReadChild(char *buffer);
 		void onSplitChild();
 		void insertIntoNode(int index);
 
@@ -188,16 +188,16 @@ public:
 
 	private:
 		void findFirstDescend();
-		void findFirstOnRead();
+		void findFirstOnRead(char *buffer);
 		void findNextDescend();
-		void findNextOnRead();
+		void findNextOnRead(char *buffer);
 		void findNextOnFoundChild(int index);
 		void findNextInLeaf(int index);
 		void findPrevDescend();
-		void findPrevOnRead();
+		void findPrevOnRead(char *buffer);
 		void findPrevOnFoundChild(int index);
 		void findPrevInLeaf(int index);
-		void findPrevReadLeft();
+		void findPrevReadLeft(char *buffer);
 
 		Btree *p_tree;
 		UnaryCompareCallback p_compare;
@@ -227,39 +227,39 @@ public:
 	}
 
 	void createTree() {
-		p_file->openSync(p_path + "/" + p_name + ".btree",
-				Linux::kFileCreate | Linux::kFileTrunc
-				| Linux::FileMode::read | Linux::FileMode::write);
+		p_pageCache.open(p_path + "/" + p_name + ".btree");
 
 		p_curFileHead.rootBlock = 1;
 		p_curFileHead.numBlocks = 2;
 		p_curFileHead.depth = 1;
 		p_writeFileHead();
 
-		char *root_block = new char[p_blockSize];
+		char *root_block = p_pageCache.initializePage(1);
 		p_headSetFlags(root_block, 1);
 		p_leafSetEntCount(root_block, 0);
 		p_leafSetLeftLink(root_block, 0);
 		p_leafSetRightLink(root_block, 0);
-		p_file->pwriteSync(1 * p_blockSize, p_blockSize, root_block);
-		delete[] root_block;
+		p_pageCache.writePage(1);
+		p_pageCache.releasePage(1);
 	}
 
-	void loadTree() {
-		p_file->openSync(p_path + "/" + p_name + ".btree",
-				Linux::FileMode::read | Linux::FileMode::write);
+//FIXME: this function should either be asynchronous
+// or there should be a synchronous read block function
+/*	void loadTree() {
+		p_pageCache.open(p_path + "/" + p_name + ".btree");
 		
-		char *desc_block = new char[p_blockSize];
-		p_file->preadSync(0 * p_blockSize, p_blockSize, desc_block);
+		readBlockSync(0, ASYNC_MEMBER(this, &Btree::onLoadFileHead));
+	}
+	void onLoadFileHead(char *desc_block) {
 		FileHead *file_head = (FileHead*)desc_block;
 		p_curFileHead.rootBlock = OS::fromLeU32(file_head->rootBlock);
 		p_curFileHead.numBlocks = OS::fromLeU32(file_head->numBlocks);
 		p_curFileHead.depth = OS::fromLeU32(file_head->depth);
-		delete[] desc_block;
-	}
+		p_pageCache.releasePage(0);
+	}*/
 	
 	void closeTree() {
-		p_file->closeSync();
+
 	}
 	
 	void integrity(KeyType min, KeyType max) {
@@ -297,7 +297,7 @@ private:
 
 	std::string p_path;
 	std::string p_name;
-	std::unique_ptr<Linux::File> p_file;
+	PageCache p_pageCache;
 	
 	Linux::size_type p_blockSize;
 	Linux::size_type p_keySize;
@@ -379,20 +379,14 @@ private:
 	void p_blockIntegrity(blknum_type block_num,
 			KeyType min, KeyType max);
 	
-	void p_readBlock(blknum_type block_num, char *block_buf) {
-		p_file->preadSync(block_num * p_blockSize, p_blockSize, block_buf);
-	}
-	void p_writeBlock(blknum_type block_num, char *block_buf) {
-		p_file->pwriteSync(block_num * p_blockSize, p_blockSize, block_buf);
-	}
 	void p_writeFileHead() {
-		char *desc_block = new char[p_blockSize];
+		char *desc_block = p_pageCache.initializePage(0);
 		FileHead *file_head = (FileHead*)desc_block;
 		file_head->rootBlock = OS::toLeU32(p_curFileHead.rootBlock);
 		file_head->numBlocks = OS::toLeU32(p_curFileHead.numBlocks);
 		file_head->depth = OS::toLeU32(p_curFileHead.depth);
-		p_writeBlock(0, desc_block);
-		delete[] desc_block;
+		p_pageCache.writePage(0);
+		p_pageCache.releasePage(0);
 	}
 };
 
@@ -402,7 +396,7 @@ Btree<KeyType>::Btree
 		Linux::size_type block_size,
 		Linux::size_type key_size,
 		Linux::size_type val_size)
-			: p_name(name), p_blockSize(block_size),
+			: p_name(name), p_pageCache(block_size), p_blockSize(block_size),
 		p_keySize(key_size), p_valSize(val_size) {
 	assert(p_blockSize > sizeof(FileHead)
 			&& p_blockSize > sizeof(InnerHead)
@@ -412,8 +406,6 @@ Btree<KeyType>::Btree
 
 //	std::cout << "ents per inner: " << p_entsPerInner()
 //			<< ", leaf: " << p_entsPerLeaf() << std::endl;
-
-	p_file = osIntf->createFile();
 }
 
 /* ------------------------------------------------------------------------- *
@@ -431,14 +423,15 @@ void Btree<KeyType>::IterateClosure::seek(Ref ref, Async::Callback<void()> callb
 	p_block = ref.block;
 	p_entry = ref.entry;
 	if(ref.block > 0) {
-		p_tree->p_readBlock(ref.block, p_buffer);
-		seekOnRead();
+		p_tree->p_pageCache.readPage(ref.block,
+				ASYNC_MEMBER(this, &IterateClosure::seekOnRead));
 	}else{
 		p_callback();
 	}
 }
 template<typename KeyType>
-void Btree<KeyType>::IterateClosure::seekOnRead() {
+void Btree<KeyType>::IterateClosure::seekOnRead(char *buffer) {
+	p_buffer = buffer;
 	p_callback();
 }
 template<typename KeyType>
@@ -453,8 +446,8 @@ void Btree<KeyType>::IterateClosure::forward(Async::Callback<void()> callback) {
 		if(right_link != 0) {
 			p_block = right_link;
 			p_entry = 0;
-			p_tree->p_readBlock(right_link, p_buffer);
-			forwardOnRead();
+			p_tree->p_pageCache.readPage(right_link,
+					ASYNC_MEMBER(this, &IterateClosure::forwardOnRead));
 		}else{
 			p_block = -1;
 			p_entry = -1;
@@ -465,7 +458,8 @@ void Btree<KeyType>::IterateClosure::forward(Async::Callback<void()> callback) {
 	}
 }
 template<typename KeyType>
-void Btree<KeyType>::IterateClosure::forwardOnRead() {
+void Btree<KeyType>::IterateClosure::forwardOnRead(char *buffer) {
+	p_buffer = buffer;
 	p_callback();
 }
 
@@ -486,7 +480,7 @@ void Btree<KeyType>::IterateClosure::setValue(void *value) {
 	assert(p_block > 0 && p_entry >= 0);
 	std::memcpy(p_buffer + p_tree->p_valOffLeaf(p_entry), value,
 			p_tree->p_valSize);
-	p_tree->p_writeBlock(p_block, p_buffer);
+	p_tree->p_pageCache.writePage(p_block);
 }
 
 /* ------------------------------------------------------------------------- *
@@ -503,12 +497,13 @@ void Btree<KeyType>::InsertClosure::insert(KeyType *key, void *value,
 	p_onComplete = on_complete;
 
 	p_blockNumber = p_tree->p_curFileHead.rootBlock;
-	p_blockBuffer = new char[p_tree->p_blockSize];
-	p_tree->p_readBlock(p_blockNumber, p_blockBuffer);
-	onReadRoot();
+	p_tree->p_pageCache.readPage(p_blockNumber,
+			ASYNC_MEMBER(this, &InsertClosure::onReadRoot));
 }
 template<typename KeyType>
-void Btree<KeyType>::InsertClosure::onReadRoot() {
+void Btree<KeyType>::InsertClosure::onReadRoot(char *buffer) {
+	p_blockBuffer = buffer;
+
 	/* check if we have to split the root */
 	if(p_tree->blockIsFull(p_blockNumber, p_blockBuffer)) {
 		p_splitClosure.split(p_blockNumber, p_blockBuffer, nullptr, 0,
@@ -519,12 +514,11 @@ void Btree<KeyType>::InsertClosure::onReadRoot() {
 }
 template<typename KeyType>
 void Btree<KeyType>::InsertClosure::onSplitRoot() {
-	p_tree->p_writeBlock(p_blockNumber, p_blockBuffer);
+	p_tree->p_pageCache.writePage(p_blockNumber);
 
 	p_blockNumber = p_tree->p_curFileHead.rootBlock;
-	p_tree->p_readBlock(p_blockNumber, p_blockBuffer);
-
-	descend();
+	p_tree->p_pageCache.readPage(p_blockNumber,
+			ASYNC_MEMBER(this, &InsertClosure::onReadRoot));
 }
 template<typename KeyType>
 void Btree<KeyType>::InsertClosure::descend() {
@@ -551,19 +545,20 @@ void Btree<KeyType>::InsertClosure::onFoundChild(int index) {
 			? p_tree->p_refOffInner(p_childIndex) : p_tree->p_lrefOffInner());
 	
 	p_childNumber = OS::fromLeU32(*((blknum_type*)ref_ptr));
-	p_childBuffer = new char[p_tree->p_blockSize];
-	p_tree->p_readBlock(p_childNumber, p_childBuffer);
-	onReadChild();
+	p_tree->p_pageCache.readPage(p_childNumber,
+			ASYNC_MEMBER(this, &InsertClosure::onReadChild));
 }
 template<typename KeyType>
-void Btree<KeyType>::InsertClosure::onReadChild() {
+void Btree<KeyType>::InsertClosure::onReadChild(char *buffer) {
+	p_childBuffer = buffer;
+
 	/* check if we have to split the child */
 	if(p_tree->blockIsFull(p_childNumber, p_childBuffer)) {
 		p_splitClosure.split(p_childNumber, p_childBuffer,
 				p_blockBuffer, p_childIndex,
 				ASYNC_MEMBER(this, &InsertClosure::onSplitChild));
 	}else{
-		delete[] p_blockBuffer;
+		p_tree->p_pageCache.releasePage(p_blockNumber);
 		p_blockBuffer = p_childBuffer;
 		p_blockNumber = p_childNumber;
 		
@@ -572,9 +567,9 @@ void Btree<KeyType>::InsertClosure::onReadChild() {
 }
 template<typename KeyType>
 void Btree<KeyType>::InsertClosure::onSplitChild() {
-	p_tree->p_writeBlock(p_blockNumber, p_blockBuffer);
-	p_tree->p_writeBlock(p_childNumber, p_childBuffer);
-	delete[] p_childBuffer;
+	p_tree->p_pageCache.writePage(p_blockNumber);
+	p_tree->p_pageCache.writePage(p_childNumber);
+	p_tree->p_pageCache.releasePage(p_childNumber);
 
 	descend();
 }
@@ -585,8 +580,8 @@ void Btree<KeyType>::InsertClosure::insertIntoNode(int index) {
 	}else{
 		p_tree->p_insertAtLeaf(p_blockBuffer, 0, *p_keyPtr, p_valuePtr);
 	}
-	p_tree->p_writeBlock(p_blockNumber, p_blockBuffer);
-	delete[] p_blockBuffer;
+	p_tree->p_pageCache.writePage(p_blockNumber);
+	p_tree->p_pageCache.releasePage(p_blockNumber);
 
 	p_onComplete();
 }
@@ -596,17 +591,18 @@ void Btree<KeyType>::FindClosure::findFirst(Async::Callback<void(Ref)> on_comple
 	p_onComplete = on_complete;
 
 	p_blockNumber = p_tree->p_curFileHead.rootBlock;
-	p_blockBuffer = new char[p_tree->p_blockSize];
 
 	findFirstDescend();
 }
 template<typename KeyType>
 void Btree<KeyType>::FindClosure::findFirstDescend() {
-	p_tree->p_readBlock(p_blockNumber, p_blockBuffer);
-	findFirstOnRead();
+	p_tree->p_pageCache.readPage(p_blockNumber,
+			ASYNC_MEMBER(this, &FindClosure::findFirstOnRead));
 }
 template<typename KeyType>
-void Btree<KeyType>::FindClosure::findFirstOnRead() {
+void Btree<KeyType>::FindClosure::findFirstOnRead(char *buffer) {
+	p_blockBuffer = buffer;
+
 	flags_type flags = p_tree->p_headGetFlags(p_blockBuffer);
 	if((flags & 1) != 0) {
 		if(p_tree->p_leafGetEntCount(p_blockBuffer) != 0) {
@@ -634,17 +630,18 @@ void Btree<KeyType>::FindClosure::findNext(UnaryCompareCallback compare,
 	p_onComplete = on_complete;
 
 	p_blockNumber = p_tree->p_curFileHead.rootBlock;
-	p_blockBuffer = new char[p_tree->p_blockSize];
 
 	findNextDescend();
 }
 template<typename KeyType>
 void Btree<KeyType>::FindClosure::findNextDescend() {
-	p_tree->p_readBlock(p_blockNumber, p_blockBuffer);
-	findNextOnRead();
+	p_tree->p_pageCache.readPage(p_blockNumber,
+			ASYNC_MEMBER(this, &FindClosure::findNextOnRead));
 }
 template<typename KeyType>
-void Btree<KeyType>::FindClosure::findNextOnRead() {
+void Btree<KeyType>::FindClosure::findNextOnRead(char *buffer) {
+	p_blockBuffer = buffer;
+
 	flags_type flags = p_tree->p_headGetFlags(p_blockBuffer);
 	if((flags & 1) != 0) {
 		p_searchClosure.nextInLeaf(p_blockBuffer, p_compare,
@@ -676,7 +673,7 @@ void Btree<KeyType>::FindClosure::findNextOnFoundChild(int index) {
 }
 template<typename KeyType>
 void Btree<KeyType>::FindClosure::findNextInLeaf(int index) {
-	delete[] p_blockBuffer;
+	p_tree->p_pageCache.releasePage(p_blockNumber);
 
 	if(index >= 0) {
 		p_onComplete(Ref(p_blockNumber, index));
@@ -691,17 +688,18 @@ void Btree<KeyType>::FindClosure::findPrev(UnaryCompareCallback compare,
 	p_onComplete = on_complete;
 
 	p_blockNumber = p_tree->p_curFileHead.rootBlock;
-	p_blockBuffer = new char[p_tree->p_blockSize];
 
 	findPrevDescend();
 }
 template<typename KeyType>
 void Btree<KeyType>::FindClosure::findPrevDescend() {
-	p_tree->p_readBlock(p_blockNumber, p_blockBuffer);
-	findPrevOnRead();
+	p_tree->p_pageCache.readPage(p_blockNumber,
+			ASYNC_MEMBER(this, &FindClosure::findPrevOnRead));
 }
 template<typename KeyType>
-void Btree<KeyType>::FindClosure::findPrevOnRead() {
+void Btree<KeyType>::FindClosure::findPrevOnRead(char *buffer) {
+	p_blockBuffer = buffer;
+
 	flags_type flags = p_tree->p_headGetFlags(p_blockBuffer);
 	if((flags & 1) != 0) {
 		p_searchClosure.prevInLeaf(p_blockBuffer, p_compare,
@@ -732,23 +730,25 @@ void Btree<KeyType>::FindClosure::findPrevInLeaf(int index) {
 		blknum_type left_link = p_tree->p_leafGetLeftLink(p_blockBuffer);
 		if(left_link != 0) {
 			p_blockNumber = left_link;
-			p_tree->p_readBlock(p_blockNumber, p_blockBuffer);
-			findPrevReadLeft();
+			p_tree->p_pageCache.readPage(p_blockNumber,
+					ASYNC_MEMBER(this, &FindClosure::findPrevReadLeft));
 		}else{
-			delete[] p_blockBuffer;
+			p_tree->p_pageCache.releasePage(p_blockNumber);
 			p_onComplete(Ref());
 		}
 	}else{
-		delete[] p_blockBuffer;
+		p_tree->p_pageCache.releasePage(p_blockNumber);
 		p_onComplete(Ref(p_blockNumber, index));
 	}
 }
 template<typename KeyType>
-void Btree<KeyType>::FindClosure::findPrevReadLeft() {
+void Btree<KeyType>::FindClosure::findPrevReadLeft(char *buffer) {
+	p_blockBuffer = buffer;
+
 	blknum_type ent_count = p_tree->p_leafGetEntCount(p_blockBuffer);
 	assert(ent_count > 0);
 
-	delete[] p_blockBuffer;
+	p_tree->p_pageCache.releasePage(p_blockNumber);
 	p_onComplete(Ref(p_blockNumber, ent_count - 1));
 }
 
@@ -811,7 +811,7 @@ void Btree<KeyType>::SplitClosure::splitLeaf() {
 	p_tree->p_leafSetRightLink(p_blockBuffer, p_splitNumber);
 //		std::cout << "split leaf into: " << left_n << ", " << right_n << std::endl;
 	
-	char *split_block = new char[p_tree->p_blockSize];
+	char *split_block = p_tree->p_pageCache.initializePage(p_splitNumber);
 	p_tree->p_headSetFlags(split_block, 1);
 	p_tree->p_leafSetEntCount(split_block, right_n);
 	p_tree->p_leafSetLeftLink(split_block, p_blockNumber);
@@ -824,22 +824,21 @@ void Btree<KeyType>::SplitClosure::splitLeaf() {
 			right_n * p_tree->p_entSizeLeaf());
 	/* FIXME: for debugging only! */
 	std::memset(p_blockBuffer + p_tree->p_entOffLeaf(left_n), 0, right_n * p_tree->p_entSizeLeaf());
-	p_tree->p_writeBlock(p_splitNumber, split_block);
-	delete[] split_block;
+	p_tree->p_pageCache.writePage(p_splitNumber);
+	p_tree->p_pageCache.releasePage(p_splitNumber);
 
 	if(p_rightLinkNumber != 0) {
-		p_rightLinkBuffer = new char[p_tree->p_blockSize];
-		p_tree->p_readBlock(p_rightLinkNumber, p_rightLinkBuffer);
-		onReadRightLink();
+		p_tree->p_pageCache.readPage(p_rightLinkNumber,
+				ASYNC_MEMBER(this, &SplitClosure::onReadRightLink));
 	}else{
 		fixParent();
 	}
 }
 template<typename KeyType>
-void Btree<KeyType>::SplitClosure::onReadRightLink() {
-	p_tree->p_leafSetLeftLink(p_rightLinkBuffer, p_splitNumber);
-	p_tree->p_writeBlock(p_rightLinkNumber, p_rightLinkBuffer);
-	delete[] p_rightLinkBuffer;
+void Btree<KeyType>::SplitClosure::onReadRightLink(char *link_buffer) {
+	p_tree->p_leafSetLeftLink(link_buffer, p_splitNumber);
+	p_tree->p_pageCache.writePage(p_rightLinkNumber);
+	p_tree->p_pageCache.releasePage(p_rightLinkNumber);
 
 	fixParent();
 }
@@ -859,7 +858,7 @@ void Btree<KeyType>::SplitClosure::splitInner() {
 	p_tree->p_innerSetEntCount(p_blockBuffer, left_n);
 //		std::cout << "split inner into: " << left_n << ", " << right_n << std::endl;
 	
-	char *split_block = new char[p_tree->p_blockSize];
+	char *split_block = p_tree->p_pageCache.initializePage(p_splitNumber);
 	p_tree->p_headSetFlags(split_block, 0);
 	p_tree->p_innerSetEntCount(split_block, right_n);	
 	
@@ -875,8 +874,8 @@ void Btree<KeyType>::SplitClosure::splitInner() {
 			right_n * p_tree->p_entSizeInner());
 	/* FIXME: for debugging only! */
 	std::memset(p_blockBuffer + p_tree->p_entOffInner(left_n), 0, (right_n + 1) * p_tree->p_entSizeInner());
-	p_tree->p_writeBlock(p_splitNumber, split_block);
-	delete[] split_block;
+	p_tree->p_pageCache.writePage(p_splitNumber);
+	p_tree->p_pageCache.releasePage(p_splitNumber);
 	
 	fixParent();
 }
@@ -893,7 +892,7 @@ void Btree<KeyType>::SplitClosure::fixParent() {
 		p_tree->p_curFileHead.depth++;
 		p_tree->p_writeFileHead();
 		
-		char *new_root_buffer = new char[p_tree->p_blockSize];
+		char *new_root_buffer = p_tree->p_pageCache.initializePage(new_root_num);
 		p_tree->p_headSetFlags(new_root_buffer, 0);
 		p_tree->p_innerSetEntCount(new_root_buffer, 1);
 		
@@ -903,8 +902,8 @@ void Btree<KeyType>::SplitClosure::fixParent() {
 		*((blknum_type*)ref0) = OS::toLeU32(p_splitNumber);
 		p_tree->p_writeKey(new_root_buffer + p_tree->p_keyOffInner(0), p_splitKey);
 
-		p_tree->p_writeBlock(new_root_num, new_root_buffer);
-		delete[] new_root_buffer;
+		p_tree->p_pageCache.writePage(new_root_num);
+		p_tree->p_pageCache.releasePage(new_root_num);
 	}
 
 	p_onComplete();
@@ -1079,7 +1078,8 @@ template<typename KeyType>
 void Btree<KeyType>::p_blockIntegrity(blknum_type block_num,
 		KeyType min, KeyType max) {
 	char *block_buf = new char[p_blockSize];
-	p_readBlock(block_num, block_buf);
+	//FIXME: use async read instead
+	//p_readBlock(block_num, block_buf);
 	
 	flags_type flags = OS::fromLeU32(*(flags_type*)block_buf);
 	if((flags & 1) != 0) {
@@ -1120,7 +1120,6 @@ void Btree<KeyType>::p_blockIntegrity(blknum_type block_num,
 			p_blockIntegrity(*(blknum_type*)refi, ckey, nkey);
 		}
 	}
-	delete[] block_buf;
 }
 
 
