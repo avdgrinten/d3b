@@ -15,6 +15,7 @@ struct FetchRequest {
 
 struct FetchData {
 	DocumentId documentId;
+	SequenceId sequenceId;
 	std::string buffer;
 };
 

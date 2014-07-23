@@ -63,7 +63,7 @@ v8::Handle<v8::Value> JsView::p_jsHook(const v8::Arguments &args) {
 
 JsView::JsView(Engine *engine) : ViewDriver(engine),
 		p_enableLog(true), p_keyStore("keys"),
-		p_orderTree("order", 4096, sizeof(DocumentId), sizeof(DocumentId)),
+		p_orderTree("order", 4096, sizeof(DocumentId), Link::kStructSize),
 		p_currentSequenceId(0) {
 	v8::HandleScope handle_scope;
 	
@@ -169,13 +169,14 @@ void JsView::SequenceClosure::apply() {
 	
 	Mutation &mutation = p_mutations[p_index];
 	if(mutation.type == Mutation::kTypeInsert) {
-		auto closure = new InsertClosure(p_view,
-				mutation.documentId, mutation.buffer,
+		auto closure = new InsertClosure(p_view, mutation.documentId,
+				p_sequenceId, mutation.buffer,
 				ASYNC_MEMBER(this, &SequenceClosure::insertOnComplete));
 		closure->apply();
 	}else if(mutation.type == Mutation::kTypeModify) {
-		auto closure = new RemoveClosure(p_view, mutation.documentId,
-			ASYNC_MEMBER(this, &SequenceClosure::modifyOnRemove));
+		auto closure = new InsertClosure(p_view, mutation.documentId,
+				p_sequenceId, mutation.buffer,
+				ASYNC_MEMBER(this, &SequenceClosure::insertOnComplete));
 		closure->apply();
 	}else throw std::logic_error("Illegal mutation type");
 }
@@ -187,8 +188,8 @@ void JsView::SequenceClosure::insertOnComplete(Error error) {
 void JsView::SequenceClosure::modifyOnRemove(Error error) {
 	//FIXME: don't ignore error
 	Mutation &mutation = p_mutations[p_index];
-	auto closure = new InsertClosure(p_view,
-			mutation.documentId, mutation.buffer,
+	auto closure = new InsertClosure(p_view, mutation.documentId,
+			p_sequenceId, mutation.buffer,
 			ASYNC_MEMBER(this, &SequenceClosure::modifyOnInsert));
 	closure->apply();
 }
@@ -211,8 +212,10 @@ void JsView::sequence(SequenceId sequence_id,
 }
 
 JsView::InsertClosure::InsertClosure(JsView *view, DocumentId document_id,
-		std::string buffer, Async::Callback<void(Error)> callback)
-	: p_view(view), p_documentId(document_id), p_buffer(buffer),
+		SequenceId sequence_id, std::string buffer,
+		Async::Callback<void(Error)> callback)
+	: p_view(view), p_documentId(document_id),
+		p_sequenceId(sequence_id), p_buffer(buffer),
 		p_callback(callback), p_btreeInsert(&view->p_orderTree) { }
 
 void JsView::InsertClosure::apply() {
@@ -232,11 +235,12 @@ void JsView::InsertClosure::apply() {
 	p_view->p_keyStore.writeObject(key_object, 0, ser_value.length(), *ser_value);
 	p_insertKey = p_view->p_keyStore.objectLid(key_object);
 
-	DocumentId written_id = OS::toLe(p_documentId);
+	OS::packLe64(p_linkBuffer + Link::kDocumentId, p_documentId);
+	OS::packLe64(p_linkBuffer + Link::kSequenceId, p_sequenceId);
 
 	/* TODO: re-use removed document entries */
 	
-	p_btreeInsert.insert(&p_insertKey, &written_id,
+	p_btreeInsert.insert(&p_insertKey, p_linkBuffer,
 		ASYNC_MEMBER(this, &InsertClosure::compareToNew),
 		ASYNC_MEMBER(this, &InsertClosure::onComplete));
 }
@@ -259,74 +263,6 @@ void JsView::InsertClosure::compareToNew(const DocumentId &keyid_a,
 void JsView::InsertClosure::onComplete() {
 	p_callback(Error(true));
 	delete this;
-}
-
-JsView::RemoveClosure::RemoveClosure(JsView *view, DocumentId document_id,
-		Async::Callback<void(Error)> callback)
-	: p_view(view), p_documentId(document_id), p_callback(callback),
-		p_btreeFind(&view->p_orderTree), p_btreeIterate(&view->p_orderTree) { }
-
-void JsView::RemoveClosure::apply() {
-	p_fetch.storageIndex = p_view->p_storage;
-	p_fetch.documentId = p_documentId;
-	
-	p_view->getEngine()->fetch(&p_fetch,
-		ASYNC_MEMBER(this, &RemoveClosure::onFetchData),
-		ASYNC_MEMBER(this, &RemoveClosure::onFetchComplete));
-}
-void JsView::RemoveClosure::onFetchComplete(Error error) {
-	//FIXME: don't ignore error
-	p_callback(Error(true));
-	delete(this);
-}
-void JsView::RemoveClosure::onFetchData(FetchData &data) {
-	v8::Context::Scope context_scope(p_view->p_context);
-	v8::HandleScope handle_scope;
-	
-	v8::Local<v8::Value> extracted = p_view->p_extractDoc(p_documentId,
-			data.buffer.data(), data.buffer.size());
-	p_removedKey = v8::Persistent<v8::Value>::New(p_view->p_keyOf(extracted));
-		
-	p_btreeFind.findNext(ASYNC_MEMBER(this, &RemoveClosure::compareToRemoved),
-			ASYNC_MEMBER(this, &RemoveClosure::onFindRemoved));
-}
-void JsView::RemoveClosure::compareToRemoved(const DocumentId &keyid_a,
-		Async::Callback<void(int)> callback) {
-	auto object_a = p_view->p_keyStore.getObject(keyid_a);
-	auto length_a = p_view->p_keyStore.objectLength(object_a);
-	char *buf_a = new char[length_a];
-	p_view->p_keyStore.readObject(object_a, 0, length_a, buf_a);
-	
-	v8::Context::Scope context_scope(p_view->p_context);
-	v8::HandleScope handle_scope;
-	
-	v8::Local<v8::Value> ser_a = v8::String::New(buf_a, length_a);
-	delete[] buf_a;
-	v8::Local<v8::Value> key_a = p_view->p_deserializeKey(ser_a);
-	v8::Local<v8::Value> result = p_view->p_compare(key_a, p_removedKey);
-	callback(result->Int32Value());
-}
-void JsView::RemoveClosure::onFindRemoved(Btree<DocumentId>::Ref ref) {
-	p_btreeIterate.seek(ref, ASYNC_MEMBER(this, &RemoveClosure::processItem));
-}
-void JsView::RemoveClosure::processItem() {
-	/* advance the sequence position until we reach
-			the specified document id */
-	if(!p_btreeIterate.valid())
-		throw std::runtime_error("Specified document not in tree");
-		
-	DocumentId read_id;
-	p_btreeIterate.getValue(&read_id);
-	DocumentId cur_id = OS::fromLe(read_id);
-		
-	if(cur_id == p_documentId) {
-		// set the id to zero to remove the document
-		DocumentId write_id = 0;
-		p_btreeIterate.setValue(&write_id);
-	}else{
-		//TODO: use nextTick() to prevent buffer overflow
-		p_btreeIterate.forward(ASYNC_MEMBER(this, &RemoveClosure::processItem));
-	}
 }
 
 JsView::QueryClosure::QueryClosure(JsView *view, Query *query,
@@ -383,9 +319,10 @@ void JsView::QueryClosure::fetchItem() {
 		return;
 	}
 
-	DocumentId read_id;
-	p_btreeIterate.getValue(&read_id);
-	DocumentId id = OS::fromLe(read_id);
+	char link_buffer[Link::kStructSize];
+	p_btreeIterate.getValue(link_buffer);
+	DocumentId id = OS::unpackLe64(link_buffer + Link::kDocumentId);
+	p_expectedSequenceId = OS::unpackLe64(link_buffer + Link::kSequenceId);
 
 	// skip removed documents
 	if(id == 0) {
@@ -405,6 +342,10 @@ void JsView::QueryClosure::fetchItemLoop() {
 	osIntf->nextTick(ASYNC_MEMBER(this, &QueryClosure::fetchItem));
 }
 void JsView::QueryClosure::onFetchData(FetchData &data) {
+	// make sure we only return the last version of each document
+	if(data.sequenceId != p_expectedSequenceId)
+		return;
+	
 	v8::Context::Scope context_scope(p_view->p_context);
 	v8::HandleScope handle_scope;
 	
@@ -421,6 +362,8 @@ void JsView::QueryClosure::onFetchData(FetchData &data) {
 	v8::Local<v8::Value> rpt_value = p_view->p_report(extracted);
 	v8::String::Utf8Value rpt_utf8(rpt_value);
 	p_queryData.items.emplace_back(*rpt_utf8, rpt_utf8.length());
+	
+	++p_fetchedCount;
 }
 void JsView::QueryClosure::onFetchComplete(Error error) {
 	//FIXME: don't ignore error values
@@ -430,7 +373,6 @@ void JsView::QueryClosure::onFetchComplete(Error error) {
 		p_queryData.items.clear();
 	}
 
-	++p_fetchedCount;
 	p_btreeIterate.forward(ASYNC_MEMBER(this, &QueryClosure::fetchItemLoop));
 }
 void JsView::QueryClosure::complete() {

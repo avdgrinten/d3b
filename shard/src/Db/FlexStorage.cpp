@@ -115,7 +115,10 @@ void FlexStorage::SequenceClosure::apply() {
 				ASYNC_MEMBER(this, &SequenceClosure::onCompleteItem));
 		closure->apply();
 	}else if(mutation.type == Mutation::kTypeModify) {
-		//TODO:
+		auto closure = new InsertClosure(p_storage,
+				mutation.documentId, p_sequenceId, mutation.buffer,
+				ASYNC_MEMBER(this, &SequenceClosure::onCompleteItem));
+		closure->apply();
 	}else throw std::logic_error("Illegal mutation type");
 }
 void FlexStorage::SequenceClosure::onCompleteItem(Error error) {
@@ -236,6 +239,7 @@ void FlexStorage::FetchClosure::onSeek() {
 	p_storage->p_dataFile->preadSync(offset, p_fetchLength, p_fetchBuffer);
 	
 	p_fetchData.documentId = p_documentId;
+	p_fetchData.sequenceId = index.sequenceId;
 	p_fetchData.buffer = std::string(p_fetchBuffer, p_fetchLength);
 	delete[] p_fetchBuffer;
 

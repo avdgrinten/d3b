@@ -34,6 +34,18 @@ public:
 			Async::Callback<void(Error)> callback);
 
 private:
+	struct Link {
+		enum Fields {
+			kDocumentId = 0,
+			kSequenceId = 8,
+			// overall size of this struct
+			kStructSize = 16
+		};
+
+		DocumentId documentId;
+		SequenceId sequenceId;
+	};
+
 	std::string p_scriptFile;
 	std::string p_storageName;
 
@@ -99,6 +111,7 @@ private:
 
 		v8::Persistent<v8::Value> p_beginKey;
 		v8::Persistent<v8::Value> p_endKey;
+		SequenceId p_expectedSequenceId;
 		FetchRequest p_fetch;
 		QueryData p_queryData;
 		int p_fetchedCount;
@@ -131,7 +144,8 @@ private:
 
 	class InsertClosure {
 	public:
-		InsertClosure(JsView *view, DocumentId document_id, std::string buffer,
+		InsertClosure(JsView *view, DocumentId document_id,
+			SequenceId sequence_id, std::string buffer,
 			Async::Callback<void(Error)> callback);
 		
 		void apply();
@@ -143,38 +157,15 @@ private:
 
 		JsView *p_view;
 		DocumentId p_documentId;
+		SequenceId p_sequenceId;
 		std::string p_buffer;
 		Async::Callback<void(Error)> p_callback;
 
 		v8::Persistent<v8::Value> p_newKey;
+		char p_linkBuffer[Link::kStructSize];
 		DocumentId p_insertKey;
+
 		Btree<DocumentId>::InsertClosure p_btreeInsert;
-	};
-	
-	class RemoveClosure {
-	public:
-		RemoveClosure(JsView *view, DocumentId document_id,
-			Async::Callback<void(Error)> callback);
-		
-		void apply();
-
-	private:
-		void compareToRemoved(const DocumentId &id,
-				Async::Callback<void(int)> callback);
-		void onFindRemoved(Btree<DocumentId>::Ref ref);
-		void processItem();
-		void onFetchData(FetchData &data);
-		void onFetchComplete(Error error);
-
-		JsView *p_view;
-		DocumentId p_documentId;
-		Async::Callback<void(Error)> p_callback;
-		
-		FetchRequest p_fetch;
-		v8::Persistent<v8::Value> p_removedKey;
-
-		Btree<DocumentId>::FindClosure p_btreeFind;
-		Btree<DocumentId>::IterateClosure p_btreeIterate;
 	};
 };
 
