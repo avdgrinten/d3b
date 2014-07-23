@@ -24,6 +24,8 @@ public:
 	int getView(const std::string &view);
 	void unlinkView(int view);
 
+	SequenceId currentSequenceId();
+
 	// begin a transaction. returns a transaction id
 	void transaction(Async::Callback<void(Error, TransactionId)> callback);
 	// add a mutation to an existing transaction
@@ -34,7 +36,7 @@ public:
 	void submit(TransactionId trid,
 			Async::Callback<void(Error)> callback);
 	void commit(TransactionId trid,
-			Async::Callback<void(Error)> callback);
+			Async::Callback<void(SequenceId)> callback);
 	void rollback(TransactionId trid,
 			Async::Callback<void(Error)> callback);
 
@@ -65,6 +67,7 @@ private:
 		Type type;
 		TransactionId trid;
 		Async::Callback<void(Error)> callback;
+		Async::Callback<void(SequenceId)> commitCallback;
 	};
 	
 	std::unique_ptr<Linux::EventFd> p_eventFd;
@@ -86,7 +89,7 @@ private:
 	};
 
 	TransactionId p_nextTransactId;
-	SequenceId p_nextSequenceId;
+	SequenceId p_currentSequenceId;
 	std::unordered_map<TransactionId, Transaction *> p_openTransactions;
 
 	Ll::WriteAhead p_writeAhead;

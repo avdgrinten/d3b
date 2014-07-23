@@ -22,7 +22,8 @@ var ClientRequests = {
 var ServerResponses = {
 	kSrFin: 1,
 	kSrRows: 2,
-	kSrBlob: 3
+	kSrBlob: 3,
+	kSrShortTransact: 4
 };
 
 function Client() {
@@ -69,6 +70,7 @@ Client.prototype.p_onMessage = function() {
 	case ServerResponses.kSrFin: msg = schema['Api.Proto.SrFin']; break;
 	case ServerResponses.kSrRows: msg = schema['Api.Proto.SrRows']; break;
 	case ServerResponses.kSrBlob: msg = schema['Api.Proto.SrBlob']; break;
+	case ServerResponses.kSrShortTransact: msg = schema['Api.Proto.SrShortTransact']; break;
 	default: throw new Error("p_onMessage(): Illegal opcode");
 	}
 	var response = msg.parse(this.bodyBuffer);

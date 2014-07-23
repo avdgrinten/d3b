@@ -7,6 +7,7 @@ class Engine;
 
 struct Query {
 	int viewIndex;
+	SequenceId sequenceId;
 
 	bool useFromKey;
 	bool useToKey;

@@ -76,7 +76,7 @@ private:
 		void updateMutation();
 		void onUpdateMutation(Error error);
 		void onSubmit(Error error);
-		void onCommit(Error error);
+		void onCommit(Db::SequenceId sequence_id);
 
 		Db::Engine *p_engine;
 		Connection *p_connection;

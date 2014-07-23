@@ -45,6 +45,7 @@ class CqDownloadExtern;
 class SrFin;
 class SrRows;
 class SrBlob;
+class SrShortTransact;
 
 enum Actions {
   kActNone = 0,
@@ -74,11 +75,12 @@ const int ClientRequests_ARRAYSIZE = ClientRequests_MAX + 1;
 enum ServerResponses {
   kSrFin = 1,
   kSrRows = 2,
-  kSrBlob = 3
+  kSrBlob = 3,
+  kSrShortTransact = 4
 };
 bool ServerResponses_IsValid(int value);
 const ServerResponses ServerResponses_MIN = kSrFin;
-const ServerResponses ServerResponses_MAX = kSrBlob;
+const ServerResponses ServerResponses_MAX = kSrShortTransact;
 const int ServerResponses_ARRAYSIZE = ServerResponses_MAX + 1;
 
 enum EnumErrors {
@@ -254,16 +256,23 @@ class CqQuery : public ::google::protobuf::MessageLite {
   
   // accessors -------------------------------------------------------
   
-  // optional string view_name = 2;
+  // optional string view_name = 1;
   inline bool has_view_name() const;
   inline void clear_view_name();
-  static const int kViewNameFieldNumber = 2;
+  static const int kViewNameFieldNumber = 1;
   inline const ::std::string& view_name() const;
   inline void set_view_name(const ::std::string& value);
   inline void set_view_name(const char* value);
   inline void set_view_name(const char* value, size_t size);
   inline ::std::string* mutable_view_name();
   inline ::std::string* release_view_name();
+  
+  // optional int64 sequence_id = 2;
+  inline bool has_sequence_id() const;
+  inline void clear_sequence_id();
+  static const int kSequenceIdFieldNumber = 2;
+  inline ::google::protobuf::int64 sequence_id() const;
+  inline void set_sequence_id(::google::protobuf::int64 value);
   
   // repeated bytes keys = 3;
   inline int keys_size() const;
@@ -314,6 +323,8 @@ class CqQuery : public ::google::protobuf::MessageLite {
  private:
   inline void set_has_view_name();
   inline void clear_has_view_name();
+  inline void set_has_sequence_id();
+  inline void clear_has_sequence_id();
   inline void set_has_from_key();
   inline void clear_has_from_key();
   inline void set_has_to_key();
@@ -322,13 +333,14 @@ class CqQuery : public ::google::protobuf::MessageLite {
   inline void clear_has_limit();
   
   ::std::string* view_name_;
+  ::google::protobuf::int64 sequence_id_;
   ::google::protobuf::RepeatedPtrField< ::std::string> keys_;
   ::std::string* from_key_;
   ::std::string* to_key_;
   ::google::protobuf::uint32 limit_;
   
   mutable int _cached_size_;
-  ::google::protobuf::uint32 _has_bits_[(5 + 31) / 32];
+  ::google::protobuf::uint32 _has_bits_[(6 + 31) / 32];
   
   friend void  protobuf_AddDesc_proto_2fApi_2eproto();
   friend void protobuf_AssignDesc_proto_2fApi_2eproto();
@@ -1097,6 +1109,75 @@ class SrBlob : public ::google::protobuf::MessageLite {
   void InitAsDefaultInstance();
   static SrBlob* default_instance_;
 };
+// -------------------------------------------------------------------
+
+class SrShortTransact : public ::google::protobuf::MessageLite {
+ public:
+  SrShortTransact();
+  virtual ~SrShortTransact();
+  
+  SrShortTransact(const SrShortTransact& from);
+  
+  inline SrShortTransact& operator=(const SrShortTransact& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  
+  static const SrShortTransact& default_instance();
+  
+  void Swap(SrShortTransact* other);
+  
+  // implements Message ----------------------------------------------
+  
+  SrShortTransact* New() const;
+  void CheckTypeAndMergeFrom(const ::google::protobuf::MessageLite& from);
+  void CopyFrom(const SrShortTransact& from);
+  void MergeFrom(const SrShortTransact& from);
+  void Clear();
+  bool IsInitialized() const;
+  
+  int ByteSize() const;
+  bool MergePartialFromCodedStream(
+      ::google::protobuf::io::CodedInputStream* input);
+  void SerializeWithCachedSizes(
+      ::google::protobuf::io::CodedOutputStream* output) const;
+  int GetCachedSize() const { return _cached_size_; }
+  private:
+  void SharedCtor();
+  void SharedDtor();
+  void SetCachedSize(int size) const;
+  public:
+  
+  ::std::string GetTypeName() const;
+  
+  // nested types ----------------------------------------------------
+  
+  // accessors -------------------------------------------------------
+  
+  // optional int64 sequence_id = 1;
+  inline bool has_sequence_id() const;
+  inline void clear_sequence_id();
+  static const int kSequenceIdFieldNumber = 1;
+  inline ::google::protobuf::int64 sequence_id() const;
+  inline void set_sequence_id(::google::protobuf::int64 value);
+  
+  // @@protoc_insertion_point(class_scope:Api.Proto.SrShortTransact)
+ private:
+  inline void set_has_sequence_id();
+  inline void clear_has_sequence_id();
+  
+  ::google::protobuf::int64 sequence_id_;
+  
+  mutable int _cached_size_;
+  ::google::protobuf::uint32 _has_bits_[(1 + 31) / 32];
+  
+  friend void  protobuf_AddDesc_proto_2fApi_2eproto();
+  friend void protobuf_AssignDesc_proto_2fApi_2eproto();
+  friend void protobuf_ShutdownFile_proto_2fApi_2eproto();
+  
+  void InitAsDefaultInstance();
+  static SrShortTransact* default_instance_;
+};
 // ===================================================================
 
 
@@ -1291,7 +1372,7 @@ inline ::std::string* Update::release_buffer() {
 
 // CqQuery
 
-// optional string view_name = 2;
+// optional string view_name = 1;
 inline bool CqQuery::has_view_name() const {
   return (_has_bits_[0] & 0x00000001u) != 0;
 }
@@ -1349,6 +1430,28 @@ inline ::std::string* CqQuery::release_view_name() {
   }
 }
 
+// optional int64 sequence_id = 2;
+inline bool CqQuery::has_sequence_id() const {
+  return (_has_bits_[0] & 0x00000002u) != 0;
+}
+inline void CqQuery::set_has_sequence_id() {
+  _has_bits_[0] |= 0x00000002u;
+}
+inline void CqQuery::clear_has_sequence_id() {
+  _has_bits_[0] &= ~0x00000002u;
+}
+inline void CqQuery::clear_sequence_id() {
+  sequence_id_ = GOOGLE_LONGLONG(0);
+  clear_has_sequence_id();
+}
+inline ::google::protobuf::int64 CqQuery::sequence_id() const {
+  return sequence_id_;
+}
+inline void CqQuery::set_sequence_id(::google::protobuf::int64 value) {
+  set_has_sequence_id();
+  sequence_id_ = value;
+}
+
 // repeated bytes keys = 3;
 inline int CqQuery::keys_size() const {
   return keys_.size();
@@ -1395,13 +1498,13 @@ CqQuery::mutable_keys() {
 
 // optional bytes from_key = 4;
 inline bool CqQuery::has_from_key() const {
-  return (_has_bits_[0] & 0x00000004u) != 0;
+  return (_has_bits_[0] & 0x00000008u) != 0;
 }
 inline void CqQuery::set_has_from_key() {
-  _has_bits_[0] |= 0x00000004u;
+  _has_bits_[0] |= 0x00000008u;
 }
 inline void CqQuery::clear_has_from_key() {
-  _has_bits_[0] &= ~0x00000004u;
+  _has_bits_[0] &= ~0x00000008u;
 }
 inline void CqQuery::clear_from_key() {
   if (from_key_ != &::google::protobuf::internal::kEmptyString) {
@@ -1453,13 +1556,13 @@ inline ::std::string* CqQuery::release_from_key() {
 
 // optional bytes to_key = 5;
 inline bool CqQuery::has_to_key() const {
-  return (_has_bits_[0] & 0x00000008u) != 0;
+  return (_has_bits_[0] & 0x00000010u) != 0;
 }
 inline void CqQuery::set_has_to_key() {
-  _has_bits_[0] |= 0x00000008u;
+  _has_bits_[0] |= 0x00000010u;
 }
 inline void CqQuery::clear_has_to_key() {
-  _has_bits_[0] &= ~0x00000008u;
+  _has_bits_[0] &= ~0x00000010u;
 }
 inline void CqQuery::clear_to_key() {
   if (to_key_ != &::google::protobuf::internal::kEmptyString) {
@@ -1511,13 +1614,13 @@ inline ::std::string* CqQuery::release_to_key() {
 
 // optional uint32 limit = 6;
 inline bool CqQuery::has_limit() const {
-  return (_has_bits_[0] & 0x00000010u) != 0;
+  return (_has_bits_[0] & 0x00000020u) != 0;
 }
 inline void CqQuery::set_has_limit() {
-  _has_bits_[0] |= 0x00000010u;
+  _has_bits_[0] |= 0x00000020u;
 }
 inline void CqQuery::clear_has_limit() {
-  _has_bits_[0] &= ~0x00000010u;
+  _has_bits_[0] &= ~0x00000020u;
 }
 inline void CqQuery::clear_limit() {
   limit_ = 0u;
@@ -2147,6 +2250,32 @@ inline ::std::string* SrBlob::release_buffer() {
     buffer_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
     return temp;
   }
+}
+
+// -------------------------------------------------------------------
+
+// SrShortTransact
+
+// optional int64 sequence_id = 1;
+inline bool SrShortTransact::has_sequence_id() const {
+  return (_has_bits_[0] & 0x00000001u) != 0;
+}
+inline void SrShortTransact::set_has_sequence_id() {
+  _has_bits_[0] |= 0x00000001u;
+}
+inline void SrShortTransact::clear_has_sequence_id() {
+  _has_bits_[0] &= ~0x00000001u;
+}
+inline void SrShortTransact::clear_sequence_id() {
+  sequence_id_ = GOOGLE_LONGLONG(0);
+  clear_has_sequence_id();
+}
+inline ::google::protobuf::int64 SrShortTransact::sequence_id() const {
+  return sequence_id_;
+}
+inline void SrShortTransact::set_sequence_id(::google::protobuf::int64 value) {
+  set_has_sequence_id();
+  sequence_id_ = value;
 }
 
 

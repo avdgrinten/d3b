@@ -14,7 +14,7 @@ namespace Db {
 StorageRegistry globStorageRegistry;
 ViewRegistry globViewRegistry;
 
-Engine::Engine() : p_nextTransactId(1), p_nextSequenceId(1) {
+Engine::Engine() : p_nextTransactId(1), p_currentSequenceId(0) {
 	p_storage.push_back(nullptr);
 	p_views.push_back(nullptr);
 
@@ -183,6 +183,10 @@ void Engine::unlinkView(int view) {
 	p_writeConfig();
 }
 
+SequenceId Engine::currentSequenceId() {
+	return p_currentSequenceId;
+}
+
 void Engine::transaction(Async::Callback<void(Error, TransactionId)> callback) {
 	TransactionId trid = p_nextTransactId++;
 
@@ -216,11 +220,11 @@ void Engine::submit(TransactionId trid,
 	p_eventFd->increment();
 }
 void Engine::commit(TransactionId trid,
-		Async::Callback<void(Error)> callback) {
+		Async::Callback<void(SequenceId)> callback) {
 	Queued queued;
 	queued.type = Queued::kTypeCommit;
 	queued.trid = trid;
-	queued.callback = callback;
+	queued.commitCallback = callback;
 	p_submitQueue.push_back(queued);
 	p_eventFd->increment();
 }
@@ -304,8 +308,8 @@ void Engine::ProcessQueueClosure::processCommit() {
 		throw std::runtime_error("Illegal transaction");
 	p_transaction = transact_it->second;
 
-	p_sequenceId = p_engine->p_nextSequenceId;
-	p_engine->p_nextSequenceId++;
+	p_engine->p_currentSequenceId++;
+	p_sequenceId = p_engine->p_currentSequenceId;
 	
 	p_logEntry.set_type(Proto::LogEntry::kTypeCommit);
 	p_logEntry.set_transaction_id(p_queueItem.trid);
@@ -341,7 +345,7 @@ void Engine::ProcessQueueClosure::onCommitWriteAhead(Error error) {
 	p_engine->p_openTransactions.erase(transact_it);
 	p_transaction->refDecrement();
 	
-	p_queueItem.callback(Error(true));
+	p_queueItem.commitCallback(p_sequenceId);
 
 	p_transaction = nullptr;
 	p_logEntry.Clear();

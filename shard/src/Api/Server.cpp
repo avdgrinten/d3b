@@ -85,6 +85,11 @@ void Server::QueryClosure::execute(size_t packet_size, const void *packet_buffer
 	}
 	
 	p_query.viewIndex = p_engine->getView(request.view_name());
+	if(request.has_sequence_id()) {
+		p_query.sequenceId = request.sequence_id();
+	}else{
+		p_query.sequenceId = p_engine->currentSequenceId();
+	}
 	if(request.has_from_key()) {
 		p_query.useFromKey = true;
 		p_query.fromKey = request.from_key();
@@ -170,9 +175,10 @@ void Server::ShortTransactClosure::onSubmit(Error error) {
 	p_engine->commit(p_transactionId,
 			ASYNC_MEMBER(this, &ShortTransactClosure::onCommit));
 }
-void Server::ShortTransactClosure::onCommit(Error error) {
-	Proto::SrFin response;
-	p_connection->p_postResponse(Proto::kSrFin, p_responseId, response);
+void Server::ShortTransactClosure::onCommit(Db::SequenceId sequence_id) {
+	Proto::SrShortTransact response;
+	response.set_sequence_id(sequence_id);
+	p_connection->p_postResponse(Proto::kSrShortTransact, p_responseId, response);
 	
 	delete this;
 }

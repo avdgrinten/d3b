@@ -80,8 +80,9 @@ function downloadExtern(client, opts, data_handler, callback) {
 function insert(client, opts, callback) {
 	var req = client.request();
 	req.on('response', function(opcode, resp) {
-		if(opcode == d3b.ServerResponses.kSrFin) {
-			callback(null);
+		if(opcode == d3b.ServerResponses.kSrShortTransact) {
+			var result = { sequenceId: parseInt(resp.sequenceId) };
+			callback(null, result);
 			req.fin();
 		}else throw new Error("Unexpected response " + opcode);
 	});
@@ -93,8 +94,9 @@ function insert(client, opts, callback) {
 function update(client, opts, callback) {
 	var req = client.request();
 	req.on('response', function(opcode, resp) {
-		if(opcode == d3b.ServerResponses.kSrFin) {
-			callback(null);
+		if(opcode == d3b.ServerResponses.kSrShortTransact) {
+			var result = { sequenceId: parseInt(resp.sequenceId) };
+			callback(null, result);
 			req.fin();
 		}else throw new Error("Unexpected response " + opcode);
 	});
@@ -113,8 +115,10 @@ function query(client, opts, row_handler, callback) {
 			resp.rowData.forEach(row_handler);
 		}else throw new Error("Unexpected response " + opcode);
 	});
-	req.send(d3b.ClientRequests.kCqQuery, {
-		viewName: opts.viewName });
+	var message = { viewName: opts.viewName };
+	if(opts.sequenceId)
+		message.sequenceId = opts.sequenceId;
+	req.send(d3b.ClientRequests.kCqQuery, message);
 }
 
 module.exports.createStorage = createStorage;

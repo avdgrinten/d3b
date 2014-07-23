@@ -332,8 +332,7 @@ void JsView::QueryClosure::fetchItem() {
 	
 	p_fetch.storageIndex = p_view->p_storage;
 	p_fetch.documentId = id;
-	//TODO: use sequence id from query
-	p_fetch.sequenceId = p_view->p_currentSequenceId;
+	p_fetch.sequenceId = p_query->sequenceId;
 	p_view->getEngine()->fetch(&p_fetch,
 			ASYNC_MEMBER(this, &QueryClosure::onFetchData),
 			ASYNC_MEMBER(this, &QueryClosure::onFetchComplete));
