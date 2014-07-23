@@ -356,7 +356,7 @@ void Engine::fetch(FetchRequest *fetch,
 		Async::Callback<void(FetchData &)> on_data,
 		Async::Callback<void(Error)> callback) {
 	StorageDriver *driver = p_storage[fetch->storageIndex];
-	driver->processFetch(fetch, on_data, callback);
+	driver->fetch(fetch, on_data, callback);
 }
 
 Error Engine::query(Query *request,

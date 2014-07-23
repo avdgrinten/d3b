@@ -14,7 +14,7 @@
 namespace Db {
 
 FlexStorage::FlexStorage(Engine *engine)
-		: StorageDriver(engine), p_lastDocumentId(0), p_dataPointer(0),
+		: QueuedStorageDriver(engine), p_lastDocumentId(0), p_dataPointer(0),
 			p_indexTree("index", 4096, Index::kStructSize, Reference::kStructSize) {
 	p_indexTree.setWriteKey(ASYNC_MEMBER(this, &FlexStorage::writeIndex));
 	p_indexTree.setReadKey(ASYNC_MEMBER(this, &FlexStorage::readIndex));
@@ -29,6 +29,8 @@ void FlexStorage::createStorage() {
 	std::string data_path = p_path + "/data.bin";
 	p_dataFile->openSync(data_path, Linux::kFileCreate | Linux::kFileTrunc
 				| Linux::FileMode::read | Linux::FileMode::write);
+	
+	processQueue();
 }
 
 void FlexStorage::loadStorage() {
@@ -40,6 +42,8 @@ void FlexStorage::loadStorage() {
 	//NOTE: to test the durability implementation we always delete the data on load!
 	p_dataFile->openSync(data_path, Linux::kFileCreate | Linux::kFileTrunc
 				| Linux::FileMode::read | Linux::FileMode::write);
+	
+	processQueue();
 }
 
 Proto::StorageConfig FlexStorage::writeConfig() {
@@ -57,10 +61,16 @@ DocumentId FlexStorage::allocate() {
 	return p_lastDocumentId;
 }
 
-void FlexStorage::sequence(SequenceId sequence_id,
-		std::vector<Mutation> &mutations,
-		Async::Callback<void()> callback) {
-	auto closure = new SequenceClosure(this, sequence_id, mutations, callback);
+void FlexStorage::processInsert(SequenceId sequence_id,
+		Mutation &mutation, Async::Callback<void(Error)> callback) {
+	auto closure = new InsertClosure(this, mutation.documentId,
+			sequence_id, mutation.buffer, callback);
+	closure->apply();
+}
+void FlexStorage::processModify(SequenceId sequence_id,
+		Mutation &mutation, Async::Callback<void(Error)> callback) {
+	auto closure = new InsertClosure(this, mutation.documentId,
+			sequence_id, mutation.buffer, callback);
 	closure->apply();
 }
 
@@ -89,48 +99,6 @@ FlexStorage::Factory::Factory()
 
 StorageDriver *FlexStorage::Factory::newDriver(Engine *engine) {
 	return new FlexStorage(engine);
-}
-
-// --------------------------------------------------------
-// SequenceClosure
-// --------------------------------------------------------
-
-FlexStorage::SequenceClosure::SequenceClosure(FlexStorage *storage,
-		SequenceId sequence_id,
-		std::vector<Mutation> &mutations,
-		Async::Callback<void()> callback)
-	: p_storage(storage), p_sequenceId(sequence_id), p_mutations(mutations),
-		p_callback(callback), p_index(0) { }
-
-void FlexStorage::SequenceClosure::apply() {
-	if(p_index == p_mutations.size()) {
-		complete();
-		return;
-	}
-	
-	Mutation &mutation = p_mutations[p_index];
-	if(mutation.type == Mutation::kTypeInsert) {
-		auto closure = new InsertClosure(p_storage,
-				mutation.documentId, p_sequenceId, mutation.buffer,
-				ASYNC_MEMBER(this, &SequenceClosure::onCompleteItem));
-		closure->apply();
-	}else if(mutation.type == Mutation::kTypeModify) {
-		auto closure = new InsertClosure(p_storage,
-				mutation.documentId, p_sequenceId, mutation.buffer,
-				ASYNC_MEMBER(this, &SequenceClosure::onCompleteItem));
-		closure->apply();
-	}else throw std::logic_error("Illegal mutation type");
-}
-void FlexStorage::SequenceClosure::onCompleteItem(Error error) {
-	//FIXME: don't ignore error
-	p_index++;
-	apply();
-}
-void FlexStorage::SequenceClosure::complete() {
-	p_storage->p_currentSequenceId = p_sequenceId;
-	
-	p_callback();
-	delete this;
 }
 
 // --------------------------------------------------------

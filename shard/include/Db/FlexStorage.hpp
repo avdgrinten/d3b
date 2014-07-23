@@ -3,7 +3,7 @@
 
 namespace Db {
 
-class FlexStorage : public StorageDriver {
+class FlexStorage : public QueuedStorageDriver {
 public:
 	class Factory : public StorageDriver::Factory {
 	public:
@@ -21,9 +21,13 @@ public:
 	virtual void readConfig(const Proto::StorageConfig &config);
 
 	virtual DocumentId allocate();
-	virtual void sequence(SequenceId sequence_id,
-			std::vector<Mutation> &mutations,
-			Async::Callback<void()> callback);
+	
+protected:
+	virtual void processInsert(SequenceId sequence_id,
+			Mutation &mutation, Async::Callback<void(Error)> callback);
+	virtual void processModify(SequenceId sequence_id,
+			Mutation &mutation, Async::Callback<void(Error)> callback);
+
 	virtual void processFetch(FetchRequest *fetch,
 			Async::Callback<void(FetchData &)> on_data,
 			Async::Callback<void(Error)> callback);
@@ -55,33 +59,11 @@ private:
 	void writeIndex(void *buffer, const Index &index);
 	Index readIndex(const void *buffer);
 	
-	SequenceId p_currentSequenceId;
 	DocumentId p_lastDocumentId;
 	size_t p_dataPointer;
 	
 	Btree<Index> p_indexTree;
 	std::unique_ptr<Linux::File> p_dataFile;
-	
-	class SequenceClosure {
-	public:
-		SequenceClosure(FlexStorage *storage,
-				SequenceId sequence_id,
-				std::vector<Mutation> &mutations,
-				Async::Callback<void()> callback);
-
-		void apply();
-	
-	private:
-		void onCompleteItem(Error error);
-		void complete();
-
-		FlexStorage *p_storage;
-		SequenceId p_sequenceId;
-		std::vector<Mutation> &p_mutations;
-		Async::Callback<void()> p_callback;
-
-		int p_index;
-	};
 
 	class InsertClosure {
 	public:
