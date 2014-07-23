@@ -61,10 +61,10 @@ v8::Handle<v8::Value> JsView::p_jsHook(const v8::Arguments &args) {
 	return v8::Undefined();
 }
 
-JsView::JsView(Engine *engine) : ViewDriver(engine),
+JsView::JsView(Engine *engine)
+	: QueuedViewDriver(engine),
 		p_enableLog(true), p_keyStore("keys"),
-		p_orderTree("order", 4096, sizeof(DocumentId), Link::kStructSize),
-		p_currentSequenceId(0) {
+		p_orderTree("order", 4096, sizeof(DocumentId), Link::kStructSize) {
 	v8::HandleScope handle_scope;
 	
 	v8::Local<v8::External> js_this = v8::External::New(this);
@@ -125,6 +125,8 @@ void JsView::createView() {
 
 	p_orderTree.setPath(this->getPath());
 	p_orderTree.createTree();
+
+	processQueue();
 }
 
 void JsView::loadView() {
@@ -137,6 +139,8 @@ void JsView::loadView() {
 	p_orderTree.setPath(this->getPath());
 	//NOTE: to test the durability implementation we always delete the data on load!
 	p_orderTree.createTree();
+
+	processQueue();
 }
 
 Proto::ViewConfig JsView::writeConfig() {
@@ -155,59 +159,17 @@ void JsView::readConfig(const Proto::ViewConfig &config) {
 	p_scriptFile = config.script_file();
 }
 
-JsView::SequenceClosure::SequenceClosure(JsView *view, SequenceId sequence_id,
-		std::vector<Mutation> &mutations,
-		Async::Callback<void()> callback)
-	: p_view(view), p_sequenceId(sequence_id), p_mutations(mutations),
-		p_callback(callback), p_index(0) { }
-
-void JsView::SequenceClosure::apply() {
-	if(p_index == p_mutations.size()) {
-		complete();
-		return;
-	}
-	
-	Mutation &mutation = p_mutations[p_index];
-	if(mutation.type == Mutation::kTypeInsert) {
-		auto closure = new InsertClosure(p_view, mutation.documentId,
-				p_sequenceId, mutation.buffer,
-				ASYNC_MEMBER(this, &SequenceClosure::insertOnComplete));
-		closure->apply();
-	}else if(mutation.type == Mutation::kTypeModify) {
-		auto closure = new InsertClosure(p_view, mutation.documentId,
-				p_sequenceId, mutation.buffer,
-				ASYNC_MEMBER(this, &SequenceClosure::insertOnComplete));
-		closure->apply();
-	}else throw std::logic_error("Illegal mutation type");
-}
-void JsView::SequenceClosure::insertOnComplete(Error error) {
-	//FIXME: don't ignore error
-	p_index++;
-	apply();
-}
-void JsView::SequenceClosure::modifyOnRemove(Error error) {
-	//FIXME: don't ignore error
-	Mutation &mutation = p_mutations[p_index];
-	auto closure = new InsertClosure(p_view, mutation.documentId,
-			p_sequenceId, mutation.buffer,
-			ASYNC_MEMBER(this, &SequenceClosure::modifyOnInsert));
+void JsView::processInsert(SequenceId sequence_id,
+		Mutation &mutation, Async::Callback<void(Error)> callback) {
+	auto closure = new InsertClosure(this, mutation.documentId,
+			sequence_id, mutation.buffer, callback);
 	closure->apply();
 }
-void JsView::SequenceClosure::modifyOnInsert(Error error) {
-	//FIXME: don't ignore error
-	p_index++;
-	apply();
-}
-void JsView::SequenceClosure::complete() {
-	p_view->p_currentSequenceId = p_sequenceId;
-	p_callback();
-	delete this;
-}
 
-void JsView::sequence(SequenceId sequence_id,
-		std::vector<Mutation> &mutations,
-		Async::Callback<void()> callback) {
-	auto closure = new SequenceClosure(this, sequence_id, mutations, callback);
+void JsView::processModify(SequenceId sequence_id,
+		Mutation &mutation, Async::Callback<void(Error)> callback) {
+	auto closure = new InsertClosure(this, mutation.documentId,
+			sequence_id, mutation.buffer, callback);
 	closure->apply();
 }
 

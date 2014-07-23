@@ -54,7 +54,7 @@ public:
 			std::vector<Mutation> &mutations,
 			Async::Callback<void()> callback) = 0;
 
-	virtual void processQuery(Query *request,
+	virtual void query(Query *request,
 			Async::Callback<void(QueryData &)> report,
 			Async::Callback<void(Error)> callback) = 0;
 
@@ -98,6 +98,67 @@ public:
 	
 private:
 	std::vector<ViewDriver::Factory*> p_drivers;
+};
+
+class QueuedViewDriver : public ViewDriver {
+public:
+	QueuedViewDriver(Engine *engine);
+
+	virtual void sequence(SequenceId sequence_id,
+			std::vector<Mutation> &mutations,
+			Async::Callback<void()> callback);
+
+	virtual void query(Query *query,
+			Async::Callback<void(QueryData &)> on_data,
+			Async::Callback<void(Error)> callback);
+
+protected:
+	void processQueue();
+
+	virtual void processInsert(SequenceId sequence_id,
+			Mutation &mutation, Async::Callback<void(Error)> callback) = 0;
+	virtual void processModify(SequenceId sequence_id,
+			Mutation &mutation, Async::Callback<void(Error)> callback) = 0;
+
+	virtual void processQuery(Query *query,
+			Async::Callback<void(QueryData &)> on_data,
+			Async::Callback<void(Error)> callback) = 0;
+
+private:
+	struct SequenceQueueItem {
+		SequenceId sequenceId;
+		std::vector<Mutation> *mutations;
+		Async::Callback<void()> callback;
+	};
+	struct QueryQueueItem {
+		Query *query;
+		Async::Callback<void(QueryData &)> onData;
+		Async::Callback<void(Error)> callback;
+	};
+	
+	SequenceId p_currentSequenceId;
+
+	std::queue<SequenceQueueItem> p_sequenceQueue;
+	std::queue<QueryQueueItem> p_queryQueue;
+	std::unique_ptr<Linux::EventFd> p_eventFd;
+	
+	class ProcessClosure {
+	public:
+		ProcessClosure(QueuedViewDriver *view);
+
+		void process();
+	
+	private:
+		void processSequence();
+		void onSequenceItem(Error error);
+		void onQueryComplete(Error error);
+
+		QueuedViewDriver *p_view;
+
+		SequenceQueueItem p_sequenceItem;
+		QueryQueueItem p_queryItem;
+		int p_index;
+	};
 };
 
 extern ViewRegistry globViewRegistry;

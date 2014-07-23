@@ -363,7 +363,7 @@ Error Engine::query(Query *request,
 		Async::Callback<void(QueryData &)> on_data,
 		Async::Callback<void(Error)> callback) {
 	ViewDriver *driver = p_views[request->viewIndex];
-	driver->processQuery(request, on_data, callback);
+	driver->query(request, on_data, callback);
 }
 
 StorageDriver *Engine::p_setupStorage(const Proto::StorageConfig &config) {

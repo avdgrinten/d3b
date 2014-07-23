@@ -8,7 +8,7 @@
 
 namespace Db {
 
-class JsView : public ViewDriver {
+class JsView : public QueuedViewDriver {
 public:
 	class Factory : public ViewDriver::Factory {
 	public:
@@ -25,10 +25,12 @@ public:
 	virtual Proto::ViewConfig writeConfig();
 	virtual void readConfig(const Proto::ViewConfig &config);
 	
-	virtual void sequence(SequenceId sequence_id,
-			std::vector<Mutation> &mutations,
-			Async::Callback<void()> callback);
-
+protected:
+	virtual void processInsert(SequenceId sequence_id,
+			Mutation &mutation, Async::Callback<void(Error)> callback);
+	virtual void processModify(SequenceId sequence_id,
+			Mutation &mutation, Async::Callback<void(Error)> callback);
+	
 	virtual void processQuery(Query *request,
 			Async::Callback<void(QueryData &)> report,
 			Async::Callback<void(Error)> callback);
@@ -54,8 +56,6 @@ private:
 	Btree<DocumentId> p_orderTree;
 	v8::Persistent<v8::ObjectTemplate> p_global;
 	v8::Persistent<v8::Context> p_context;
-
-	SequenceId p_currentSequenceId;
 
 	int compare(const DocumentId &key_a, const DocumentId &key_b);
 	void writeKey(void *buffer, const DocumentId &key);
@@ -118,28 +118,6 @@ private:
 
 		Btree<DocumentId>::FindClosure p_btreeFind;
 		Btree<DocumentId>::IterateClosure p_btreeIterate;
-	};
-
-	class SequenceClosure {
-	public:
-		SequenceClosure(JsView *view, SequenceId sequence_id,
-				std::vector<Mutation> &mutations,
-				Async::Callback<void()> callback);
-
-		void apply();
-	
-	private:
-		void insertOnComplete(Error error);
-		void modifyOnRemove(Error error);
-		void modifyOnInsert(Error error);
-		void complete();
-
-		JsView *p_view;
-		SequenceId p_sequenceId;
-		std::vector<Mutation> &p_mutations;
-		Async::Callback<void()> p_callback;
-
-		int p_index;
 	};
 
 	class InsertClosure {
