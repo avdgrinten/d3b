@@ -3,7 +3,9 @@
 #include <string>
 #include <iostream>
 
+#include "Async.hpp"
 #include "Os/Linux.hpp"
+
 #include "Db/Types.hpp"
 #include "Db/StorageDriver.hpp"
 #include "Db/ViewDriver.hpp"

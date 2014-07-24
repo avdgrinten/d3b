@@ -132,27 +132,27 @@ public:
 	friend class Linux;
 	public:
 		void read(size_type length, void *buffer,
-				std::function<void()> callback);
+				Async::Callback<void()> callback);
 		void write(size_type length, const void *buffer,
-				std::function<void()> callback);
+				Async::Callback<void()> callback);
 		
-		void onClose(std::function<void()> callback);
+		void onClose(Async::Callback<void()> callback);
 	private:
 		SockStream(int socket_fd);
 
 		int p_socketFd;
 		
-		std::function<void()> p_onClose;
+		Async::Callback<void()> p_onClose;
 		
 		size_t p_readLength;
 		size_t p_readOffset;
 		char *p_readBuffer;
-		std::function<void()> p_readCallback;
+		Async::Callback<void()> p_readCallback;
 		
 		size_t p_writeLength;
 		size_t p_writeOffset;
 		const char *p_writeBuffer;
-		std::function<void()> p_writeCallback;
+		Async::Callback<void()> p_writeCallback;
 
 		bool p_wantRead;
 		bool p_wantWrite;
@@ -179,12 +179,12 @@ public:
 
 		void listen(int port);
 		
-		void onConnect(std::function<void(SockStream*)> callback);
+		void onConnect(Async::Callback<void(SockStream*)> callback);
 
 	private:
 		int p_socketFd;
 		
-		std::function<void(SockStream*)> p_onConnect;
+		Async::Callback<void(SockStream*)> p_onConnect;
 
 		class EpollCallback : public EpollInterface {
 		public:
@@ -202,11 +202,11 @@ public:
 	public:
 		EventFd();
 		void increment();
-		void wait(std::function<void()> callback);
+		void wait(Async::Callback<void()> callback);
 		
 	private:
 		int p_eventFd;
-		std::function<void()> p_callback;
+		Async::Callback<void()> p_callback;
 
 		class EpollCallback : public EpollInterface {
 		public:

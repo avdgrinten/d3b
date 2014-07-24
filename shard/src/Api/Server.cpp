@@ -5,8 +5,8 @@
 
 #include <iostream>
 
-#include "Os/Linux.hpp"
 #include "Async.hpp"
+#include "Os/Linux.hpp"
 #include "Ll/Tasks.hpp"
 
 #include "Db/Types.hpp"
@@ -328,9 +328,7 @@ Server::Server(Db::Engine *engine) : p_engine(engine) {
 void Server::start() {
 	p_sockServer = osIntf->createSockServer();
 	
-	p_sockServer->onConnect([this](Linux::SockStream *stream) {
-		p_onConnect(stream);
-	});
+	p_sockServer->onConnect(ASYNC_MEMBER(this, &Server::p_onConnect));
 	p_sockServer->listen(7963);
 }
 

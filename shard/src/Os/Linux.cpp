@@ -1,4 +1,5 @@
 
+#include "Async.hpp"
 #include "Os/Linux.hpp"
 
 #include <string.h>
@@ -119,8 +120,7 @@ void Linux::SockServer::listen(int port) {
 		throw std::runtime_error("epoll_ctl() failed");
 }
 
-void Linux::SockServer::onConnect
-		(std::function<void(SockStream*)> callback) {
+void Linux::SockServer::onConnect(Async::Callback<void(SockStream*)> callback) {
 	p_onConnect = callback;
 }
 
@@ -154,12 +154,12 @@ Linux::SockStream::SockStream(int socket_fd)
 	p_epollUpdate();
 }
 
-void Linux::SockStream::onClose(std::function<void()> callback) {
+void Linux::SockStream::onClose(Async::Callback<void()> callback) {
 	p_onClose = callback;
 }
 
 void Linux::SockStream::read(size_type length, void *buffer,
-		std::function<void()> callback) {
+		Async::Callback<void()> callback) {
 	if(p_wantRead)
 		throw std::logic_error("Concurrent read on SockStream");
 	p_wantRead = true;
@@ -171,7 +171,7 @@ void Linux::SockStream::read(size_type length, void *buffer,
 }
 
 void Linux::SockStream::write(size_type length, const void *buffer,
-		std::function<void()> callback) {
+		Async::Callback<void()> callback) {
 	if(p_wantWrite)
 		throw std::logic_error("Concurrent write on SockStream");
 	p_wantWrite = true;
@@ -268,7 +268,7 @@ void Linux::EventFd::increment() {
 		throw std::runtime_error("Could not write eventfd");
 }
 
-void Linux::EventFd::wait(std::function<void()> callback) {
+void Linux::EventFd::wait(Async::Callback<void()> callback) {
 	p_callback = callback;
 
 	epoll_event install_event;
