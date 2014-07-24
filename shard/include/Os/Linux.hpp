@@ -112,13 +112,6 @@ public:
 		virtual void operator() (epoll_event &event) = 0;
 	};
 	
-	struct RwInfo {
-		size_type length;
-		size_type index;
-		char *buffer;
-		std::function<void()> callback;
-	};
-
 	class File {
 	public:
 		void openSync(const std::string &path, int mode);
@@ -151,8 +144,18 @@ public:
 		
 		std::function<void()> p_onClose;
 		
-		std::queue<RwInfo> p_readQueue;
-		std::queue<RwInfo> p_writeQueue;
+		size_t p_readLength;
+		size_t p_readOffset;
+		char *p_readBuffer;
+		std::function<void()> p_readCallback;
+		
+		size_t p_writeLength;
+		size_t p_writeOffset;
+		const char *p_writeBuffer;
+		std::function<void()> p_writeCallback;
+
+		bool p_wantRead;
+		bool p_wantWrite;
 		bool p_epollInstalled;
 
 		void p_epollUpdate();
