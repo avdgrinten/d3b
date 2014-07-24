@@ -7,6 +7,8 @@
 
 #include "Os/Linux.hpp"
 #include "Async.hpp"
+#include "Ll/Tasks.hpp"
+
 #include "Db/Types.hpp"
 #include "Db/StorageDriver.hpp"
 #include "Db/ViewDriver.hpp"
@@ -300,7 +302,7 @@ void JsView::QueryClosure::fetchItem() {
 			ASYNC_MEMBER(this, &QueryClosure::onFetchComplete));
 }
 void JsView::QueryClosure::fetchItemLoop() {
-	osIntf->nextTick(ASYNC_MEMBER(this, &QueryClosure::fetchItem));
+	LocalTaskQueue::get()->submit(ASYNC_MEMBER(this, &QueryClosure::fetchItem));
 }
 void JsView::QueryClosure::onFetchData(FetchData &data) {
 	// make sure we only return the last version of each document

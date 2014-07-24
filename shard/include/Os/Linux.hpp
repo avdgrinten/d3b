@@ -30,66 +30,67 @@ private:
 	ErrorCode p_code;
 };
 
-class OS {
-public:
+namespace OS {
+
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-	static uint32_t toLeU32(uint32_t v) { return v; }
-	static uint32_t fromLeU32(uint32_t v) { return v; }
-	static uint64_t toLeU64(uint64_t v) { return v; }
-	static uint64_t fromLeU64(uint64_t v) { return v; }
+inline uint32_t toLeU32(uint32_t v) { return v; }
+inline uint32_t fromLeU32(uint32_t v) { return v; }
+inline uint64_t toLeU64(uint64_t v) { return v; }
+inline uint64_t fromLeU64(uint64_t v) { return v; }
 #elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-	static uint32_t toLeU32(uint32_t v) {
-		return ((v & 0x000000FF) << 24)
-			| ((v & 0x0000FF00) <<  8)
-			| ((v & 0x00FF0000) >>  8)
-			| ((v & 0xFF000000) >> 24);
-	}
-	static uint32_t fromLeU32(uint32_t v) {
-		return ((v & 0x000000FF) << 24)
-			| ((v & 0x0000FF00) <<  8)
-			| ((v & 0x00FF0000) >>  8)
-			| ((v & 0xFF000000) >> 24);
-	}
-	static uint64_t toLeU64(uint64_t v) {
-		return ((a & 0x00000000000000FFULL) << 56) | 
-			((a & 0x000000000000FF00ULL) << 40) | 
-			((a & 0x0000000000FF0000ULL) << 24) | 
-			((a & 0x00000000FF000000ULL) <<  8) | 
-			((a & 0x000000FF00000000ULL) >>  8) | 
-			((a & 0x0000FF0000000000ULL) >> 24) | 
-			((a & 0x00FF000000000000ULL) >> 40) | 
-			((a & 0xFF00000000000000ULL) >> 56);
-	}
-	static uint64_t fromLeU64(uint64_t v) {
-		return ((a & 0x00000000000000FFULL) << 56) | 
-			((a & 0x000000000000FF00ULL) << 40) | 
-			((a & 0x0000000000FF0000ULL) << 24) | 
-			((a & 0x00000000FF000000ULL) <<  8) | 
-			((a & 0x000000FF00000000ULL) >>  8) | 
-			((a & 0x0000FF0000000000ULL) >> 24) | 
-			((a & 0x00FF000000000000ULL) >> 40) | 
-			((a & 0xFF00000000000000ULL) >> 56);
-	}
+inline uint32_t toLeU32(uint32_t v) {
+	return ((v & 0x000000FF) << 24)
+		| ((v & 0x0000FF00) <<  8)
+		| ((v & 0x00FF0000) >>  8)
+		| ((v & 0xFF000000) >> 24);
+}
+inline uint32_t fromLeU32(uint32_t v) {
+	return ((v & 0x000000FF) << 24)
+		| ((v & 0x0000FF00) <<  8)
+		| ((v & 0x00FF0000) >>  8)
+		| ((v & 0xFF000000) >> 24);
+}
+inline uint64_t toLeU64(uint64_t v) {
+	return ((a & 0x00000000000000FFULL) << 56) | 
+		((a & 0x000000000000FF00ULL) << 40) | 
+		((a & 0x0000000000FF0000ULL) << 24) | 
+		((a & 0x00000000FF000000ULL) <<  8) | 
+		((a & 0x000000FF00000000ULL) >>  8) | 
+		((a & 0x0000FF0000000000ULL) >> 24) | 
+		((a & 0x00FF000000000000ULL) >> 40) | 
+		((a & 0xFF00000000000000ULL) >> 56);
+}
+inline uint64_t fromLeU64(uint64_t v) {
+	return ((a & 0x00000000000000FFULL) << 56) | 
+		((a & 0x000000000000FF00ULL) << 40) | 
+		((a & 0x0000000000FF0000ULL) << 24) | 
+		((a & 0x00000000FF000000ULL) <<  8) | 
+		((a & 0x000000FF00000000ULL) >>  8) | 
+		((a & 0x0000FF0000000000ULL) >> 24) | 
+		((a & 0x00FF000000000000ULL) >> 40) | 
+		((a & 0xFF00000000000000ULL) >> 56);
+}
 #else
-	#error "GCC byte order defines not available"
+#error "GCC byte order defines not available"
 #endif
-	
-	static void packLe32(void *pointer, uint32_t value) {
-		*((uint32_t*)pointer) = toLeU32(value);
-	}
-	static uint32_t unpackLe32(void *pointer) {
-		return fromLeU64(*((uint32_t*)pointer));
-	}
-	static void packLe64(void *pointer, uint64_t value) {
-		*((uint64_t*)pointer) = toLeU64(value);
-	}
-	static uint64_t unpackLe64(void *pointer) {
-		return fromLeU64(*((uint64_t*)pointer));
-	}
-	
-	static uint64_t toLe(uint64_t v) { return toLeU64(v); }
-	static uint64_t fromLe(uint64_t v) { return fromLeU64(v); }
-};
+
+static void packLe32(void *pointer, uint32_t value) {
+	*((uint32_t*)pointer) = toLeU32(value);
+}
+static uint32_t unpackLe32(void *pointer) {
+	return fromLeU64(*((uint32_t*)pointer));
+}
+static void packLe64(void *pointer, uint64_t value) {
+	*((uint64_t*)pointer) = toLeU64(value);
+}
+static uint64_t unpackLe64(void *pointer) {
+	return fromLeU64(*((uint64_t*)pointer));
+}
+
+static uint64_t toLe(uint64_t v) { return toLeU64(v); }
+static uint64_t fromLe(uint64_t v) { return fromLeU64(v); }
+
+}; // namespace os
 
 class Linux {
 public:
@@ -182,16 +183,29 @@ public:
 	std::unique_ptr<File> createFile();
 	std::unique_ptr<SockServer> createSockServer();
 	std::unique_ptr<EventFd> createEventFd();
-	
-	Linux();
-	
-	void nextTick(std::function<void()> callback);
-	void processIO();
+};
+
+namespace OS {
+
+class LocalAsyncHost {
+friend class Linux::SockServer;
+friend class Linux::SockStream;
+friend class Linux::EventFd;
+public:
+	static void set(LocalAsyncHost *pointer);
+	static LocalAsyncHost *get();
+
+	LocalAsyncHost();
+	LocalAsyncHost(const LocalAsyncHost &) = delete;
+	LocalAsyncHost &operator= (const LocalAsyncHost &) = delete;
+
+	void process();
 
 private:
-	std::stack<std::function<void()>> p_tickStack;
 	int p_epollFd;
 };
+
+}; // namespace OS
 
 extern Linux *osIntf;
 

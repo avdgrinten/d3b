@@ -6,6 +6,8 @@
 
 #include "Os/Linux.hpp"
 #include "Async.hpp"
+#include "Ll/Tasks.hpp"
+
 #include "Db/Types.hpp"
 #include "Db/StorageDriver.hpp"
 #include "Db/ViewDriver.hpp"
@@ -19,6 +21,10 @@
 namespace po = boost::program_options;
 
 int main(int argc, char **argv) {
+	OS::LocalAsyncHost::set(new OS::LocalAsyncHost());
+	LocalTaskQueue::set(new LocalTaskQueue());
+	LocalTaskQueue::get()->process();
+	
 	Db::globStorageRegistry.addDriver(new Db::FlexStorage::Factory);
 	Db::globViewRegistry.addDriver(new Db::JsView::Factory);
 
@@ -62,7 +68,7 @@ int main(int argc, char **argv) {
 
 		std::cout << "Server is running!" << std::endl;
 		while(true)
-			osIntf->processIO();
+			OS::LocalAsyncHost::get()->process();
 	}
 }
 

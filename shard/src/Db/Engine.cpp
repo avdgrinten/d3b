@@ -4,6 +4,7 @@
 
 #include "Os/Linux.hpp"
 #include "Async.hpp"
+#include "Ll/Tasks.hpp"
 #include "Db/Types.hpp"
 #include "Db/StorageDriver.hpp"
 #include "Db/ViewDriver.hpp"
@@ -254,7 +255,7 @@ void Engine::ProcessQueueClosure::processItem() {
 			processCommit();
 		}else throw std::logic_error("Queued item has illegal type");
 	}else{
-		osIntf->nextTick(ASYNC_MEMBER(this, &ProcessQueueClosure::processLoop));
+		LocalTaskQueue::get()->submit(ASYNC_MEMBER(this, &ProcessQueueClosure::processLoop));
 	}
 }
 	
@@ -299,7 +300,7 @@ void Engine::ProcessQueueClosure::onSubmitWriteAhead(Error error) {
 
 	p_transaction = nullptr;
 	p_logEntry.Clear();
-	osIntf->nextTick(ASYNC_MEMBER(this, &ProcessQueueClosure::processItem));
+	LocalTaskQueue::get()->submit(ASYNC_MEMBER(this, &ProcessQueueClosure::processItem));
 }
 
 void Engine::ProcessQueueClosure::processCommit() {
@@ -349,7 +350,7 @@ void Engine::ProcessQueueClosure::onCommitWriteAhead(Error error) {
 
 	p_transaction = nullptr;
 	p_logEntry.Clear();
-	osIntf->nextTick(ASYNC_MEMBER(this, &ProcessQueueClosure::processItem));
+	LocalTaskQueue::get()->submit(ASYNC_MEMBER(this, &ProcessQueueClosure::processItem));
 }
 
 void Engine::fetch(FetchRequest *fetch,

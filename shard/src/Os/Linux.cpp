@@ -125,7 +125,7 @@ void Linux::SockServer::listen(int port) {
 	epoll_event event;
 	event.data.ptr = functor_ptr;
 	event.events = EPOLLIN;
-	if(epoll_ctl(osIntf->p_epollFd, EPOLL_CTL_ADD,
+	if(epoll_ctl(OS::LocalAsyncHost::get()->p_epollFd, EPOLL_CTL_ADD,
 			p_socketFd, &event) == - 1)
 		throw std::runtime_error("epoll_ctl() failed");
 }
@@ -194,16 +194,16 @@ void Linux::SockStream::p_epollUpdate() {
 	event.events |= EPOLLRDHUP;
 	
 	if(p_epollInstalled && event.events == 0) {
-		if(epoll_ctl(osIntf->p_epollFd, EPOLL_CTL_DEL,
+		if(epoll_ctl(OS::LocalAsyncHost::get()->p_epollFd, EPOLL_CTL_DEL,
 				p_socketFd, &event) == - 1)
 			throw std::runtime_error("epoll_ctl(EPOLL_CTL_DEL) failed");
 		p_epollInstalled = false;
 	}else if(p_epollInstalled) {
-		if(epoll_ctl(osIntf->p_epollFd, EPOLL_CTL_MOD,
+		if(epoll_ctl(OS::LocalAsyncHost::get()->p_epollFd, EPOLL_CTL_MOD,
 				p_socketFd, &event) == - 1)
 			throw std::runtime_error("epoll_ctl(EPOLL_CTL_MOD) failed");
 	}else{
-		if(epoll_ctl(osIntf->p_epollFd, EPOLL_CTL_ADD,
+		if(epoll_ctl(OS::LocalAsyncHost::get()->p_epollFd, EPOLL_CTL_ADD,
 				p_socketFd, &event) == - 1)
 			throw std::runtime_error("epoll_ctl(EPOLL_CTL_ADD) failed");
 		p_epollInstalled = true;
@@ -274,7 +274,7 @@ void Linux::EventFd::wait(std::function<void()> callback) {
 	p_epollFunctor = [this, callback]() {
 		epoll_event uninstall_event;
 		uninstall_event.events = EPOLLIN;
-		if(epoll_ctl(osIntf->p_epollFd, EPOLL_CTL_DEL, p_eventFd, &uninstall_event) == - 1)
+		if(epoll_ctl(OS::LocalAsyncHost::get()->p_epollFd, EPOLL_CTL_DEL, p_eventFd, &uninstall_event) == - 1)
 			throw std::runtime_error("epoll_ctl() failed");
 
 		uint64_t value;
@@ -286,7 +286,7 @@ void Linux::EventFd::wait(std::function<void()> callback) {
 	epoll_event install_event;
 	install_event.data.ptr = &p_epollFunctor;
 	install_event.events = EPOLLIN;
-	if(epoll_ctl(osIntf->p_epollFd, EPOLL_CTL_ADD, p_eventFd, &install_event) == - 1)
+	if(epoll_ctl(OS::LocalAsyncHost::get()->p_epollFd, EPOLL_CTL_ADD, p_eventFd, &install_event) == - 1)
 		throw std::runtime_error("epoll_ctl() failed");
 }
 
@@ -304,25 +304,31 @@ void Linux::mkDir(const std::string &path) {
 		throw std::runtime_error("mkdir() failed");
 }
 
-/* ------------------------------------------------------------------- */
 
-Linux::Linux() {
+// --------------------------------------------------------
+// LocalAsyncHost
+// --------------------------------------------------------
+
+namespace OS {
+
+__thread LocalAsyncHost *localHostPointer = nullptr;
+
+void LocalAsyncHost::set(LocalAsyncHost *pointer) {
+	localHostPointer = pointer;
+}
+LocalAsyncHost *LocalAsyncHost::get() {
+	if(localHostPointer == nullptr)
+		throw std::logic_error("No LocalAsyncHost defined");
+	return localHostPointer;
+}
+
+LocalAsyncHost::LocalAsyncHost() {
 	p_epollFd = epoll_create1(0);
 	if(p_epollFd == -1)
 		throw std::runtime_error("epoll_create() failed");
 }
 
-void Linux::nextTick(std::function<void()> callback) {
-	p_tickStack.push(callback);
-}
-
-void Linux::processIO() {
-	while(!p_tickStack.empty()) {
-		std::function<void()> callback = p_tickStack.top();
-		p_tickStack.pop();
-		callback();
-	}
-	
+void LocalAsyncHost::process() {
 	epoll_event events[16];
 	int n = epoll_wait(p_epollFd, events, 16, -1);
 	if(n == -1)
@@ -344,4 +350,6 @@ void Linux::processIO() {
 		(*functor_ptr)(type);
 	}
 }
+
+} // namespace OS
 

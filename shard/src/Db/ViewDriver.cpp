@@ -5,6 +5,7 @@
 
 #include "Os/Linux.hpp"
 #include "Async.hpp"
+#include "Ll/Tasks.hpp"
 
 #include "Db/Types.hpp"
 #include "Db/StorageDriver.hpp"
@@ -73,7 +74,7 @@ void QueuedViewDriver::ProcessClosure::process() {
 void QueuedViewDriver::ProcessClosure::processSequence() {
 	if(p_index == p_sequenceItem.mutations->size()) {
 		p_view->p_currentSequenceId = p_sequenceItem.sequenceId;
-		osIntf->nextTick(ASYNC_MEMBER(this, &ProcessClosure::process));
+		LocalTaskQueue::get()->submit(ASYNC_MEMBER(this, &ProcessClosure::process));
 		return;
 	}
 	
@@ -95,7 +96,7 @@ void QueuedViewDriver::ProcessClosure::onQueryComplete(Error error) {
 	//FIXME: don't ignore error
 	p_queryItem.callback(Error(true));
 
-	osIntf->nextTick(ASYNC_MEMBER(this, &ProcessClosure::process));
+	LocalTaskQueue::get()->submit(ASYNC_MEMBER(this, &ProcessClosure::process));
 }
 
 } /* namespace Db  */

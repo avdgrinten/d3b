@@ -7,6 +7,8 @@
 
 #include "Os/Linux.hpp"
 #include "Async.hpp"
+#include "Ll/Tasks.hpp"
+
 #include "Db/Types.hpp"
 #include "Db/StorageDriver.hpp"
 #include "Db/ViewDriver.hpp"
@@ -56,10 +58,9 @@ void Server::Connection::onPacketHead() {
 void Server::Connection::onPacketBody() {
 	processMessage();
 
-
 	delete[] p_curBuffer;
 	p_curBuffer = nullptr;
-	osIntf->nextTick(ASYNC_MEMBER(this, &Connection::process));
+	LocalTaskQueue::get()->submit(ASYNC_MEMBER(this, &Connection::process));
 }
 
 void Server::Connection::onClose() {
