@@ -92,6 +92,8 @@ static uint64_t fromLe(uint64_t v) { return fromLeU64(v); }
 
 }; // namespace os
 
+struct epoll_event;
+
 class Linux {
 public:
 	typedef uint64_t off_type;
@@ -103,6 +105,11 @@ public:
 		kFileWrite = 2,
 		kFileCreate = 4,
 		kFileTrunc = 8
+	};
+
+	class EpollInterface {
+	public:
+		virtual void operator() (epoll_event &event) = 0;
 	};
 	
 	struct RwInfo {
@@ -146,15 +153,27 @@ public:
 		
 		std::queue<RwInfo> p_readQueue;
 		std::queue<RwInfo> p_writeQueue;
-		std::function<void(int)> p_epollFunctor;
 		bool p_epollInstalled;
 
 		void p_epollUpdate();
-		void p_epollProcess(int events);
+		void p_epollProcess(epoll_event &event);
+		
+		class EpollCallback : public EpollInterface {
+		public:
+			virtual void operator() (epoll_event &event);
+
+			EpollCallback(SockStream *stream);
+
+		private:
+			SockStream *p_stream;
+		};
+		EpollCallback p_epollCallback;
 	};
 
 	class SockServer {
 	public:
+		SockServer();
+
 		void listen(int port);
 		
 		void onConnect(std::function<void(SockStream*)> callback);
@@ -163,6 +182,17 @@ public:
 		int p_socketFd;
 		
 		std::function<void(SockStream*)> p_onConnect;
+
+		class EpollCallback : public EpollInterface {
+		public:
+			virtual void operator() (epoll_event &event);
+
+			EpollCallback(SockServer *server);
+
+		private:
+			SockServer *p_server;
+		};
+		EpollCallback p_epollCallback;
 	};
 
 	class EventFd {
@@ -173,7 +203,18 @@ public:
 		
 	private:
 		int p_eventFd;
-		std::function<void()> p_epollFunctor;
+		std::function<void()> p_callback;
+
+		class EpollCallback : public EpollInterface {
+		public:
+			virtual void operator() (epoll_event &event);
+
+			EpollCallback(EventFd *event_fd);
+
+		private:
+			EventFd *p_eventFd;
+		};
+		EpollCallback p_epollCallback;
 	};
 	
 	bool fileExists(const std::string &path);

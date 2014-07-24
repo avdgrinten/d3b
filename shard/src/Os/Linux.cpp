@@ -13,10 +13,6 @@
 
 #include <iostream>
 
-enum epollevt_type {
-	evt_none, evt_read = 1, evt_write = 2, evt_hup = 4
-};
-
 Linux *osIntf = new Linux();
 
 void Linux::File::openSync(const std::string &path, int mode) {
@@ -91,6 +87,8 @@ std::unique_ptr<Linux::EventFd> Linux::createEventFd() {
 
 /* ------------------------------------------------------------------- */
 
+Linux::SockServer::SockServer() : p_epollCallback(this) { }
+
 void Linux::SockServer::listen(int port) {
 	p_socketFd = socket(AF_INET, SOCK_STREAM, 0);
 	if(p_socketFd == -1)
@@ -113,17 +111,8 @@ void Linux::SockServer::listen(int port) {
 	if(::listen(p_socketFd, 20) == -1)
 		throw std::runtime_error("listen() failed");
 
-	auto functor_ptr = new std::function<void(int)>([this](int evt) {
-		int stream_fd = accept(p_socketFd, NULL, NULL);
-		if(stream_fd == -1)
-			throw std::runtime_error("accept() failed");
-		
-		SockStream *stream = new SockStream(stream_fd);
-		p_onConnect(stream);
-	});
-
 	epoll_event event;
-	event.data.ptr = functor_ptr;
+	event.data.ptr = &p_epollCallback;
 	event.events = EPOLLIN;
 	if(epoll_ctl(OS::LocalAsyncHost::get()->p_epollFd, EPOLL_CTL_ADD,
 			p_socketFd, &event) == - 1)
@@ -139,17 +128,28 @@ std::unique_ptr<Linux::SockServer> Linux::createSockServer() {
 	return std::unique_ptr<Linux::SockServer>(new Linux::SockServer());
 }
 
+Linux::SockServer::EpollCallback::EpollCallback(SockServer *server)
+	: p_server(server) { }
+
+void Linux::SockServer::EpollCallback::operator() (epoll_event &event) {
+	int stream_fd = accept(p_server->p_socketFd, NULL, NULL);
+	if(stream_fd == -1)
+		throw std::runtime_error("accept() failed");
+	
+	SockStream *stream = new SockStream(stream_fd);
+	p_server->p_onConnect(stream);
+}
+
 /* ------------------------------------------------------------------- */
 
 Linux::SockStream::SockStream(int socket_fd)
-		: p_socketFd(socket_fd), p_epollInstalled(false) {
+		: p_socketFd(socket_fd), p_epollInstalled(false), p_epollCallback(this) {
 	int fflags = fcntl(p_socketFd, F_GETFL);
 	if(fflags == -1)
 		throw std::runtime_error("fcntl(F_GETFL) failed");
 	if(fcntl(p_socketFd, F_SETFL, fflags | O_NONBLOCK) == -1)
 		throw std::runtime_error("fcntl(F_SETFL) failed");
 	
-	p_epollFunctor = [this](int events) { p_epollProcess(events); };
 	p_epollUpdate();
 }
 
@@ -185,7 +185,7 @@ void Linux::SockStream::write(size_type length, const void *buffer,
 
 void Linux::SockStream::p_epollUpdate() {
 	epoll_event event;
-	event.data.ptr = &p_epollFunctor;
+	event.data.ptr = &p_epollCallback;
 	event.events = 0;
 	if(!p_readQueue.empty())
 		event.events |= EPOLLIN;
@@ -210,8 +210,8 @@ void Linux::SockStream::p_epollUpdate() {
 	}
 }
 
-void Linux::SockStream::p_epollProcess(int events) {
-	if(events & evt_read) {
+void Linux::SockStream::p_epollProcess(epoll_event &event) {
+	if(event.events & EPOLLIN) {
 		if(p_readQueue.empty())
 			throw std::logic_error("Read queue is empty");
 		RwInfo &rwinfo = p_readQueue.front();
@@ -230,7 +230,7 @@ void Linux::SockStream::p_epollProcess(int events) {
 			callback();
 		}
 	}
-	if(events & evt_write) {
+	if(event.events & EPOLLOUT) {
 		if(p_writeQueue.empty())
 			throw std::logic_error("Write queue is empty");
 		RwInfo &rwinfo = p_writeQueue.front();
@@ -250,15 +250,22 @@ void Linux::SockStream::p_epollProcess(int events) {
 		}
 	}
 	
-	if(events & evt_hup) {
+	if(event.events & EPOLLHUP) {
 		p_onClose();
 		if(close(p_socketFd) != 0)
 			throw std::runtime_error("close() failed");
 	}
 }
 
+Linux::SockStream::EpollCallback::EpollCallback(SockStream *stream)
+	: p_stream(stream) { }
+
+void Linux::SockStream::EpollCallback::operator() (epoll_event &event) {
+	p_stream->p_epollProcess(event);
+}
+
 /* ------------------------------------------------------------------- */
-Linux::EventFd::EventFd() {
+Linux::EventFd::EventFd() : p_epollCallback(this) {
 	p_eventFd = eventfd(0, 0);
 	if(p_eventFd == -1)
 		throw std::runtime_error("eventfd() failed");
@@ -271,23 +278,29 @@ void Linux::EventFd::increment() {
 }
 
 void Linux::EventFd::wait(std::function<void()> callback) {
-	p_epollFunctor = [this, callback]() {
-		epoll_event uninstall_event;
-		uninstall_event.events = EPOLLIN;
-		if(epoll_ctl(OS::LocalAsyncHost::get()->p_epollFd, EPOLL_CTL_DEL, p_eventFd, &uninstall_event) == - 1)
-			throw std::runtime_error("epoll_ctl() failed");
-
-		uint64_t value;
-		if(::read(p_eventFd, &value, 8) != 8)
-			throw std::runtime_error("Could not read eventfd");
-		callback();
-	};
+	p_callback = callback;
 
 	epoll_event install_event;
-	install_event.data.ptr = &p_epollFunctor;
+	install_event.data.ptr = &p_epollCallback;
 	install_event.events = EPOLLIN;
 	if(epoll_ctl(OS::LocalAsyncHost::get()->p_epollFd, EPOLL_CTL_ADD, p_eventFd, &install_event) == - 1)
 		throw std::runtime_error("epoll_ctl() failed");
+}
+
+Linux::EventFd::EpollCallback::EpollCallback(EventFd *event_fd)
+	: p_eventFd(event_fd) { }
+
+void Linux::EventFd::EpollCallback::operator() (epoll_event &event) {
+	epoll_event uninstall_event;
+	uninstall_event.events = EPOLLIN;
+	if(epoll_ctl(OS::LocalAsyncHost::get()->p_epollFd, EPOLL_CTL_DEL,
+			p_eventFd->p_eventFd, &uninstall_event) == - 1)
+		throw std::runtime_error("epoll_ctl() failed");
+
+	uint64_t value;
+	if(::read(p_eventFd->p_eventFd, &value, 8) != 8)
+		throw std::runtime_error("Could not read eventfd");
+	p_eventFd->p_callback();
 }
 
 /* ------------------------------------------------------------------- */
@@ -335,19 +348,8 @@ void LocalAsyncHost::process() {
 		throw std::runtime_error("epoll_wait() failed");
 
 	for(int i = 0; i < n; i++) {
-		int type = 0;
-		if(events[i].events & EPOLLIN)
-			type |= epollevt_type::evt_read;
-		if(events[i].events & EPOLLOUT)
-			type |= epollevt_type::evt_write;
-		if(events[i].events & EPOLLHUP)
-			type |= epollevt_type::evt_hup;
-		if(events[i].events & EPOLLRDHUP)
-			type |= epollevt_type::evt_hup;
-
-		auto functor_ptr = (std::function<void(int)>*)
-				events[i].data.ptr;
-		(*functor_ptr)(type);
+		auto interface = (Linux::EpollInterface *)events[i].data.ptr;
+		(*interface)(events[i]);
 	}
 }
 
