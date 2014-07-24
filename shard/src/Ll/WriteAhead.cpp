@@ -56,7 +56,7 @@ void Ll::WriteAhead::replay(Async::Callback<void(Db::Proto::LogEntry &)> on_entr
 }
 
 void Ll::WriteAhead::log(Db::Proto::LogEntry &message,
-		std::function<void(Error)> callback) {
+		Async::Callback<void(Error)> callback) {
 	int msg_length = message.ByteSize();
 	char *buffer = new char[msg_length + 20];
 
