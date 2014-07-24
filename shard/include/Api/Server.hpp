@@ -21,7 +21,8 @@ private:
 		Connection(Server *server,
 				Linux::SockStream *sock_stream);
 		
-		void process();
+		void processRead();
+		void processWrite();
 		
 		void postResponse(int opcode, int seq_number,
 				const google::protobuf::MessageLite &reponse);
@@ -35,6 +36,7 @@ private:
 		void onClose();
 		void onPacketHead();
 		void onPacketBody();
+		void onWriteItem();
 
 		void processMessage();
 		
@@ -44,6 +46,14 @@ private:
 		PacketHead p_rawHead;
 		PacketHead p_curPacket;
 		char *p_curBuffer;
+
+		struct SendQueueItem {
+			size_t length;
+			char *buffer;
+		};
+
+		std::queue<SendQueueItem> p_sendQueue;
+		std::unique_ptr<Linux::EventFd> p_eventFd;
 	};
 	
 	void p_onConnect(Linux::SockStream *stream);

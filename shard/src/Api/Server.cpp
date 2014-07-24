@@ -21,6 +21,8 @@ namespace Api {
 
 Server::Connection::Connection(Server *server, Linux::SockStream *sock_stream)
 		: p_server(server), p_sockStream(sock_stream) {
+	p_eventFd = osIntf->createEventFd();
+
 	p_sockStream->onClose(ASYNC_MEMBER(this, &Connection::onClose));
 }
 
@@ -37,12 +39,14 @@ void Server::Connection::postResponse(int opcode, int seq_number,
 	if(!response.SerializeToArray(buffer + sizeof(PacketHead), length))
 		throw std::runtime_error("Could not serialize protobuf");
 	
-	p_sockStream->write(sizeof(PacketHead) + length, buffer, [buffer] () {
-		delete[] buffer;
-	});
+	SendQueueItem item;
+	item.length = sizeof(PacketHead) + length;
+	item.buffer = buffer;
+	p_sendQueue.push(item);
+	p_eventFd->increment();
 }
 
-void Server::Connection::process() {
+void Server::Connection::processRead() {
 	p_sockStream->read(sizeof(PacketHead), &p_rawHead,
 			ASYNC_MEMBER(this, &Connection::onPacketHead));
 }
@@ -60,7 +64,24 @@ void Server::Connection::onPacketBody() {
 
 	delete[] p_curBuffer;
 	p_curBuffer = nullptr;
-	LocalTaskQueue::get()->submit(ASYNC_MEMBER(this, &Connection::process));
+	LocalTaskQueue::get()->submit(ASYNC_MEMBER(this, &Connection::processRead));
+}
+
+void Server::Connection::processWrite() {
+	if(!p_sendQueue.empty()) {
+		SendQueueItem &item = p_sendQueue.front();
+		p_sockStream->write(item.length, item.buffer,
+				ASYNC_MEMBER(this, &Connection::onWriteItem));
+	}else{
+		p_eventFd->wait(ASYNC_MEMBER(this, &Connection::processWrite));
+	}
+}
+void Server::Connection::onWriteItem() {
+	SendQueueItem &item = p_sendQueue.front();
+	delete[] item.buffer;
+	p_sendQueue.pop();
+
+	LocalTaskQueue::get()->submit(ASYNC_MEMBER(this, &Connection::processWrite));
 }
 
 void Server::Connection::onClose() {
@@ -315,7 +336,8 @@ void Server::start() {
 
 void Server::p_onConnect(Linux::SockStream *stream) {
 	Connection *connection = new Connection(this, stream);
-	connection->process();
+	connection->processRead();
+	connection->processWrite();
 }
 
 
