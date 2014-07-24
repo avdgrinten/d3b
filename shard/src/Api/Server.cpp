@@ -17,15 +17,12 @@
 
 namespace Api {
 
-Server::Connection::Connection(Server *server,
-		Linux::SockStream *sock_stream)
+Server::Connection::Connection(Server *server, Linux::SockStream *sock_stream)
 		: p_server(server), p_sockStream(sock_stream) {
-	p_sockStream->onClose([] () {
-		std::cout << "Connection closed" << std::endl;
-	});
+	p_sockStream->onClose(ASYNC_MEMBER(this, &Connection::onClose));
 }
 
-void Server::Connection::p_postResponse(int opcode, int seq_number,
+void Server::Connection::postResponse(int opcode, int seq_number,
 		const google::protobuf::MessageLite &response) {
 	uint32_t length = response.ByteSize();
 	char *buffer = new char[sizeof(PacketHead) + length];
@@ -43,31 +40,30 @@ void Server::Connection::p_postResponse(int opcode, int seq_number,
 	});
 }
 
-void Server::Connection::p_readMessage(std::function<void(Error)> callback) {
-	Async::staticSeries(std::make_tuple(
-		[this](std::function<void(Error)> msg_callback) {
-			p_sockStream->read(sizeof(PacketHead), &p_rawHead,
-				[=]() { msg_callback(Error(true)); });
-		},
-		[this](std::function<void(Error)> msg_callback) {
-			p_curPacket.opcode = OS::fromLeU32(p_rawHead.opcode);
-			p_curPacket.length = OS::fromLeU32(p_rawHead.length);
-			p_curPacket.seqNumber = OS::fromLeU32(p_rawHead.seqNumber);
+void Server::Connection::process() {
+	p_sockStream->read(sizeof(PacketHead), &p_rawHead,
+			ASYNC_MEMBER(this, &Connection::onPacketHead));
+}
+void Server::Connection::onPacketHead() {
+	p_curPacket.opcode = OS::fromLeU32(p_rawHead.opcode);
+	p_curPacket.length = OS::fromLeU32(p_rawHead.length);
+	p_curPacket.seqNumber = OS::fromLeU32(p_rawHead.seqNumber);
 			
-			p_curBuffer = new char[p_curPacket.length];
-			p_sockStream->read(p_curPacket.length, p_curBuffer,
-				[=]() { msg_callback(Error(true)); });
-		},
-		[this](std::function<void(Error)> msg_callback) {
-			p_processMessage();
-			msg_callback(Error(true));
-		},
-		[this](std::function<void(Error)> msg_callback) {
-			delete[] p_curBuffer;
-			p_curBuffer = nullptr;
-			msg_callback(Error(true));
-		}
-	), callback);
+	p_curBuffer = new char[p_curPacket.length];
+	p_sockStream->read(p_curPacket.length, p_curBuffer,
+			ASYNC_MEMBER(this, &Connection::onPacketBody));
+}
+void Server::Connection::onPacketBody() {
+	processMessage();
+
+
+	delete[] p_curBuffer;
+	p_curBuffer = nullptr;
+	osIntf->nextTick(ASYNC_MEMBER(this, &Connection::process));
+}
+
+void Server::Connection::onClose() {
+	std::cout << "Connection closed" << std::endl;
 }
 
 Server::QueryClosure::QueryClosure(Db::Engine *engine, Connection *connection,
@@ -80,7 +76,7 @@ void Server::QueryClosure::execute(size_t packet_size, const void *packet_buffer
 		Proto::SrFin response;
 		response.set_success(false);
 		response.set_err_code(Proto::kErrIllegalRequest);
-		p_connection->p_postResponse(Proto::kSrFin, p_responseId, response);
+		p_connection->postResponse(Proto::kSrFin, p_responseId, response);
 		return;
 	}
 	
@@ -108,12 +104,12 @@ void Server::QueryClosure::onData(Db::QueryData &rows) {
 	Proto::SrRows response;
 	for(int i = 0; i < rows.items.size(); i++)
 		response.add_row_data(rows.items[i]);
-	p_connection->p_postResponse(Proto::kSrRows, p_responseId, response);
+	p_connection->postResponse(Proto::kSrRows, p_responseId, response);
 }
 void Server::QueryClosure::complete(Error error) {
 	// FIXME: don't ignore error value
 	Proto::SrFin response;
-	p_connection->p_postResponse(Proto::kSrFin, p_responseId, response);
+	p_connection->postResponse(Proto::kSrFin, p_responseId, response);
 
 	delete this;
 }
@@ -129,7 +125,7 @@ void Server::ShortTransactClosure::execute(size_t packet_size, const void *packe
 		Proto::SrFin response;
 		response.set_success(false);
 		response.set_err_code(Proto::kErrIllegalRequest);
-		p_connection->p_postResponse(Proto::kSrFin, p_responseId, response);
+		p_connection->postResponse(Proto::kSrFin, p_responseId, response);
 		return;
 	}
 
@@ -178,12 +174,12 @@ void Server::ShortTransactClosure::onSubmit(Error error) {
 void Server::ShortTransactClosure::onCommit(Db::SequenceId sequence_id) {
 	Proto::SrShortTransact response;
 	response.set_sequence_id(sequence_id);
-	p_connection->p_postResponse(Proto::kSrShortTransact, p_responseId, response);
+	p_connection->postResponse(Proto::kSrShortTransact, p_responseId, response);
 	
 	delete this;
 }
 
-void Server::Connection::p_processMessage() {
+void Server::Connection::processMessage() {
 	uint32_t seq_number = p_curPacket.seqNumber;
 	//std::cout << "Message: " << p_curPacket.opcode << std::endl;
 
@@ -200,35 +196,35 @@ void Server::Connection::p_processMessage() {
 			Proto::SrFin response;
 			response.set_success(false);
 			response.set_err_code(Proto::kErrIllegalRequest);
-			p_postResponse(Proto::kSrFin, seq_number, response);
+			postResponse(Proto::kSrFin, seq_number, response);
 			return;
 		}
 
 		engine->createStorage(request.config());
 		
 		Proto::SrFin response;
-		p_postResponse(Proto::kSrFin, seq_number, response);
+		postResponse(Proto::kSrFin, seq_number, response);
 	}else if(p_curPacket.opcode == Proto::kCqCreateView) {
 		Proto::CqCreateView request;
 		if(!request.ParseFromArray(p_curBuffer, p_curPacket.length)) {
 			Proto::SrFin response;
 			response.set_success(false);
 			response.set_err_code(Proto::kErrIllegalRequest);
-			p_postResponse(Proto::kSrFin, seq_number, response);
+			postResponse(Proto::kSrFin, seq_number, response);
 			return;
 		}
 
 		engine->createView(request.config());
 		
 		Proto::SrFin response;
-		p_postResponse(Proto::kSrFin, seq_number, response);
+		postResponse(Proto::kSrFin, seq_number, response);
 	}else if(p_curPacket.opcode == Proto::kCqUnlinkStorage) {
 		Proto::CqUnlinkStorage request;
 		if(!request.ParseFromArray(p_curBuffer, p_curPacket.length)) {
 			Proto::SrFin response;
 			response.set_success(false);
 			response.set_err_code(Proto::kErrIllegalRequest);
-			p_postResponse(Proto::kSrFin, seq_number, response);
+			postResponse(Proto::kSrFin, seq_number, response);
 			return;
 		}
 		
@@ -236,14 +232,14 @@ void Server::Connection::p_processMessage() {
 		engine->unlinkStorage(index);
 		
 		Proto::SrFin response;
-		p_postResponse(Proto::kSrFin, seq_number, response);
+		postResponse(Proto::kSrFin, seq_number, response);
 	}else if(p_curPacket.opcode == Proto::kCqUnlinkView) {
 		Proto::CqUnlinkView request;
 		if(!request.ParseFromArray(p_curBuffer, p_curPacket.length)) {
 			Proto::SrFin response;
 			response.set_success(false);
 			response.set_err_code(Proto::kErrIllegalRequest);
-			p_postResponse(Proto::kSrFin, seq_number, response);
+			postResponse(Proto::kSrFin, seq_number, response);
 			return;
 		}
 		
@@ -251,14 +247,14 @@ void Server::Connection::p_processMessage() {
 		engine->unlinkView(index);
 		
 		Proto::SrFin response;
-		p_postResponse(Proto::kSrFin, seq_number, response);
+		postResponse(Proto::kSrFin, seq_number, response);
 	}else if(p_curPacket.opcode == Proto::kCqUploadExtern) {
 		Proto::CqUploadExtern request;
 		if(!request.ParseFromArray(p_curBuffer, p_curPacket.length)) {
 			Proto::SrFin response;
 			response.set_success(false);
 			response.set_err_code(Proto::kErrIllegalRequest);
-			p_postResponse(Proto::kSrFin, seq_number, response);
+			postResponse(Proto::kSrFin, seq_number, response);
 			return;
 		}
 		
@@ -269,14 +265,14 @@ void Server::Connection::p_processMessage() {
 		fd->closeSync();
 		
 		Proto::SrFin response;
-		p_postResponse(Proto::kSrFin, seq_number, response);
+		postResponse(Proto::kSrFin, seq_number, response);
 	}else if(p_curPacket.opcode == Proto::kCqDownloadExtern) {
 		Proto::CqDownloadExtern request;
 		if(!request.ParseFromArray(p_curBuffer, p_curPacket.length)) {
 			Proto::SrFin response;
 			response.set_success(false);
 			response.set_err_code(Proto::kErrIllegalRequest);
-			p_postResponse(Proto::kSrFin, seq_number, response);
+			postResponse(Proto::kSrFin, seq_number, response);
 			return;
 		}
 		
@@ -291,20 +287,20 @@ void Server::Connection::p_processMessage() {
 		
 		Proto::SrBlob blob_resp;
 		blob_resp.set_buffer(std::string(buffer, length));
-		p_postResponse(Proto::kSrBlob, seq_number, blob_resp);
+		postResponse(Proto::kSrBlob, seq_number, blob_resp);
 		delete[] buffer;
 		
 		Proto::SrFin fin_resp;
-		p_postResponse(Proto::kSrFin, seq_number, fin_resp);
+		postResponse(Proto::kSrFin, seq_number, fin_resp);
 	}else{
 		Proto::SrFin response;
 		response.set_success(false);
 		response.set_err_code(Proto::kErrIllegalRequest);
-		p_postResponse(Proto::kSrFin, seq_number, response);
+		postResponse(Proto::kSrFin, seq_number, response);
 	}
 }
 
-Server::Server(Db::Engine *engine) :p_engine(engine) {
+Server::Server(Db::Engine *engine) : p_engine(engine) {
 }
 
 void Server::start() {
@@ -318,14 +314,9 @@ void Server::start() {
 
 void Server::p_onConnect(Linux::SockStream *stream) {
 	Connection *connection = new Connection(this, stream);
-	
-	Async::whilst([] () { return true; },
-		[connection](std::function<void(Error)> callback) {
-			connection->p_readMessage(callback);
-		} , [](Error error) {
-			printf("fin\n");
-		});
+	connection->process();
 }
+
 
 };
 

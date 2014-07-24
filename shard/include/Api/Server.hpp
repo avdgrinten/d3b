@@ -17,7 +17,14 @@ private:
 	typedef uint32_t ResponseId;
 
 	class Connection {
-	friend class Server;
+	public:
+		Connection(Server *server,
+				Linux::SockStream *sock_stream);
+		
+		void process();
+		
+		void postResponse(int opcode, int seq_number,
+				const google::protobuf::MessageLite &reponse);
 	private:
 		struct PacketHead {
 			uint32_t opcode;
@@ -25,13 +32,11 @@ private:
 			uint32_t seqNumber;
 		};
 		
-		Connection(Server *server,
-				Linux::SockStream *sock_stream);
-		
-		void p_postResponse(int opcode, int seq_number,
-				const google::protobuf::MessageLite &reponse);
-		void p_readMessage(std::function<void(Error)> callback);
-		void p_processMessage();
+		void onClose();
+		void onPacketHead();
+		void onPacketBody();
+
+		void processMessage();
 		
 		Server *p_server;
 		Linux::SockStream *p_sockStream;
