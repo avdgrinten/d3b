@@ -147,7 +147,7 @@ void Linux::SockServer::EpollCallback::operator() (epoll_event &event) {
 /* ------------------------------------------------------------------- */
 
 Linux::SockStream::SockStream(int socket_fd)
-		: p_socketFd(socket_fd), p_wantRead(false), p_wantWrite(false),
+		: p_socketFd(socket_fd), p_wantWrite(false),
 		p_epollInstalled(false), p_epollCallback(this) {
 	int fflags = fcntl(p_socketFd, F_GETFL);
 	if(fflags == -1)
@@ -158,20 +158,11 @@ Linux::SockStream::SockStream(int socket_fd)
 	p_epollUpdate();
 }
 
-void Linux::SockStream::onClose(Async::Callback<void()> callback) {
-	p_onClose = callback;
-}
-
-void Linux::SockStream::read(size_type length, void *buffer,
-		Async::Callback<void()> callback) {
-	if(p_wantRead)
-		throw std::logic_error("Concurrent read on SockStream");
-	p_wantRead = true;
-	p_readLength = length;
-	p_readBuffer = (char *)buffer;
-	p_readOffset = 0;
+void Linux::SockStream::setReadCallback(Async::Callback<void(int, const char *)> callback) {
 	p_readCallback = callback;
-	p_epollUpdate();
+}
+void Linux::SockStream::setCloseCallback(Async::Callback<void()> callback) {
+	p_closeCallback = callback;
 }
 
 void Linux::SockStream::write(size_type length, const void *buffer,
@@ -189,9 +180,7 @@ void Linux::SockStream::write(size_type length, const void *buffer,
 void Linux::SockStream::p_epollUpdate() {
 	epoll_event event;
 	event.data.ptr = &p_epollCallback;
-	event.events = 0;
-	if(p_wantRead)
-		event.events |= EPOLLIN;
+	event.events = EPOLLIN;
 	if(p_wantWrite)
 		event.events |= EPOLLOUT;
 	event.events |= EPOLLRDHUP;
@@ -215,20 +204,12 @@ void Linux::SockStream::p_epollUpdate() {
 
 void Linux::SockStream::p_epollProcess(epoll_event &event) {
 	if(event.events & EPOLLIN) {
-		if(!p_wantRead)
-			throw std::logic_error("!p_wantRead");
-		ssize_t bytes = ::read(p_socketFd, p_readBuffer + p_readOffset,
-				p_readLength - p_readOffset);
+		ssize_t bytes = ::read(p_socketFd, p_readBuffer, 512);
 		if(bytes == -1)
 			throw std::runtime_error("Read failed");
-		
-		p_readOffset += bytes;
-		if(p_readOffset == p_readLength) {
-			p_wantRead = false;
-			p_epollUpdate();
-			p_readCallback();
-		}
+		p_readCallback(bytes, p_readBuffer);
 	}
+
 	if(event.events & EPOLLOUT) {
 		if(!p_wantWrite)
 			throw std::logic_error("!p_wantWrite");
@@ -246,7 +227,7 @@ void Linux::SockStream::p_epollProcess(epoll_event &event) {
 	}
 	
 	if(event.events & EPOLLHUP) {
-		p_onClose();
+		p_closeCallback();
 		if(close(p_socketFd) != 0)
 			throw std::runtime_error("close() failed");
 	}

@@ -133,30 +133,26 @@ public:
 	class SockStream {
 	friend class Linux;
 	public:
-		void read(size_type length, void *buffer,
-				Async::Callback<void()> callback);
 		void write(size_type length, const void *buffer,
 				Async::Callback<void()> callback);
 		
-		void onClose(Async::Callback<void()> callback);
+		void setReadCallback(Async::Callback<void(int, const char *)> callback);
+		void setCloseCallback(Async::Callback<void()> callback);
 	private:
 		SockStream(int socket_fd);
 
 		int p_socketFd;
 		
-		Async::Callback<void()> p_onClose;
+		Async::Callback<void(int, const char *)> p_readCallback;
+		Async::Callback<void()> p_closeCallback;
 		
-		size_t p_readLength;
-		size_t p_readOffset;
-		char *p_readBuffer;
-		Async::Callback<void()> p_readCallback;
+		char p_readBuffer[512];
 		
 		size_t p_writeLength;
 		size_t p_writeOffset;
 		const char *p_writeBuffer;
 		Async::Callback<void()> p_writeCallback;
 
-		bool p_wantRead;
 		bool p_wantWrite;
 		bool p_epollInstalled;
 

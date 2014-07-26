@@ -21,21 +21,27 @@ private:
 		Connection(Server *server,
 				Linux::SockStream *sock_stream);
 		
-		void processRead();
 		void processWrite();
 		
 		void postResponse(int opcode, int seq_number,
 				const google::protobuf::MessageLite &reponse);
 	private:
 		struct PacketHead {
+			enum Fields {
+				kOpcode = 0,
+				kLength = 4,
+				kResponseId = 8,
+				// overall size of this struct
+				kStructSize = 12
+			};
+
 			uint32_t opcode;
 			uint32_t length;
 			uint32_t seqNumber;
 		};
 		
 		void onClose();
-		void onPacketHead();
-		void onPacketBody();
+		void onRead(int size, const char *buffer);
 		void onWriteItem();
 
 		void processMessage();
@@ -43,9 +49,11 @@ private:
 		Server *p_server;
 		Linux::SockStream *p_sockStream;
 		
-		PacketHead p_rawHead;
+		char p_headBuffer[PacketHead::kStructSize];
 		PacketHead p_curPacket;
-		char *p_curBuffer;
+		char *p_bodyBuffer;
+		int p_readOffset;
+		bool p_validHead;
 
 		struct SendQueueItem {
 			size_t length;

@@ -20,10 +20,12 @@
 namespace Api {
 
 Server::Connection::Connection(Server *server, Linux::SockStream *sock_stream)
-		: p_server(server), p_sockStream(sock_stream) {
+		: p_server(server), p_sockStream(sock_stream),
+			p_readOffset(0), p_validHead(false) {
 	p_eventFd = osIntf->createEventFd();
 
-	p_sockStream->onClose(ASYNC_MEMBER(this, &Connection::onClose));
+	p_sockStream->setCloseCallback(ASYNC_MEMBER(this, &Connection::onClose));
+	p_sockStream->setReadCallback(ASYNC_MEMBER(this, &Connection::onRead));
 }
 
 void Server::Connection::postResponse(int opcode, int seq_number,
@@ -46,25 +48,38 @@ void Server::Connection::postResponse(int opcode, int seq_number,
 	p_eventFd->increment();
 }
 
-void Server::Connection::processRead() {
-	p_sockStream->read(sizeof(PacketHead), &p_rawHead,
-			ASYNC_MEMBER(this, &Connection::onPacketHead));
-}
-void Server::Connection::onPacketHead() {
-	p_curPacket.opcode = OS::fromLeU32(p_rawHead.opcode);
-	p_curPacket.length = OS::fromLeU32(p_rawHead.length);
-	p_curPacket.seqNumber = OS::fromLeU32(p_rawHead.seqNumber);
+void Server::Connection::onRead(int size, const char *buffer) {
+	int offset = 0;
+	while(offset < size) {
+		if(!p_validHead) {
+			int copy = std::min(PacketHead::kStructSize - p_readOffset, size - offset);
+			memcpy(p_headBuffer + p_readOffset, buffer + offset, copy);
+			offset += copy;
+			p_readOffset += copy;
 			
-	p_curBuffer = new char[p_curPacket.length];
-	p_sockStream->read(p_curPacket.length, p_curBuffer,
-			ASYNC_MEMBER(this, &Connection::onPacketBody));
-}
-void Server::Connection::onPacketBody() {
-	processMessage();
+			if(p_readOffset == PacketHead::kStructSize) {
+				p_curPacket.opcode = OS::unpackLe32(p_headBuffer + PacketHead::kOpcode);
+				p_curPacket.length = OS::unpackLe32(p_headBuffer + PacketHead::kLength);
+				p_curPacket.seqNumber = OS::unpackLe32(p_headBuffer + PacketHead::kResponseId);
+				p_bodyBuffer = new char[p_curPacket.length];
+				p_readOffset = 0;
+				p_validHead = true;
+			}
+		}else{
+			//FIXME: ugly cast
+			int copy = std::min((int)p_curPacket.length - p_readOffset, size - offset);
+			memcpy(p_bodyBuffer + p_readOffset, buffer + offset, copy);
+			offset += copy;
+			p_readOffset += copy;
 
-	delete[] p_curBuffer;
-	p_curBuffer = nullptr;
-	LocalTaskQueue::get()->submit(ASYNC_MEMBER(this, &Connection::processRead));
+			if(p_readOffset == p_curPacket.length) {
+				processMessage();
+				delete[] p_bodyBuffer;
+				p_readOffset = 0;
+				p_validHead = false;
+			}
+		}
+	}
 }
 
 void Server::Connection::processWrite() {
@@ -208,13 +223,13 @@ void Server::Connection::processMessage() {
 	Db::Engine *engine = p_server->getEngine();
 	if(p_curPacket.opcode == Proto::kCqQuery) {
 		auto closure = new QueryClosure(engine, this, p_curPacket.seqNumber);
-		closure->execute(p_curPacket.length, p_curBuffer);
+		closure->execute(p_curPacket.length, p_bodyBuffer);
 	}else if(p_curPacket.opcode == Proto::kCqShortTransact) {
 		auto closure = new ShortTransactClosure(engine, this, p_curPacket.seqNumber);
-		closure->execute(p_curPacket.length, p_curBuffer);
+		closure->execute(p_curPacket.length, p_bodyBuffer);
 	}else if(p_curPacket.opcode == Proto::kCqCreateStorage) {
 		Proto::CqCreateStorage request;
-		if(!request.ParseFromArray(p_curBuffer, p_curPacket.length)) {
+		if(!request.ParseFromArray(p_bodyBuffer, p_curPacket.length)) {
 			Proto::SrFin response;
 			response.set_success(false);
 			response.set_err_code(Proto::kErrIllegalRequest);
@@ -228,7 +243,7 @@ void Server::Connection::processMessage() {
 		postResponse(Proto::kSrFin, seq_number, response);
 	}else if(p_curPacket.opcode == Proto::kCqCreateView) {
 		Proto::CqCreateView request;
-		if(!request.ParseFromArray(p_curBuffer, p_curPacket.length)) {
+		if(!request.ParseFromArray(p_bodyBuffer, p_curPacket.length)) {
 			Proto::SrFin response;
 			response.set_success(false);
 			response.set_err_code(Proto::kErrIllegalRequest);
@@ -242,7 +257,7 @@ void Server::Connection::processMessage() {
 		postResponse(Proto::kSrFin, seq_number, response);
 	}else if(p_curPacket.opcode == Proto::kCqUnlinkStorage) {
 		Proto::CqUnlinkStorage request;
-		if(!request.ParseFromArray(p_curBuffer, p_curPacket.length)) {
+		if(!request.ParseFromArray(p_bodyBuffer, p_curPacket.length)) {
 			Proto::SrFin response;
 			response.set_success(false);
 			response.set_err_code(Proto::kErrIllegalRequest);
@@ -257,7 +272,7 @@ void Server::Connection::processMessage() {
 		postResponse(Proto::kSrFin, seq_number, response);
 	}else if(p_curPacket.opcode == Proto::kCqUnlinkView) {
 		Proto::CqUnlinkView request;
-		if(!request.ParseFromArray(p_curBuffer, p_curPacket.length)) {
+		if(!request.ParseFromArray(p_bodyBuffer, p_curPacket.length)) {
 			Proto::SrFin response;
 			response.set_success(false);
 			response.set_err_code(Proto::kErrIllegalRequest);
@@ -272,7 +287,7 @@ void Server::Connection::processMessage() {
 		postResponse(Proto::kSrFin, seq_number, response);
 	}else if(p_curPacket.opcode == Proto::kCqUploadExtern) {
 		Proto::CqUploadExtern request;
-		if(!request.ParseFromArray(p_curBuffer, p_curPacket.length)) {
+		if(!request.ParseFromArray(p_bodyBuffer, p_curPacket.length)) {
 			Proto::SrFin response;
 			response.set_success(false);
 			response.set_err_code(Proto::kErrIllegalRequest);
@@ -290,7 +305,7 @@ void Server::Connection::processMessage() {
 		postResponse(Proto::kSrFin, seq_number, response);
 	}else if(p_curPacket.opcode == Proto::kCqDownloadExtern) {
 		Proto::CqDownloadExtern request;
-		if(!request.ParseFromArray(p_curBuffer, p_curPacket.length)) {
+		if(!request.ParseFromArray(p_bodyBuffer, p_curPacket.length)) {
 			Proto::SrFin response;
 			response.set_success(false);
 			response.set_err_code(Proto::kErrIllegalRequest);
@@ -334,7 +349,6 @@ void Server::start() {
 
 void Server::p_onConnect(Linux::SockStream *stream) {
 	Connection *connection = new Connection(this, stream);
-	connection->processRead();
 	connection->processWrite();
 }
 
