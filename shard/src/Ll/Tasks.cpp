@@ -34,6 +34,10 @@ void LocalTaskQueue::submit(Async::Callback<void()> callback) {
 	p_eventFd->increment();
 }
 
+void LocalTaskQueue::wake() {
+	p_eventFd->increment();
+}
+
 void LocalTaskQueue::process() {
 	std::unique_lock<std::mutex> lock(p_mutex);
 	while(!p_queue.empty()) {
@@ -83,15 +87,24 @@ void TaskPool::submit(Async::Callback<void()> callback) {
 // WorkerThread
 // --------------------------------------------------------
 
-WorkerThread::WorkerThread() {
+WorkerThread::WorkerThread() : p_shutdown(false) {
 	p_asyncHost = new OS::LocalAsyncHost();
 	p_taskQueue = new LocalTaskQueue(p_asyncHost);
 
 	p_thread = std::thread(ASYNC_MEMBER(this, &WorkerThread::threadMain));
 }
 
+void WorkerThread::shutdown() {
+	p_shutdown = true;
+	p_taskQueue->wake();
+}
+
 LocalTaskQueue *WorkerThread::getTaskQueue() {
 	return p_taskQueue;
+}
+
+std::thread &WorkerThread::getThread() {
+	return p_thread;
 }
 
 void WorkerThread::threadMain() {
@@ -100,7 +113,7 @@ void WorkerThread::threadMain() {
 
 	p_taskQueue->process();
 
-	while(true)
+	while(!p_shutdown)
 		p_asyncHost->process();
 }
 

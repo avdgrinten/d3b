@@ -11,6 +11,7 @@ public:
 	LocalTaskQueue(OS::LocalAsyncHost *async_host);
 
 	void submit(Async::Callback<void()> callback);
+	void wake();
 
 	void process();
 
@@ -47,6 +48,8 @@ class WorkerThread {
 public:
 	WorkerThread();
 
+	void shutdown();
+
 	std::thread &getThread();
 	LocalTaskQueue *getTaskQueue();
 
@@ -56,5 +59,7 @@ private:
 	OS::LocalAsyncHost *p_asyncHost;
 	LocalTaskQueue *p_taskQueue;
 	std::thread p_thread;
+
+	volatile bool p_shutdown;
 };
 

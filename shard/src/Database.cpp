@@ -77,5 +77,10 @@ int main(int argc, char **argv) {
 		while(true)
 			OS::LocalAsyncHost::get()->process();
 	}
+
+	worker1.shutdown();
+	worker2.shutdown();
+	worker1.getThread().join();
+	worker2.getThread().join();
 }
 
