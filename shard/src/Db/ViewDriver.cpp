@@ -74,6 +74,7 @@ void QueuedViewDriver::ProcessClosure::process() {
 void QueuedViewDriver::ProcessClosure::processSequence() {
 	if(p_index == p_sequenceItem.mutations->size()) {
 		p_view->p_currentSequenceId = p_sequenceItem.sequenceId;
+		p_sequenceItem.callback();
 		LocalTaskQueue::get()->submit(ASYNC_MEMBER(this, &ProcessClosure::process));
 		return;
 	}

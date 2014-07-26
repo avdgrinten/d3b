@@ -150,6 +150,7 @@ void FlexStorage::InsertClosure::compareToInserted(const Index &other,
 }
 void FlexStorage::InsertClosure::onIndexInsert() {
 	p_callback(Error(true));
+	delete this;
 }
 
 // --------------------------------------------------------

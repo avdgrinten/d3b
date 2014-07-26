@@ -70,6 +70,7 @@ void Ll::WriteAhead::log(Db::Proto::LogEntry &message,
 	
 	p_file->writeSync(msg_length + 20, buffer);
 //	p_file->fdatasyncSync();
+	delete[] buffer;
 	callback(Error(true));
 }
 

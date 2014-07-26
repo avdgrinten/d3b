@@ -65,8 +65,8 @@ void Engine::loadConfig() {
 	p_writeAhead.setIdentifier("transact");
 	p_writeAhead.loadLog();
 
-	auto closure = new ReplayClosure(this);
-	closure->replay();
+	ReplayClosure closure = ReplayClosure(this);
+	closure.replay();
 }
 
 Engine::ReplayClosure::ReplayClosure(Engine *engine)
