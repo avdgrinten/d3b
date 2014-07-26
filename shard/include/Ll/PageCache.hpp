@@ -15,6 +15,8 @@ public:
 	void writePage(PageNumber number);
 	void releasePage(PageNumber number);
 
+	int getUsedCount();
+
 private:
 	struct PageInfo {
 		char *buffer;
@@ -26,5 +28,6 @@ private:
 
 	std::unordered_map<PageNumber, PageInfo> p_presentPages;
 	int p_pageSize;
+	int p_usedCount;
 };
 

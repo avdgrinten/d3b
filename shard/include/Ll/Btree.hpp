@@ -53,8 +53,7 @@ public:
 	public:
 		IterateClosure(Btree *tree) : p_tree(tree), p_block(0), p_entry(0),
 				p_buffer(nullptr) { }
-		~IterateClosure() {
-		}
+		~IterateClosure();
 		
 		Ref position();
 		void seek(Ref ref, Async::Callback<void()> callback);
@@ -413,15 +412,25 @@ Btree<KeyType>::Btree
  * ------------------------------------------------------------------------- */
 
 template<typename KeyType>
+Btree<KeyType>::IterateClosure::~IterateClosure() {
+	if(p_block > 0)
+		p_tree->p_pageCache.releasePage(p_block);
+}
+
+template<typename KeyType>
 typename Btree<KeyType>::Ref Btree<KeyType>::IterateClosure::position() {
 	return Ref(p_block, p_entry);
 }
+
 template<typename KeyType>
 void Btree<KeyType>::IterateClosure::seek(Ref ref, Async::Callback<void()> callback) {
 	p_callback = callback;
-
+	
+	if(p_block > 0)
+		p_tree->p_pageCache.releasePage(p_block);
 	p_block = ref.block;
 	p_entry = ref.entry;
+
 	if(ref.block > 0) {
 		p_tree->p_pageCache.readPage(ref.block,
 				ASYNC_MEMBER(this, &IterateClosure::seekOnRead));
@@ -444,11 +453,13 @@ void Btree<KeyType>::IterateClosure::forward(Async::Callback<void()> callback) {
 	blknum_type right_link = p_tree->p_leafGetRightLink(p_buffer);
 	if(p_entry == p_tree->p_leafGetEntCount(p_buffer)) {
 		if(right_link != 0) {
+			p_tree->p_pageCache.releasePage(p_block);
 			p_block = right_link;
 			p_entry = 0;
 			p_tree->p_pageCache.readPage(right_link,
 					ASYNC_MEMBER(this, &IterateClosure::forwardOnRead));
 		}else{
+			p_tree->p_pageCache.releasePage(p_block);
 			p_block = -1;
 			p_entry = -1;
 			p_callback();
@@ -515,6 +526,7 @@ void Btree<KeyType>::InsertClosure::onReadRoot(char *buffer) {
 template<typename KeyType>
 void Btree<KeyType>::InsertClosure::onSplitRoot() {
 	p_tree->p_pageCache.writePage(p_blockNumber);
+	p_tree->p_pageCache.releasePage(p_blockNumber);
 
 	p_blockNumber = p_tree->p_curFileHead.rootBlock;
 	p_tree->p_pageCache.readPage(p_blockNumber,
@@ -606,6 +618,8 @@ void Btree<KeyType>::FindClosure::findFirstOnRead(char *buffer) {
 	flags_type flags = p_tree->p_headGetFlags(p_blockBuffer);
 	if((flags & 1) != 0) {
 		if(p_tree->p_leafGetEntCount(p_blockBuffer) != 0) {
+			p_tree->p_pageCache.releasePage(p_blockNumber);
+
 			Ref result;
 			result.block = p_blockNumber;
 			result.entry = 0;
@@ -613,13 +627,17 @@ void Btree<KeyType>::FindClosure::findFirstOnRead(char *buffer) {
 			p_onComplete(result);
 			return;
 		}else{
+			p_tree->p_pageCache.releasePage(p_blockNumber);
+
 			p_onComplete(Ref());
 			return;
 		}
 	}
 	
 	char *ref_ptr = p_blockBuffer + p_tree->p_lrefOffInner();
-	p_blockNumber = OS::fromLeU32(*((blknum_type*)ref_ptr));
+	blknum_type child_number = OS::fromLeU32(*((blknum_type*)ref_ptr));
+	p_tree->p_pageCache.releasePage(p_blockNumber);
+	p_blockNumber = child_number;
 
 	findFirstDescend();
 }
@@ -658,10 +676,12 @@ void Btree<KeyType>::FindClosure::findNextOnFoundChild(int index) {
 		blknum_type ent_count = p_tree->p_innerGetEntCount(p_blockBuffer);
 		char *ref_ptr = p_blockBuffer + p_tree->p_refOffInner(ent_count - 1);
 		blknum_type child_num = OS::fromLeU32(*((blknum_type*)ref_ptr));
+		p_tree->p_pageCache.releasePage(p_blockNumber);
 		p_blockNumber = child_num;
 	}else if(index == 0) {
 		char *ref_ptr = p_blockBuffer + p_tree->p_lrefOffInner();
 		blknum_type child_num = OS::fromLeU32(*((blknum_type*)ref_ptr));
+		p_tree->p_pageCache.releasePage(p_blockNumber);
 		p_blockNumber = child_num;
 	}else{
 		char *ref_ptr = p_blockBuffer + p_tree->p_refOffInner(index - 1);
@@ -715,10 +735,12 @@ void Btree<KeyType>::FindClosure::findPrevOnFoundChild(int index) {
 	if(index == -1) {
 		char *ref_ptr = p_blockBuffer + p_tree->p_lrefOffInner();
 		blknum_type child_num = OS::fromLeU32(*((blknum_type*)ref_ptr));
+		p_tree->p_pageCache.releasePage(p_blockNumber);
 		p_blockNumber = child_num;
 	}else{
 		char *ref_ptr = p_blockBuffer + p_tree->p_refOffInner(index);
 		blknum_type child_num = OS::fromLeU32(*((blknum_type*)ref_ptr));
+		p_tree->p_pageCache.releasePage(p_blockNumber);
 		p_blockNumber = child_num;
 	}
 
@@ -729,6 +751,7 @@ void Btree<KeyType>::FindClosure::findPrevInLeaf(int index) {
 	if(index == -1) {
 		blknum_type left_link = p_tree->p_leafGetLeftLink(p_blockBuffer);
 		if(left_link != 0) {
+			p_tree->p_pageCache.releasePage(p_blockNumber);
 			p_blockNumber = left_link;
 			p_tree->p_pageCache.readPage(p_blockNumber,
 					ASYNC_MEMBER(this, &FindClosure::findPrevReadLeft));
