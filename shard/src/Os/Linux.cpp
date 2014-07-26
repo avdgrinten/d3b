@@ -83,7 +83,11 @@ std::unique_ptr<Linux::File> Linux::createFile() {
 }
 
 std::unique_ptr<Linux::EventFd> Linux::createEventFd() {
-	return std::unique_ptr<Linux::EventFd>(new Linux::EventFd());
+	auto async_host = OS::LocalAsyncHost::get();
+	return std::unique_ptr<Linux::EventFd>(new Linux::EventFd(async_host));
+}
+std::unique_ptr<Linux::EventFd> Linux::createEventFd(OS::LocalAsyncHost *async_host) {
+	return std::unique_ptr<Linux::EventFd>(new Linux::EventFd(async_host));
 }
 
 /* ------------------------------------------------------------------- */
@@ -256,7 +260,8 @@ void Linux::SockStream::EpollCallback::operator() (epoll_event &event) {
 }
 
 /* ------------------------------------------------------------------- */
-Linux::EventFd::EventFd() : p_epollCallback(this) {
+Linux::EventFd::EventFd(OS::LocalAsyncHost *async_host) :
+		p_asyncHost(async_host), p_epollCallback(this) {
 	p_eventFd = eventfd(0, 0);
 	if(p_eventFd == -1)
 		throw std::runtime_error("eventfd() failed");
@@ -274,7 +279,7 @@ void Linux::EventFd::wait(Async::Callback<void()> callback) {
 	epoll_event install_event;
 	install_event.data.ptr = &p_epollCallback;
 	install_event.events = EPOLLIN;
-	if(epoll_ctl(OS::LocalAsyncHost::get()->p_epollFd, EPOLL_CTL_ADD, p_eventFd, &install_event) == - 1)
+	if(epoll_ctl(p_asyncHost->p_epollFd, EPOLL_CTL_ADD, p_eventFd, &install_event) == - 1)
 		throw std::runtime_error("epoll_ctl() failed");
 }
 
@@ -284,7 +289,7 @@ Linux::EventFd::EpollCallback::EpollCallback(EventFd *event_fd)
 void Linux::EventFd::EpollCallback::operator() (epoll_event &event) {
 	epoll_event uninstall_event;
 	uninstall_event.events = EPOLLIN;
-	if(epoll_ctl(OS::LocalAsyncHost::get()->p_epollFd, EPOLL_CTL_DEL,
+	if(epoll_ctl(p_eventFd->p_asyncHost->p_epollFd, EPOLL_CTL_DEL,
 			p_eventFd->p_eventFd, &uninstall_event) == - 1)
 		throw std::runtime_error("epoll_ctl() failed");
 

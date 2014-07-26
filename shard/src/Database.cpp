@@ -22,8 +22,15 @@ namespace po = boost::program_options;
 
 int main(int argc, char **argv) {
 	OS::LocalAsyncHost::set(new OS::LocalAsyncHost());
-	LocalTaskQueue::set(new LocalTaskQueue());
+	LocalTaskQueue::set(new LocalTaskQueue(OS::LocalAsyncHost::get()));
 	LocalTaskQueue::get()->process();
+
+	WorkerThread worker1;
+	WorkerThread worker2;
+
+	TaskPool io_pool;
+	io_pool.addWorker(worker1.getTaskQueue());
+	io_pool.addWorker(worker2.getTaskQueue());
 	
 	Db::globStorageRegistry.addDriver(new Db::FlexStorage::Factory);
 	Db::globViewRegistry.addDriver(new Db::JsView::Factory);
@@ -47,24 +54,24 @@ int main(int argc, char **argv) {
 		return EXIT_FAILURE;
 	}
 	
-	Db::Engine *engine = new Db::Engine;
-	engine->setPath(opts["path"].as<std::string>());
+	Db::Engine engine(&io_pool);
+	engine.setPath(opts["path"].as<std::string>());
 	
 	if(opts.count("create")) {
-		engine->createConfig();
+		engine.createConfig();
 	}else{
-		engine->loadConfig();
+		engine.loadConfig();
 	}
 	
 	/* NOTE: for now all methods called during --create
 		are synchronous. if we change that in the future
 		we have to run osIntf->processIO() also in the
 		--create case */
-	engine->process();
+	engine.process();
 
 	if(!opts.count("create")) {
-		Api::Server *server = new Api::Server(engine);
-		server->start();
+		Api::Server server(&engine);
+		server.start();
 
 		std::cout << "Server is running!" << std::endl;
 		while(true)

@@ -4,71 +4,74 @@
 #include <vector>
 #include <unordered_map>
 
-#include "Async.hpp"
 #include "Ll/WriteAhead.hpp"
 
 namespace Db {
 
 class Engine {
 public:
-	Engine();
+	Engine(TaskPool *io_pool);
 	
-	void createConfig();
-	void loadConfig();
+void createConfig();
+void loadConfig();
 
-	void createStorage(const Proto::StorageConfig &config);
-	int getStorage(const std::string &identifier);
-	void unlinkStorage(int storage);
+void createStorage(const Proto::StorageConfig &config);
+int getStorage(const std::string &identifier);
+void unlinkStorage(int storage);
 
-	void createView(const Proto::ViewConfig &config);
-	int getView(const std::string &view);
-	void unlinkView(int view);
+void createView(const Proto::ViewConfig &config);
+int getView(const std::string &view);
+void unlinkView(int view);
 
-	SequenceId currentSequenceId();
+SequenceId currentSequenceId();
 
-	// begin a transaction. returns a transaction id
-	void transaction(Async::Callback<void(Error, TransactionId)> callback);
-	// add a mutation to an existing transaction
-	void updateMutation(TransactionId trid, Mutation &mutation,
-			Async::Callback<void(Error)> callback);
-	// submits the transaction.
-	// after submit() return success commit() is guaranteed to succeed
-	void submit(TransactionId trid,
-			Async::Callback<void(Error)> callback);
-	void commit(TransactionId trid,
-			Async::Callback<void(SequenceId)> callback);
-	void rollback(TransactionId trid,
-			Async::Callback<void(Error)> callback);
+// begin a transaction. returns a transaction id
+void transaction(Async::Callback<void(Error, TransactionId)> callback);
+// add a mutation to an existing transaction
+void updateMutation(TransactionId trid, Mutation &mutation,
+		Async::Callback<void(Error)> callback);
+// submits the transaction.
+// after submit() return success commit() is guaranteed to succeed
+void submit(TransactionId trid,
+		Async::Callback<void(Error)> callback);
+void commit(TransactionId trid,
+		Async::Callback<void(SequenceId)> callback);
+void rollback(TransactionId trid,
+		Async::Callback<void(Error)> callback);
 
-	void fetch(FetchRequest *fetch,
-			Async::Callback<void(FetchData &)> on_data,
-			Async::Callback<void(Error)> callback);
-	
-	Error query(Query *request,
-			Async::Callback<void(QueryData &)> report,
-			Async::Callback<void(Error)> callback);
-	
-	void process();
-	
-	inline void setPath(const std::string &path) {
-		p_path = path;
-	}
-	inline std::string getPath() {
-		return p_path;
-	}
-	
+void fetch(FetchRequest *fetch,
+		Async::Callback<void(FetchData &)> on_data,
+		Async::Callback<void(Error)> callback);
+
+Error query(Query *request,
+		Async::Callback<void(QueryData &)> report,
+		Async::Callback<void(Error)> callback);
+
+TaskPool *getIoPool();
+
+void process();
+
+inline void setPath(const std::string &path) {
+	p_path = path;
+}
+inline std::string getPath() {
+	return p_path;
+}
+
 private:
-	/* ------- request and update queue -------- */
-	struct Queued {
-		enum Type {
-			kTypeNone, kTypeSubmit, kTypeCommit, kTypeRollback
-		};
-		
-		Type type;
-		TransactionId trid;
-		Async::Callback<void(Error)> callback;
-		Async::Callback<void(SequenceId)> commitCallback;
+TaskPool *p_ioPool;
+
+/* ------- request and update queue -------- */
+struct Queued {
+	enum Type {
+		kTypeNone, kTypeSubmit, kTypeCommit, kTypeRollback
 	};
+	
+	Type type;
+	TransactionId trid;
+	Async::Callback<void(Error)> callback;
+	Async::Callback<void(SequenceId)> commitCallback;
+};
 	
 	std::unique_ptr<Linux::EventFd> p_eventFd;
 	std::deque<Queued> p_submitQueue;

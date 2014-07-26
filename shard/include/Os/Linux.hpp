@@ -90,6 +90,8 @@ static uint64_t unpackLe64(void *pointer) {
 static uint64_t toLe(uint64_t v) { return toLeU64(v); }
 static uint64_t fromLe(uint64_t v) { return fromLeU64(v); }
 
+class LocalAsyncHost;
+
 }; // namespace os
 
 struct epoll_event;
@@ -200,11 +202,12 @@ public:
 
 	class EventFd {
 	public:
-		EventFd();
+		EventFd(OS::LocalAsyncHost *async_host);
 		void increment();
 		void wait(Async::Callback<void()> callback);
 		
 	private:
+		OS::LocalAsyncHost *p_asyncHost;
 		int p_eventFd;
 		Async::Callback<void()> p_callback;
 
@@ -227,6 +230,7 @@ public:
 	std::unique_ptr<File> createFile();
 	std::unique_ptr<SockServer> createSockServer();
 	std::unique_ptr<EventFd> createEventFd();
+	std::unique_ptr<EventFd> createEventFd(OS::LocalAsyncHost *async_host);
 };
 
 namespace OS {

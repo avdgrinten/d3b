@@ -1,10 +1,15 @@
 
+#include <cassert>
 #include <iostream>
 
 #include "Async.hpp"
 #include "Os/Linux.hpp"
 
 #include "Ll/Tasks.hpp"
+
+// --------------------------------------------------------
+// LocalTaskQueue
+// --------------------------------------------------------
 
 __thread LocalTaskQueue *localQueuePointer = nullptr;
 
@@ -17,8 +22,8 @@ LocalTaskQueue *LocalTaskQueue::get() {
 	return localQueuePointer;
 }
 
-LocalTaskQueue::LocalTaskQueue() {
-	p_eventFd = osIntf->createEventFd();
+LocalTaskQueue::LocalTaskQueue(OS::LocalAsyncHost *async_host) {
+	p_eventFd = osIntf->createEventFd(async_host);
 }
 
 void LocalTaskQueue::submit(Async::Callback<void()> callback) {
@@ -43,5 +48,59 @@ void LocalTaskQueue::process() {
 	lock.unlock();
 
 	p_eventFd->wait(ASYNC_MEMBER(this, &LocalTaskQueue::process));
+}
+
+// --------------------------------------------------------
+// TaskCallback
+// --------------------------------------------------------
+
+TaskCallback::TaskCallback(Async::Callback<void()> callback)
+	: p_queue(LocalTaskQueue::get()), p_callback(callback) { }
+
+TaskCallback::TaskCallback(LocalTaskQueue *queue, Async::Callback<void()> callback)
+	: p_queue(queue), p_callback(callback) { }
+
+void TaskCallback::operator() () {
+	p_queue->submit(p_callback);
+}
+
+// --------------------------------------------------------
+// TaskPool
+// --------------------------------------------------------
+
+void TaskPool::addWorker(LocalTaskQueue *queue) {
+	p_workers.push_back(queue);
+}
+
+void TaskPool::submit(Async::Callback<void()> callback) {
+	assert(p_workers.size() > 0);
+	std::uniform_int_distribution<> distrib(0, p_workers.size() - 1);
+	int index = distrib(p_randomEngine);
+	p_workers[index]->submit(callback);
+}
+
+// --------------------------------------------------------
+// WorkerThread
+// --------------------------------------------------------
+
+WorkerThread::WorkerThread() {
+	p_asyncHost = new OS::LocalAsyncHost();
+	p_taskQueue = new LocalTaskQueue(p_asyncHost);
+
+	p_thread = std::thread(ASYNC_MEMBER(this, &WorkerThread::threadMain));
+}
+
+LocalTaskQueue *WorkerThread::getTaskQueue() {
+	return p_taskQueue;
+}
+
+void WorkerThread::threadMain() {
+	OS::LocalAsyncHost::set(p_asyncHost);
+	LocalTaskQueue::set(p_taskQueue);
+
+	p_taskQueue->process();
+
+	while(true)
+		p_asyncHost->process();
 }
 

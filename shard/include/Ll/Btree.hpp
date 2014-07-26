@@ -19,7 +19,8 @@ public:
 	Btree(std::string name,
 			Linux::size_type block_size,
 			Linux::size_type key_size,
-			Linux::size_type val_size);
+			Linux::size_type val_size,
+			TaskPool *io_pool);
 
 	class Ref {
 	friend class Btree;
@@ -390,12 +391,10 @@ private:
 };
 
 template<typename KeyType>
-Btree<KeyType>::Btree
-		(std::string name,
-		Linux::size_type block_size,
-		Linux::size_type key_size,
-		Linux::size_type val_size)
-			: p_name(name), p_pageCache(block_size), p_blockSize(block_size),
+Btree<KeyType>::Btree(std::string name, Linux::size_type block_size,
+		Linux::size_type key_size, Linux::size_type val_size,
+		TaskPool *io_pool)
+	: p_name(name), p_pageCache(block_size, io_pool), p_blockSize(block_size),
 		p_keySize(key_size), p_valSize(val_size) {
 	assert(p_blockSize > sizeof(FileHead)
 			&& p_blockSize > sizeof(InnerHead)

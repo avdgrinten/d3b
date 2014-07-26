@@ -66,7 +66,8 @@ v8::Handle<v8::Value> JsView::p_jsHook(const v8::Arguments &args) {
 JsView::JsView(Engine *engine)
 	: QueuedViewDriver(engine),
 		p_enableLog(true), p_keyStore("keys"),
-		p_orderTree("order", 4096, sizeof(DocumentId), Link::kStructSize) {
+		p_orderTree("order", 4096, sizeof(DocumentId), Link::kStructSize,
+			engine->getIoPool()) {
 	v8::HandleScope handle_scope;
 	
 	v8::Local<v8::External> js_this = v8::External::New(this);

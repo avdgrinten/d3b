@@ -5,6 +5,7 @@
 
 #include "Async.hpp"
 #include "Os/Linux.hpp"
+#include "Ll/Tasks.hpp"
 
 #include "Db/Types.hpp"
 #include "Db/StorageDriver.hpp"
@@ -17,7 +18,8 @@ namespace Db {
 
 FlexStorage::FlexStorage(Engine *engine)
 		: QueuedStorageDriver(engine), p_lastDocumentId(0), p_dataPointer(0),
-			p_indexTree("index", 4096, Index::kStructSize, Reference::kStructSize) {
+			p_indexTree("index", 4096, Index::kStructSize, Reference::kStructSize,
+				engine->getIoPool()) {
 	p_indexTree.setWriteKey(ASYNC_MEMBER(this, &FlexStorage::writeIndex));
 	p_indexTree.setReadKey(ASYNC_MEMBER(this, &FlexStorage::readIndex));
 
