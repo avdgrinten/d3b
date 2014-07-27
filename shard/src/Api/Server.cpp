@@ -20,12 +20,15 @@
 namespace Api {
 
 Server::Connection::Connection(Server *server, Linux::SockStream *sock_stream)
-		: p_server(server), p_sockStream(sock_stream),
+		: p_server(server), p_sockStream(sock_stream), p_tlsChannel(&server->p_tlsServer),
 			p_readOffset(0), p_validHead(false) {
 	p_eventFd = osIntf->createEventFd();
 
 	p_sockStream->setCloseCallback(ASYNC_MEMBER(this, &Connection::onClose));
-	p_sockStream->setReadCallback(ASYNC_MEMBER(this, &Connection::onRead));
+	p_sockStream->setReadCallback(ASYNC_MEMBER(&p_tlsChannel, &Ll::TlsServer::Channel::readRaw));
+
+	p_tlsChannel.setWriteRawCallback(ASYNC_MEMBER(this, &Connection::onWriteRaw));
+	p_tlsChannel.setReadTlsCallback(ASYNC_MEMBER(this, &Connection::onReadTls));
 }
 
 void Server::Connection::postResponse(int opcode, int seq_number,
@@ -41,14 +44,11 @@ void Server::Connection::postResponse(int opcode, int seq_number,
 	if(!response.SerializeToArray(buffer + sizeof(PacketHead), length))
 		throw std::runtime_error("Could not serialize protobuf");
 	
-	SendQueueItem item;
-	item.length = sizeof(PacketHead) + length;
-	item.buffer = buffer;
-	p_sendQueue.push(item);
-	p_eventFd->increment();
+	p_tlsChannel.writeTls(sizeof(PacketHead) + length, buffer);
+	delete[] buffer;
 }
 
-void Server::Connection::onRead(int size, const char *buffer) {
+void Server::Connection::onReadTls(int size, const char *buffer) {
 	int offset = 0;
 	while(offset < size) {
 		if(!p_validHead) {
@@ -81,6 +81,17 @@ void Server::Connection::onRead(int size, const char *buffer) {
 		}
 	}
 }
+void Server::Connection::onWriteRaw(int size, const char *input_buffer) {
+	char *queued_buffer = new char[size];
+	memcpy(queued_buffer, input_buffer, size);
+
+	SendQueueItem item;
+	item.length = size;
+	item.buffer = queued_buffer;
+	p_sendQueue.push(item);
+	p_eventFd->increment();
+}
+
 
 void Server::Connection::processWrite() {
 	if(!p_sendQueue.empty()) {

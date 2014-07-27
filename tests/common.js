@@ -1,4 +1,5 @@
 
+var fs = require('fs');
 var net = require('net');
 var child_process = require('child_process');
 var async = require('async');
@@ -69,16 +70,18 @@ D3bInstance.prototype.setup = function(callback) {
 D3bInstance.prototype.shutdown = function(callback) {
 	if(useRunningServer)
 		return callback();
-	
-	if(this.$exited) {
-		cleanPath(this.$path, callback);
-	}else{
-		var self = this;
-		this.$process.on('exit', function() {
+
+	var self = this;
+	setTimeout(function() {
+		if(self.$exited) {
 			cleanPath(self.$path, callback);
-		});
-		this.$process.kill();
-	}
+		}else{
+			self.$process.on('exit', function() {
+				cleanPath(self.$path, callback);
+			});
+			self.$process.kill();
+		}
+	}, 100);
 };
 D3bInstance.prototype.connect = function(callback) {
 	var client = new d3b.Client();
@@ -87,7 +90,9 @@ D3bInstance.prototype.connect = function(callback) {
 	});
 	client.on('end', function() {
 	});
-	client.useSocket(net.connect(7963, 'localhost'));
+
+	var server_cert = fs.readFileSync('server.crt');
+	client.connect(7963, 'localhost', server_cert);
 };
 
 module.exports.D3bInstance = D3bInstance;

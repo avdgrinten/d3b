@@ -4,6 +4,8 @@
 #include <iostream>
 #include <boost/program_options.hpp>
 
+#include <botan/init.h>
+
 #include "Async.hpp"
 #include "Os/Linux.hpp"
 #include "Ll/Tasks.hpp"
@@ -19,6 +21,8 @@
 #include "Api/Server.hpp"
 
 namespace po = boost::program_options;
+
+Botan::LibraryInitializer botanInit;
 
 int main(int argc, char **argv) {
 	OS::LocalAsyncHost::set(new OS::LocalAsyncHost());

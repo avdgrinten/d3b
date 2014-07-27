@@ -1,4 +1,5 @@
 
+#include "Ll/Tls.hpp"
 #include "proto/Api.pb.h"
 
 namespace Api {
@@ -40,14 +41,17 @@ private:
 			uint32_t seqNumber;
 		};
 		
-		void onClose();
-		void onRead(int size, const char *buffer);
 		void onWriteItem();
+
+		void onReadTls(int size, const char *buffer);
+		void onWriteRaw(int size, const char *buffer);
+		void onClose();
 
 		void processMessage();
 		
 		Server *p_server;
 		Linux::SockStream *p_sockStream;
+		Ll::TlsServer::Channel p_tlsChannel;
 		
 		char p_headBuffer[PacketHead::kStructSize];
 		PacketHead p_curPacket;
@@ -68,6 +72,7 @@ private:
 	
 	Db::Engine *p_engine;
 	std::unique_ptr<Linux::SockServer> p_sockServer;
+	Ll::TlsServer p_tlsServer;
 
 	class QueryClosure {
 	public:

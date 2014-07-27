@@ -9,6 +9,7 @@
 #include "proto/Config.pb.h"
 
 #include "Ll/WriteAhead.hpp"
+#include "Ll/Crypto.hpp"
 
 Ll::WriteAhead::WriteAhead() {
 	p_file = osIntf->createFile();
@@ -43,7 +44,7 @@ void Ll::WriteAhead::replay(Async::Callback<void(Db::Proto::LogEntry &)> on_entr
 		p_file->readSync(msg_length, buffer);
 		
 		char hash[16];
-		MD5((uint8_t*)buffer, msg_length, (uint8_t*)hash);
+		Md5::hash(msg_length, buffer, hash);
 		if(memcmp(head + 4, hash, 16) != 0)
 			throw std::runtime_error("WriteAhead: Hash mismatch!");
 
@@ -66,7 +67,7 @@ void Ll::WriteAhead::log(Db::Proto::LogEntry &message,
 	if(!message.SerializeToArray(buffer + 20, msg_length))
 		throw std::logic_error("Could not serialize protobuf");
 	
-	MD5((uint8_t*)(buffer + 20), msg_length, (uint8_t*)(buffer + 4));
+	Md5::hash(msg_length, buffer + 20, buffer + 4);
 	
 	p_file->writeSync(msg_length + 20, buffer);
 //	p_file->fdatasyncSync();

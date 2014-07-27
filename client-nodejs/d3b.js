@@ -5,6 +5,7 @@ var events = require('events');
 var fs = require('fs');
 var protobuf = require('protobuf');
 var net = require('net');
+var tls = require('tls');
 
 var dirname = require('path').dirname(module.filename);
 var schema = new protobuf.Schema(fs.readFileSync(dirname + '/Api.desc'));
@@ -46,9 +47,9 @@ function Client() {
 }
 require('util').inherits(Client, events.EventEmitter);
 
-Client.prototype.useSocket = function(socket) {
-	this.p_socket = socket;
-	this.p_socket.on('connect', function() {
+Client.prototype.connect = function(port, host, server_cert) {
+	this.p_socket = tls.connect(port, host, { ca: [ server_cert ] });
+	this.p_socket.on('secureConnect', function() {
 		this.emit('connect');
 	}.bind(this));
 	this.p_socket.on('data', function(buffer) {
