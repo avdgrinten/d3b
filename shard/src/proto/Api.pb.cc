@@ -14,9 +14,13 @@ namespace Api {
 namespace Proto {
 
 void protobuf_ShutdownFile_proto_2fApi_2eproto() {
-  delete Update::default_instance_;
+  delete Mutation::default_instance_;
+  delete Constraint::default_instance_;
   delete CqQuery::default_instance_;
   delete CqShortTransact::default_instance_;
+  delete CqTransaction::default_instance_;
+  delete CqUpdate::default_instance_;
+  delete CqApply::default_instance_;
   delete CqCreateStorage::default_instance_;
   delete CqCreateView::default_instance_;
   delete CqUnlinkStorage::default_instance_;
@@ -26,7 +30,6 @@ void protobuf_ShutdownFile_proto_2fApi_2eproto() {
   delete SrFin::default_instance_;
   delete SrRows::default_instance_;
   delete SrBlob::default_instance_;
-  delete SrShortTransact::default_instance_;
 }
 
 void protobuf_AddDesc_proto_2fApi_2eproto() {
@@ -36,9 +39,13 @@ void protobuf_AddDesc_proto_2fApi_2eproto() {
   GOOGLE_PROTOBUF_VERIFY_VERSION;
 
   ::Db::Proto::protobuf_AddDesc_proto_2fConfig_2eproto();
-  Update::default_instance_ = new Update();
+  Mutation::default_instance_ = new Mutation();
+  Constraint::default_instance_ = new Constraint();
   CqQuery::default_instance_ = new CqQuery();
   CqShortTransact::default_instance_ = new CqShortTransact();
+  CqTransaction::default_instance_ = new CqTransaction();
+  CqUpdate::default_instance_ = new CqUpdate();
+  CqApply::default_instance_ = new CqApply();
   CqCreateStorage::default_instance_ = new CqCreateStorage();
   CqCreateView::default_instance_ = new CqCreateView();
   CqUnlinkStorage::default_instance_ = new CqUnlinkStorage();
@@ -48,10 +55,13 @@ void protobuf_AddDesc_proto_2fApi_2eproto() {
   SrFin::default_instance_ = new SrFin();
   SrRows::default_instance_ = new SrRows();
   SrBlob::default_instance_ = new SrBlob();
-  SrShortTransact::default_instance_ = new SrShortTransact();
-  Update::default_instance_->InitAsDefaultInstance();
+  Mutation::default_instance_->InitAsDefaultInstance();
+  Constraint::default_instance_->InitAsDefaultInstance();
   CqQuery::default_instance_->InitAsDefaultInstance();
   CqShortTransact::default_instance_->InitAsDefaultInstance();
+  CqTransaction::default_instance_->InitAsDefaultInstance();
+  CqUpdate::default_instance_->InitAsDefaultInstance();
+  CqApply::default_instance_->InitAsDefaultInstance();
   CqCreateStorage::default_instance_->InitAsDefaultInstance();
   CqCreateView::default_instance_->InitAsDefaultInstance();
   CqUnlinkStorage::default_instance_->InitAsDefaultInstance();
@@ -61,7 +71,6 @@ void protobuf_AddDesc_proto_2fApi_2eproto() {
   SrFin::default_instance_->InitAsDefaultInstance();
   SrRows::default_instance_->InitAsDefaultInstance();
   SrBlob::default_instance_->InitAsDefaultInstance();
-  SrShortTransact::default_instance_->InitAsDefaultInstance();
   ::google::protobuf::internal::OnShutdown(&protobuf_ShutdownFile_proto_2fApi_2eproto);
 }
 
@@ -72,11 +81,18 @@ struct StaticDescriptorInitializer_proto_2fApi_2eproto {
   }
 } static_descriptor_initializer_proto_2fApi_2eproto_;
 
-bool Actions_IsValid(int value) {
+bool ErrorCode_IsValid(int value) {
   switch(value) {
     case 0:
     case 1:
     case 2:
+    case 3:
+    case 4:
+    case 32:
+    case 33:
+    case 34:
+    case 128:
+    case 129:
       return true;
     default:
       return false;
@@ -86,7 +102,10 @@ bool Actions_IsValid(int value) {
 bool ClientRequests_IsValid(int value) {
   switch(value) {
     case 1:
-    case 32:
+    case 2:
+    case 3:
+    case 4:
+    case 5:
     case 256:
     case 257:
     case 258:
@@ -104,19 +123,6 @@ bool ServerResponses_IsValid(int value) {
     case 1:
     case 2:
     case 3:
-    case 4:
-      return true;
-    default:
-      return false;
-  }
-}
-
-bool EnumErrors_IsValid(int value) {
-  switch(value) {
-    case 0:
-    case 1:
-    case 128:
-    case 129:
       return true;
     default:
       return false;
@@ -126,43 +132,60 @@ bool EnumErrors_IsValid(int value) {
 
 // ===================================================================
 
+bool Mutation_Type_IsValid(int value) {
+  switch(value) {
+    case 0:
+    case 1:
+    case 2:
+      return true;
+    default:
+      return false;
+  }
+}
+
 #ifndef _MSC_VER
-const int Update::kActionFieldNumber;
-const int Update::kIdFieldNumber;
-const int Update::kStorageIdxFieldNumber;
-const int Update::kStorageNameFieldNumber;
-const int Update::kBufferFieldNumber;
+const Mutation_Type Mutation::kTypeNone;
+const Mutation_Type Mutation::kTypeInsert;
+const Mutation_Type Mutation::kTypeModify;
+const Mutation_Type Mutation::Type_MIN;
+const Mutation_Type Mutation::Type_MAX;
+const int Mutation::Type_ARRAYSIZE;
+#endif  // _MSC_VER
+#ifndef _MSC_VER
+const int Mutation::kTypeFieldNumber;
+const int Mutation::kDocumentIdFieldNumber;
+const int Mutation::kStorageNameFieldNumber;
+const int Mutation::kBufferFieldNumber;
 #endif  // !_MSC_VER
 
-Update::Update()
+Mutation::Mutation()
   : ::google::protobuf::MessageLite() {
   SharedCtor();
 }
 
-void Update::InitAsDefaultInstance() {
+void Mutation::InitAsDefaultInstance() {
 }
 
-Update::Update(const Update& from)
+Mutation::Mutation(const Mutation& from)
   : ::google::protobuf::MessageLite() {
   SharedCtor();
   MergeFrom(from);
 }
 
-void Update::SharedCtor() {
+void Mutation::SharedCtor() {
   _cached_size_ = 0;
-  action_ = 0;
-  id_ = GOOGLE_LONGLONG(0);
-  storage_idx_ = 0;
+  type_ = 0;
+  document_id_ = GOOGLE_LONGLONG(0);
   storage_name_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
   buffer_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
 }
 
-Update::~Update() {
+Mutation::~Mutation() {
   SharedDtor();
 }
 
-void Update::SharedDtor() {
+void Mutation::SharedDtor() {
   if (storage_name_ != &::google::protobuf::internal::kEmptyString) {
     delete storage_name_;
   }
@@ -173,26 +196,25 @@ void Update::SharedDtor() {
   }
 }
 
-void Update::SetCachedSize(int size) const {
+void Mutation::SetCachedSize(int size) const {
   GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
   _cached_size_ = size;
   GOOGLE_SAFE_CONCURRENT_WRITES_END();
 }
-const Update& Update::default_instance() {
+const Mutation& Mutation::default_instance() {
   if (default_instance_ == NULL) protobuf_AddDesc_proto_2fApi_2eproto();  return *default_instance_;
 }
 
-Update* Update::default_instance_ = NULL;
+Mutation* Mutation::default_instance_ = NULL;
 
-Update* Update::New() const {
-  return new Update;
+Mutation* Mutation::New() const {
+  return new Mutation;
 }
 
-void Update::Clear() {
+void Mutation::Clear() {
   if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
-    action_ = 0;
-    id_ = GOOGLE_LONGLONG(0);
-    storage_idx_ = 0;
+    type_ = 0;
+    document_id_ = GOOGLE_LONGLONG(0);
     if (has_storage_name()) {
       if (storage_name_ != &::google::protobuf::internal::kEmptyString) {
         storage_name_->clear();
@@ -207,13 +229,13 @@ void Update::Clear() {
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
 }
 
-bool Update::MergePartialFromCodedStream(
+bool Mutation::MergePartialFromCodedStream(
     ::google::protobuf::io::CodedInputStream* input) {
 #define DO_(EXPRESSION) if (!(EXPRESSION)) return false
   ::google::protobuf::uint32 tag;
   while ((tag = input->ReadTag()) != 0) {
     switch (::google::protobuf::internal::WireFormatLite::GetTagFieldNumber(tag)) {
-      // optional .Api.Proto.Actions action = 1;
+      // optional .Api.Proto.Mutation.Type type = 1;
       case 1: {
         if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
             ::google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT) {
@@ -221,50 +243,34 @@ bool Update::MergePartialFromCodedStream(
           DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
                    int, ::google::protobuf::internal::WireFormatLite::TYPE_ENUM>(
                  input, &value)));
-          if (Api::Proto::Actions_IsValid(value)) {
-            set_action(static_cast< Api::Proto::Actions >(value));
+          if (::Api::Proto::Mutation_Type_IsValid(value)) {
+            set_type(static_cast< ::Api::Proto::Mutation_Type >(value));
           }
         } else {
           goto handle_uninterpreted;
         }
-        if (input->ExpectTag(16)) goto parse_id;
+        if (input->ExpectTag(16)) goto parse_document_id;
         break;
       }
       
-      // optional int64 id = 2;
+      // optional int64 document_id = 2;
       case 2: {
         if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
             ::google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT) {
-         parse_id:
+         parse_document_id:
           DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
                    ::google::protobuf::int64, ::google::protobuf::internal::WireFormatLite::TYPE_INT64>(
-                 input, &id_)));
-          set_has_id();
+                 input, &document_id_)));
+          set_has_document_id();
         } else {
           goto handle_uninterpreted;
         }
-        if (input->ExpectTag(24)) goto parse_storage_idx;
+        if (input->ExpectTag(26)) goto parse_storage_name;
         break;
       }
       
-      // optional int32 storage_idx = 3;
+      // optional string storage_name = 3;
       case 3: {
-        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
-            ::google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT) {
-         parse_storage_idx:
-          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
-                   ::google::protobuf::int32, ::google::protobuf::internal::WireFormatLite::TYPE_INT32>(
-                 input, &storage_idx_)));
-          set_has_storage_idx();
-        } else {
-          goto handle_uninterpreted;
-        }
-        if (input->ExpectTag(34)) goto parse_storage_name;
-        break;
-      }
-      
-      // optional string storage_name = 4;
-      case 4: {
         if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
             ::google::protobuf::internal::WireFormatLite::WIRETYPE_LENGTH_DELIMITED) {
          parse_storage_name:
@@ -273,12 +279,12 @@ bool Update::MergePartialFromCodedStream(
         } else {
           goto handle_uninterpreted;
         }
-        if (input->ExpectTag(138)) goto parse_buffer;
+        if (input->ExpectTag(34)) goto parse_buffer;
         break;
       }
       
-      // optional bytes buffer = 17;
-      case 17: {
+      // optional bytes buffer = 4;
+      case 4: {
         if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
             ::google::protobuf::internal::WireFormatLite::WIRETYPE_LENGTH_DELIMITED) {
          parse_buffer:
@@ -306,72 +312,60 @@ bool Update::MergePartialFromCodedStream(
 #undef DO_
 }
 
-void Update::SerializeWithCachedSizes(
+void Mutation::SerializeWithCachedSizes(
     ::google::protobuf::io::CodedOutputStream* output) const {
-  // optional .Api.Proto.Actions action = 1;
-  if (has_action()) {
+  // optional .Api.Proto.Mutation.Type type = 1;
+  if (has_type()) {
     ::google::protobuf::internal::WireFormatLite::WriteEnum(
-      1, this->action(), output);
+      1, this->type(), output);
   }
   
-  // optional int64 id = 2;
-  if (has_id()) {
-    ::google::protobuf::internal::WireFormatLite::WriteInt64(2, this->id(), output);
+  // optional int64 document_id = 2;
+  if (has_document_id()) {
+    ::google::protobuf::internal::WireFormatLite::WriteInt64(2, this->document_id(), output);
   }
   
-  // optional int32 storage_idx = 3;
-  if (has_storage_idx()) {
-    ::google::protobuf::internal::WireFormatLite::WriteInt32(3, this->storage_idx(), output);
-  }
-  
-  // optional string storage_name = 4;
+  // optional string storage_name = 3;
   if (has_storage_name()) {
     ::google::protobuf::internal::WireFormatLite::WriteString(
-      4, this->storage_name(), output);
+      3, this->storage_name(), output);
   }
   
-  // optional bytes buffer = 17;
+  // optional bytes buffer = 4;
   if (has_buffer()) {
     ::google::protobuf::internal::WireFormatLite::WriteBytes(
-      17, this->buffer(), output);
+      4, this->buffer(), output);
   }
   
 }
 
-int Update::ByteSize() const {
+int Mutation::ByteSize() const {
   int total_size = 0;
   
   if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
-    // optional .Api.Proto.Actions action = 1;
-    if (has_action()) {
+    // optional .Api.Proto.Mutation.Type type = 1;
+    if (has_type()) {
       total_size += 1 +
-        ::google::protobuf::internal::WireFormatLite::EnumSize(this->action());
+        ::google::protobuf::internal::WireFormatLite::EnumSize(this->type());
     }
     
-    // optional int64 id = 2;
-    if (has_id()) {
+    // optional int64 document_id = 2;
+    if (has_document_id()) {
       total_size += 1 +
         ::google::protobuf::internal::WireFormatLite::Int64Size(
-          this->id());
+          this->document_id());
     }
     
-    // optional int32 storage_idx = 3;
-    if (has_storage_idx()) {
-      total_size += 1 +
-        ::google::protobuf::internal::WireFormatLite::Int32Size(
-          this->storage_idx());
-    }
-    
-    // optional string storage_name = 4;
+    // optional string storage_name = 3;
     if (has_storage_name()) {
       total_size += 1 +
         ::google::protobuf::internal::WireFormatLite::StringSize(
           this->storage_name());
     }
     
-    // optional bytes buffer = 17;
+    // optional bytes buffer = 4;
     if (has_buffer()) {
-      total_size += 2 +
+      total_size += 1 +
         ::google::protobuf::internal::WireFormatLite::BytesSize(
           this->buffer());
     }
@@ -383,22 +377,19 @@ int Update::ByteSize() const {
   return total_size;
 }
 
-void Update::CheckTypeAndMergeFrom(
+void Mutation::CheckTypeAndMergeFrom(
     const ::google::protobuf::MessageLite& from) {
-  MergeFrom(*::google::protobuf::down_cast<const Update*>(&from));
+  MergeFrom(*::google::protobuf::down_cast<const Mutation*>(&from));
 }
 
-void Update::MergeFrom(const Update& from) {
+void Mutation::MergeFrom(const Mutation& from) {
   GOOGLE_CHECK_NE(&from, this);
   if (from._has_bits_[0 / 32] & (0xffu << (0 % 32))) {
-    if (from.has_action()) {
-      set_action(from.action());
+    if (from.has_type()) {
+      set_type(from.type());
     }
-    if (from.has_id()) {
-      set_id(from.id());
-    }
-    if (from.has_storage_idx()) {
-      set_storage_idx(from.storage_idx());
+    if (from.has_document_id()) {
+      set_document_id(from.document_id());
     }
     if (from.has_storage_name()) {
       set_storage_name(from.storage_name());
@@ -409,22 +400,21 @@ void Update::MergeFrom(const Update& from) {
   }
 }
 
-void Update::CopyFrom(const Update& from) {
+void Mutation::CopyFrom(const Mutation& from) {
   if (&from == this) return;
   Clear();
   MergeFrom(from);
 }
 
-bool Update::IsInitialized() const {
+bool Mutation::IsInitialized() const {
   
   return true;
 }
 
-void Update::Swap(Update* other) {
+void Mutation::Swap(Mutation* other) {
   if (other != this) {
-    std::swap(action_, other->action_);
-    std::swap(id_, other->id_);
-    std::swap(storage_idx_, other->storage_idx_);
+    std::swap(type_, other->type_);
+    std::swap(document_id_, other->document_id_);
     std::swap(storage_name_, other->storage_name_);
     std::swap(buffer_, other->buffer_);
     std::swap(_has_bits_[0], other->_has_bits_[0]);
@@ -432,8 +422,363 @@ void Update::Swap(Update* other) {
   }
 }
 
-::std::string Update::GetTypeName() const {
-  return "Api.Proto.Update";
+::std::string Mutation::GetTypeName() const {
+  return "Api.Proto.Mutation";
+}
+
+
+// ===================================================================
+
+bool Constraint_Type_IsValid(int value) {
+  switch(value) {
+    case 0:
+    case 1:
+      return true;
+    default:
+      return false;
+  }
+}
+
+#ifndef _MSC_VER
+const Constraint_Type Constraint::kTypeNone;
+const Constraint_Type Constraint::kTypeDocumentState;
+const Constraint_Type Constraint::Type_MIN;
+const Constraint_Type Constraint::Type_MAX;
+const int Constraint::Type_ARRAYSIZE;
+#endif  // _MSC_VER
+#ifndef _MSC_VER
+const int Constraint::kTypeFieldNumber;
+const int Constraint::kStorageNameFieldNumber;
+const int Constraint::kDocumentIdFieldNumber;
+const int Constraint::kSequenceIdFieldNumber;
+const int Constraint::kMustExistFieldNumber;
+const int Constraint::kMatchSequenceIdFieldNumber;
+#endif  // !_MSC_VER
+
+Constraint::Constraint()
+  : ::google::protobuf::MessageLite() {
+  SharedCtor();
+}
+
+void Constraint::InitAsDefaultInstance() {
+}
+
+Constraint::Constraint(const Constraint& from)
+  : ::google::protobuf::MessageLite() {
+  SharedCtor();
+  MergeFrom(from);
+}
+
+void Constraint::SharedCtor() {
+  _cached_size_ = 0;
+  type_ = 0;
+  storage_name_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
+  document_id_ = GOOGLE_LONGLONG(0);
+  sequence_id_ = GOOGLE_LONGLONG(0);
+  must_exist_ = false;
+  match_sequence_id_ = false;
+  ::memset(_has_bits_, 0, sizeof(_has_bits_));
+}
+
+Constraint::~Constraint() {
+  SharedDtor();
+}
+
+void Constraint::SharedDtor() {
+  if (storage_name_ != &::google::protobuf::internal::kEmptyString) {
+    delete storage_name_;
+  }
+  if (this != default_instance_) {
+  }
+}
+
+void Constraint::SetCachedSize(int size) const {
+  GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
+  _cached_size_ = size;
+  GOOGLE_SAFE_CONCURRENT_WRITES_END();
+}
+const Constraint& Constraint::default_instance() {
+  if (default_instance_ == NULL) protobuf_AddDesc_proto_2fApi_2eproto();  return *default_instance_;
+}
+
+Constraint* Constraint::default_instance_ = NULL;
+
+Constraint* Constraint::New() const {
+  return new Constraint;
+}
+
+void Constraint::Clear() {
+  if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
+    type_ = 0;
+    if (has_storage_name()) {
+      if (storage_name_ != &::google::protobuf::internal::kEmptyString) {
+        storage_name_->clear();
+      }
+    }
+    document_id_ = GOOGLE_LONGLONG(0);
+    sequence_id_ = GOOGLE_LONGLONG(0);
+    must_exist_ = false;
+    match_sequence_id_ = false;
+  }
+  ::memset(_has_bits_, 0, sizeof(_has_bits_));
+}
+
+bool Constraint::MergePartialFromCodedStream(
+    ::google::protobuf::io::CodedInputStream* input) {
+#define DO_(EXPRESSION) if (!(EXPRESSION)) return false
+  ::google::protobuf::uint32 tag;
+  while ((tag = input->ReadTag()) != 0) {
+    switch (::google::protobuf::internal::WireFormatLite::GetTagFieldNumber(tag)) {
+      // optional .Api.Proto.Constraint.Type type = 1;
+      case 1: {
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT) {
+          int value;
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   int, ::google::protobuf::internal::WireFormatLite::TYPE_ENUM>(
+                 input, &value)));
+          if (::Api::Proto::Constraint_Type_IsValid(value)) {
+            set_type(static_cast< ::Api::Proto::Constraint_Type >(value));
+          }
+        } else {
+          goto handle_uninterpreted;
+        }
+        if (input->ExpectTag(18)) goto parse_storage_name;
+        break;
+      }
+      
+      // optional string storage_name = 2;
+      case 2: {
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_LENGTH_DELIMITED) {
+         parse_storage_name:
+          DO_(::google::protobuf::internal::WireFormatLite::ReadString(
+                input, this->mutable_storage_name()));
+        } else {
+          goto handle_uninterpreted;
+        }
+        if (input->ExpectTag(24)) goto parse_document_id;
+        break;
+      }
+      
+      // optional int64 document_id = 3;
+      case 3: {
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT) {
+         parse_document_id:
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   ::google::protobuf::int64, ::google::protobuf::internal::WireFormatLite::TYPE_INT64>(
+                 input, &document_id_)));
+          set_has_document_id();
+        } else {
+          goto handle_uninterpreted;
+        }
+        if (input->ExpectTag(32)) goto parse_sequence_id;
+        break;
+      }
+      
+      // optional int64 sequence_id = 4;
+      case 4: {
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT) {
+         parse_sequence_id:
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   ::google::protobuf::int64, ::google::protobuf::internal::WireFormatLite::TYPE_INT64>(
+                 input, &sequence_id_)));
+          set_has_sequence_id();
+        } else {
+          goto handle_uninterpreted;
+        }
+        if (input->ExpectTag(40)) goto parse_must_exist;
+        break;
+      }
+      
+      // optional bool must_exist = 5;
+      case 5: {
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT) {
+         parse_must_exist:
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   bool, ::google::protobuf::internal::WireFormatLite::TYPE_BOOL>(
+                 input, &must_exist_)));
+          set_has_must_exist();
+        } else {
+          goto handle_uninterpreted;
+        }
+        if (input->ExpectTag(48)) goto parse_match_sequence_id;
+        break;
+      }
+      
+      // optional bool match_sequence_id = 6;
+      case 6: {
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT) {
+         parse_match_sequence_id:
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   bool, ::google::protobuf::internal::WireFormatLite::TYPE_BOOL>(
+                 input, &match_sequence_id_)));
+          set_has_match_sequence_id();
+        } else {
+          goto handle_uninterpreted;
+        }
+        if (input->ExpectAtEnd()) return true;
+        break;
+      }
+      
+      default: {
+      handle_uninterpreted:
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_END_GROUP) {
+          return true;
+        }
+        DO_(::google::protobuf::internal::WireFormatLite::SkipField(input, tag));
+        break;
+      }
+    }
+  }
+  return true;
+#undef DO_
+}
+
+void Constraint::SerializeWithCachedSizes(
+    ::google::protobuf::io::CodedOutputStream* output) const {
+  // optional .Api.Proto.Constraint.Type type = 1;
+  if (has_type()) {
+    ::google::protobuf::internal::WireFormatLite::WriteEnum(
+      1, this->type(), output);
+  }
+  
+  // optional string storage_name = 2;
+  if (has_storage_name()) {
+    ::google::protobuf::internal::WireFormatLite::WriteString(
+      2, this->storage_name(), output);
+  }
+  
+  // optional int64 document_id = 3;
+  if (has_document_id()) {
+    ::google::protobuf::internal::WireFormatLite::WriteInt64(3, this->document_id(), output);
+  }
+  
+  // optional int64 sequence_id = 4;
+  if (has_sequence_id()) {
+    ::google::protobuf::internal::WireFormatLite::WriteInt64(4, this->sequence_id(), output);
+  }
+  
+  // optional bool must_exist = 5;
+  if (has_must_exist()) {
+    ::google::protobuf::internal::WireFormatLite::WriteBool(5, this->must_exist(), output);
+  }
+  
+  // optional bool match_sequence_id = 6;
+  if (has_match_sequence_id()) {
+    ::google::protobuf::internal::WireFormatLite::WriteBool(6, this->match_sequence_id(), output);
+  }
+  
+}
+
+int Constraint::ByteSize() const {
+  int total_size = 0;
+  
+  if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
+    // optional .Api.Proto.Constraint.Type type = 1;
+    if (has_type()) {
+      total_size += 1 +
+        ::google::protobuf::internal::WireFormatLite::EnumSize(this->type());
+    }
+    
+    // optional string storage_name = 2;
+    if (has_storage_name()) {
+      total_size += 1 +
+        ::google::protobuf::internal::WireFormatLite::StringSize(
+          this->storage_name());
+    }
+    
+    // optional int64 document_id = 3;
+    if (has_document_id()) {
+      total_size += 1 +
+        ::google::protobuf::internal::WireFormatLite::Int64Size(
+          this->document_id());
+    }
+    
+    // optional int64 sequence_id = 4;
+    if (has_sequence_id()) {
+      total_size += 1 +
+        ::google::protobuf::internal::WireFormatLite::Int64Size(
+          this->sequence_id());
+    }
+    
+    // optional bool must_exist = 5;
+    if (has_must_exist()) {
+      total_size += 1 + 1;
+    }
+    
+    // optional bool match_sequence_id = 6;
+    if (has_match_sequence_id()) {
+      total_size += 1 + 1;
+    }
+    
+  }
+  GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
+  _cached_size_ = total_size;
+  GOOGLE_SAFE_CONCURRENT_WRITES_END();
+  return total_size;
+}
+
+void Constraint::CheckTypeAndMergeFrom(
+    const ::google::protobuf::MessageLite& from) {
+  MergeFrom(*::google::protobuf::down_cast<const Constraint*>(&from));
+}
+
+void Constraint::MergeFrom(const Constraint& from) {
+  GOOGLE_CHECK_NE(&from, this);
+  if (from._has_bits_[0 / 32] & (0xffu << (0 % 32))) {
+    if (from.has_type()) {
+      set_type(from.type());
+    }
+    if (from.has_storage_name()) {
+      set_storage_name(from.storage_name());
+    }
+    if (from.has_document_id()) {
+      set_document_id(from.document_id());
+    }
+    if (from.has_sequence_id()) {
+      set_sequence_id(from.sequence_id());
+    }
+    if (from.has_must_exist()) {
+      set_must_exist(from.must_exist());
+    }
+    if (from.has_match_sequence_id()) {
+      set_match_sequence_id(from.match_sequence_id());
+    }
+  }
+}
+
+void Constraint::CopyFrom(const Constraint& from) {
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+bool Constraint::IsInitialized() const {
+  
+  return true;
+}
+
+void Constraint::Swap(Constraint* other) {
+  if (other != this) {
+    std::swap(type_, other->type_);
+    std::swap(storage_name_, other->storage_name_);
+    std::swap(document_id_, other->document_id_);
+    std::swap(sequence_id_, other->sequence_id_);
+    std::swap(must_exist_, other->must_exist_);
+    std::swap(match_sequence_id_, other->match_sequence_id_);
+    std::swap(_has_bits_[0], other->_has_bits_[0]);
+    std::swap(_cached_size_, other->_cached_size_);
+  }
+}
+
+::std::string Constraint::GetTypeName() const {
+  return "Api.Proto.Constraint";
 }
 
 
@@ -788,7 +1133,8 @@ void CqQuery::Swap(CqQuery* other) {
 // ===================================================================
 
 #ifndef _MSC_VER
-const int CqShortTransact::kUpdatesFieldNumber;
+const int CqShortTransact::kMutationsFieldNumber;
+const int CqShortTransact::kConstraintsFieldNumber;
 #endif  // !_MSC_VER
 
 CqShortTransact::CqShortTransact()
@@ -835,7 +1181,8 @@ CqShortTransact* CqShortTransact::New() const {
 }
 
 void CqShortTransact::Clear() {
-  updates_.Clear();
+  mutations_.Clear();
+  constraints_.Clear();
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
 }
 
@@ -845,17 +1192,32 @@ bool CqShortTransact::MergePartialFromCodedStream(
   ::google::protobuf::uint32 tag;
   while ((tag = input->ReadTag()) != 0) {
     switch (::google::protobuf::internal::WireFormatLite::GetTagFieldNumber(tag)) {
-      // repeated .Api.Proto.Update updates = 2;
-      case 2: {
+      // repeated .Api.Proto.Mutation mutations = 1;
+      case 1: {
         if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
             ::google::protobuf::internal::WireFormatLite::WIRETYPE_LENGTH_DELIMITED) {
-         parse_updates:
+         parse_mutations:
           DO_(::google::protobuf::internal::WireFormatLite::ReadMessageNoVirtual(
-                input, add_updates()));
+                input, add_mutations()));
         } else {
           goto handle_uninterpreted;
         }
-        if (input->ExpectTag(18)) goto parse_updates;
+        if (input->ExpectTag(10)) goto parse_mutations;
+        if (input->ExpectTag(18)) goto parse_constraints;
+        break;
+      }
+      
+      // repeated .Api.Proto.Constraint constraints = 2;
+      case 2: {
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_LENGTH_DELIMITED) {
+         parse_constraints:
+          DO_(::google::protobuf::internal::WireFormatLite::ReadMessageNoVirtual(
+                input, add_constraints()));
+        } else {
+          goto handle_uninterpreted;
+        }
+        if (input->ExpectTag(18)) goto parse_constraints;
         if (input->ExpectAtEnd()) return true;
         break;
       }
@@ -877,10 +1239,16 @@ bool CqShortTransact::MergePartialFromCodedStream(
 
 void CqShortTransact::SerializeWithCachedSizes(
     ::google::protobuf::io::CodedOutputStream* output) const {
-  // repeated .Api.Proto.Update updates = 2;
-  for (int i = 0; i < this->updates_size(); i++) {
+  // repeated .Api.Proto.Mutation mutations = 1;
+  for (int i = 0; i < this->mutations_size(); i++) {
     ::google::protobuf::internal::WireFormatLite::WriteMessage(
-      2, this->updates(i), output);
+      1, this->mutations(i), output);
+  }
+  
+  // repeated .Api.Proto.Constraint constraints = 2;
+  for (int i = 0; i < this->constraints_size(); i++) {
+    ::google::protobuf::internal::WireFormatLite::WriteMessage(
+      2, this->constraints(i), output);
   }
   
 }
@@ -888,12 +1256,20 @@ void CqShortTransact::SerializeWithCachedSizes(
 int CqShortTransact::ByteSize() const {
   int total_size = 0;
   
-  // repeated .Api.Proto.Update updates = 2;
-  total_size += 1 * this->updates_size();
-  for (int i = 0; i < this->updates_size(); i++) {
+  // repeated .Api.Proto.Mutation mutations = 1;
+  total_size += 1 * this->mutations_size();
+  for (int i = 0; i < this->mutations_size(); i++) {
     total_size +=
       ::google::protobuf::internal::WireFormatLite::MessageSizeNoVirtual(
-        this->updates(i));
+        this->mutations(i));
+  }
+  
+  // repeated .Api.Proto.Constraint constraints = 2;
+  total_size += 1 * this->constraints_size();
+  for (int i = 0; i < this->constraints_size(); i++) {
+    total_size +=
+      ::google::protobuf::internal::WireFormatLite::MessageSizeNoVirtual(
+        this->constraints(i));
   }
   
   GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
@@ -909,7 +1285,8 @@ void CqShortTransact::CheckTypeAndMergeFrom(
 
 void CqShortTransact::MergeFrom(const CqShortTransact& from) {
   GOOGLE_CHECK_NE(&from, this);
-  updates_.MergeFrom(from.updates_);
+  mutations_.MergeFrom(from.mutations_);
+  constraints_.MergeFrom(from.constraints_);
 }
 
 void CqShortTransact::CopyFrom(const CqShortTransact& from) {
@@ -925,7 +1302,8 @@ bool CqShortTransact::IsInitialized() const {
 
 void CqShortTransact::Swap(CqShortTransact* other) {
   if (other != this) {
-    updates_.Swap(&other->updates_);
+    mutations_.Swap(&other->mutations_);
+    constraints_.Swap(&other->constraints_);
     std::swap(_has_bits_[0], other->_has_bits_[0]);
     std::swap(_cached_size_, other->_cached_size_);
   }
@@ -933,6 +1311,598 @@ void CqShortTransact::Swap(CqShortTransact* other) {
 
 ::std::string CqShortTransact::GetTypeName() const {
   return "Api.Proto.CqShortTransact";
+}
+
+
+// ===================================================================
+
+#ifndef _MSC_VER
+#endif  // !_MSC_VER
+
+CqTransaction::CqTransaction()
+  : ::google::protobuf::MessageLite() {
+  SharedCtor();
+}
+
+void CqTransaction::InitAsDefaultInstance() {
+}
+
+CqTransaction::CqTransaction(const CqTransaction& from)
+  : ::google::protobuf::MessageLite() {
+  SharedCtor();
+  MergeFrom(from);
+}
+
+void CqTransaction::SharedCtor() {
+  _cached_size_ = 0;
+  ::memset(_has_bits_, 0, sizeof(_has_bits_));
+}
+
+CqTransaction::~CqTransaction() {
+  SharedDtor();
+}
+
+void CqTransaction::SharedDtor() {
+  if (this != default_instance_) {
+  }
+}
+
+void CqTransaction::SetCachedSize(int size) const {
+  GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
+  _cached_size_ = size;
+  GOOGLE_SAFE_CONCURRENT_WRITES_END();
+}
+const CqTransaction& CqTransaction::default_instance() {
+  if (default_instance_ == NULL) protobuf_AddDesc_proto_2fApi_2eproto();  return *default_instance_;
+}
+
+CqTransaction* CqTransaction::default_instance_ = NULL;
+
+CqTransaction* CqTransaction::New() const {
+  return new CqTransaction;
+}
+
+void CqTransaction::Clear() {
+  ::memset(_has_bits_, 0, sizeof(_has_bits_));
+}
+
+bool CqTransaction::MergePartialFromCodedStream(
+    ::google::protobuf::io::CodedInputStream* input) {
+#define DO_(EXPRESSION) if (!(EXPRESSION)) return false
+  ::google::protobuf::uint32 tag;
+  while ((tag = input->ReadTag()) != 0) {
+    if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+        ::google::protobuf::internal::WireFormatLite::WIRETYPE_END_GROUP) {
+      return true;
+    }
+    DO_(::google::protobuf::internal::WireFormatLite::SkipField(input, tag));
+  }
+  return true;
+#undef DO_
+}
+
+void CqTransaction::SerializeWithCachedSizes(
+    ::google::protobuf::io::CodedOutputStream* output) const {
+}
+
+int CqTransaction::ByteSize() const {
+  int total_size = 0;
+  
+  GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
+  _cached_size_ = total_size;
+  GOOGLE_SAFE_CONCURRENT_WRITES_END();
+  return total_size;
+}
+
+void CqTransaction::CheckTypeAndMergeFrom(
+    const ::google::protobuf::MessageLite& from) {
+  MergeFrom(*::google::protobuf::down_cast<const CqTransaction*>(&from));
+}
+
+void CqTransaction::MergeFrom(const CqTransaction& from) {
+  GOOGLE_CHECK_NE(&from, this);
+}
+
+void CqTransaction::CopyFrom(const CqTransaction& from) {
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+bool CqTransaction::IsInitialized() const {
+  
+  return true;
+}
+
+void CqTransaction::Swap(CqTransaction* other) {
+  if (other != this) {
+    std::swap(_cached_size_, other->_cached_size_);
+  }
+}
+
+::std::string CqTransaction::GetTypeName() const {
+  return "Api.Proto.CqTransaction";
+}
+
+
+// ===================================================================
+
+#ifndef _MSC_VER
+const int CqUpdate::kTransactionIdFieldNumber;
+const int CqUpdate::kMutationsFieldNumber;
+const int CqUpdate::kConstraintsFieldNumber;
+#endif  // !_MSC_VER
+
+CqUpdate::CqUpdate()
+  : ::google::protobuf::MessageLite() {
+  SharedCtor();
+}
+
+void CqUpdate::InitAsDefaultInstance() {
+}
+
+CqUpdate::CqUpdate(const CqUpdate& from)
+  : ::google::protobuf::MessageLite() {
+  SharedCtor();
+  MergeFrom(from);
+}
+
+void CqUpdate::SharedCtor() {
+  _cached_size_ = 0;
+  transaction_id_ = GOOGLE_LONGLONG(0);
+  ::memset(_has_bits_, 0, sizeof(_has_bits_));
+}
+
+CqUpdate::~CqUpdate() {
+  SharedDtor();
+}
+
+void CqUpdate::SharedDtor() {
+  if (this != default_instance_) {
+  }
+}
+
+void CqUpdate::SetCachedSize(int size) const {
+  GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
+  _cached_size_ = size;
+  GOOGLE_SAFE_CONCURRENT_WRITES_END();
+}
+const CqUpdate& CqUpdate::default_instance() {
+  if (default_instance_ == NULL) protobuf_AddDesc_proto_2fApi_2eproto();  return *default_instance_;
+}
+
+CqUpdate* CqUpdate::default_instance_ = NULL;
+
+CqUpdate* CqUpdate::New() const {
+  return new CqUpdate;
+}
+
+void CqUpdate::Clear() {
+  if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
+    transaction_id_ = GOOGLE_LONGLONG(0);
+  }
+  mutations_.Clear();
+  constraints_.Clear();
+  ::memset(_has_bits_, 0, sizeof(_has_bits_));
+}
+
+bool CqUpdate::MergePartialFromCodedStream(
+    ::google::protobuf::io::CodedInputStream* input) {
+#define DO_(EXPRESSION) if (!(EXPRESSION)) return false
+  ::google::protobuf::uint32 tag;
+  while ((tag = input->ReadTag()) != 0) {
+    switch (::google::protobuf::internal::WireFormatLite::GetTagFieldNumber(tag)) {
+      // optional int64 transaction_id = 1;
+      case 1: {
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT) {
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   ::google::protobuf::int64, ::google::protobuf::internal::WireFormatLite::TYPE_INT64>(
+                 input, &transaction_id_)));
+          set_has_transaction_id();
+        } else {
+          goto handle_uninterpreted;
+        }
+        if (input->ExpectTag(18)) goto parse_mutations;
+        break;
+      }
+      
+      // repeated .Api.Proto.Mutation mutations = 2;
+      case 2: {
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_LENGTH_DELIMITED) {
+         parse_mutations:
+          DO_(::google::protobuf::internal::WireFormatLite::ReadMessageNoVirtual(
+                input, add_mutations()));
+        } else {
+          goto handle_uninterpreted;
+        }
+        if (input->ExpectTag(18)) goto parse_mutations;
+        if (input->ExpectTag(26)) goto parse_constraints;
+        break;
+      }
+      
+      // repeated .Api.Proto.Constraint constraints = 3;
+      case 3: {
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_LENGTH_DELIMITED) {
+         parse_constraints:
+          DO_(::google::protobuf::internal::WireFormatLite::ReadMessageNoVirtual(
+                input, add_constraints()));
+        } else {
+          goto handle_uninterpreted;
+        }
+        if (input->ExpectTag(26)) goto parse_constraints;
+        if (input->ExpectAtEnd()) return true;
+        break;
+      }
+      
+      default: {
+      handle_uninterpreted:
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_END_GROUP) {
+          return true;
+        }
+        DO_(::google::protobuf::internal::WireFormatLite::SkipField(input, tag));
+        break;
+      }
+    }
+  }
+  return true;
+#undef DO_
+}
+
+void CqUpdate::SerializeWithCachedSizes(
+    ::google::protobuf::io::CodedOutputStream* output) const {
+  // optional int64 transaction_id = 1;
+  if (has_transaction_id()) {
+    ::google::protobuf::internal::WireFormatLite::WriteInt64(1, this->transaction_id(), output);
+  }
+  
+  // repeated .Api.Proto.Mutation mutations = 2;
+  for (int i = 0; i < this->mutations_size(); i++) {
+    ::google::protobuf::internal::WireFormatLite::WriteMessage(
+      2, this->mutations(i), output);
+  }
+  
+  // repeated .Api.Proto.Constraint constraints = 3;
+  for (int i = 0; i < this->constraints_size(); i++) {
+    ::google::protobuf::internal::WireFormatLite::WriteMessage(
+      3, this->constraints(i), output);
+  }
+  
+}
+
+int CqUpdate::ByteSize() const {
+  int total_size = 0;
+  
+  if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
+    // optional int64 transaction_id = 1;
+    if (has_transaction_id()) {
+      total_size += 1 +
+        ::google::protobuf::internal::WireFormatLite::Int64Size(
+          this->transaction_id());
+    }
+    
+  }
+  // repeated .Api.Proto.Mutation mutations = 2;
+  total_size += 1 * this->mutations_size();
+  for (int i = 0; i < this->mutations_size(); i++) {
+    total_size +=
+      ::google::protobuf::internal::WireFormatLite::MessageSizeNoVirtual(
+        this->mutations(i));
+  }
+  
+  // repeated .Api.Proto.Constraint constraints = 3;
+  total_size += 1 * this->constraints_size();
+  for (int i = 0; i < this->constraints_size(); i++) {
+    total_size +=
+      ::google::protobuf::internal::WireFormatLite::MessageSizeNoVirtual(
+        this->constraints(i));
+  }
+  
+  GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
+  _cached_size_ = total_size;
+  GOOGLE_SAFE_CONCURRENT_WRITES_END();
+  return total_size;
+}
+
+void CqUpdate::CheckTypeAndMergeFrom(
+    const ::google::protobuf::MessageLite& from) {
+  MergeFrom(*::google::protobuf::down_cast<const CqUpdate*>(&from));
+}
+
+void CqUpdate::MergeFrom(const CqUpdate& from) {
+  GOOGLE_CHECK_NE(&from, this);
+  mutations_.MergeFrom(from.mutations_);
+  constraints_.MergeFrom(from.constraints_);
+  if (from._has_bits_[0 / 32] & (0xffu << (0 % 32))) {
+    if (from.has_transaction_id()) {
+      set_transaction_id(from.transaction_id());
+    }
+  }
+}
+
+void CqUpdate::CopyFrom(const CqUpdate& from) {
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+bool CqUpdate::IsInitialized() const {
+  
+  return true;
+}
+
+void CqUpdate::Swap(CqUpdate* other) {
+  if (other != this) {
+    std::swap(transaction_id_, other->transaction_id_);
+    mutations_.Swap(&other->mutations_);
+    constraints_.Swap(&other->constraints_);
+    std::swap(_has_bits_[0], other->_has_bits_[0]);
+    std::swap(_cached_size_, other->_cached_size_);
+  }
+}
+
+::std::string CqUpdate::GetTypeName() const {
+  return "Api.Proto.CqUpdate";
+}
+
+
+// ===================================================================
+
+#ifndef _MSC_VER
+const int CqApply::kTransactionIdFieldNumber;
+const int CqApply::kDoSubmitFieldNumber;
+const int CqApply::kDoCommitFieldNumber;
+const int CqApply::kDoRollbackFieldNumber;
+#endif  // !_MSC_VER
+
+CqApply::CqApply()
+  : ::google::protobuf::MessageLite() {
+  SharedCtor();
+}
+
+void CqApply::InitAsDefaultInstance() {
+}
+
+CqApply::CqApply(const CqApply& from)
+  : ::google::protobuf::MessageLite() {
+  SharedCtor();
+  MergeFrom(from);
+}
+
+void CqApply::SharedCtor() {
+  _cached_size_ = 0;
+  transaction_id_ = GOOGLE_LONGLONG(0);
+  do_submit_ = false;
+  do_commit_ = false;
+  do_rollback_ = false;
+  ::memset(_has_bits_, 0, sizeof(_has_bits_));
+}
+
+CqApply::~CqApply() {
+  SharedDtor();
+}
+
+void CqApply::SharedDtor() {
+  if (this != default_instance_) {
+  }
+}
+
+void CqApply::SetCachedSize(int size) const {
+  GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
+  _cached_size_ = size;
+  GOOGLE_SAFE_CONCURRENT_WRITES_END();
+}
+const CqApply& CqApply::default_instance() {
+  if (default_instance_ == NULL) protobuf_AddDesc_proto_2fApi_2eproto();  return *default_instance_;
+}
+
+CqApply* CqApply::default_instance_ = NULL;
+
+CqApply* CqApply::New() const {
+  return new CqApply;
+}
+
+void CqApply::Clear() {
+  if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
+    transaction_id_ = GOOGLE_LONGLONG(0);
+    do_submit_ = false;
+    do_commit_ = false;
+    do_rollback_ = false;
+  }
+  ::memset(_has_bits_, 0, sizeof(_has_bits_));
+}
+
+bool CqApply::MergePartialFromCodedStream(
+    ::google::protobuf::io::CodedInputStream* input) {
+#define DO_(EXPRESSION) if (!(EXPRESSION)) return false
+  ::google::protobuf::uint32 tag;
+  while ((tag = input->ReadTag()) != 0) {
+    switch (::google::protobuf::internal::WireFormatLite::GetTagFieldNumber(tag)) {
+      // optional int64 transaction_id = 1;
+      case 1: {
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT) {
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   ::google::protobuf::int64, ::google::protobuf::internal::WireFormatLite::TYPE_INT64>(
+                 input, &transaction_id_)));
+          set_has_transaction_id();
+        } else {
+          goto handle_uninterpreted;
+        }
+        if (input->ExpectTag(16)) goto parse_do_submit;
+        break;
+      }
+      
+      // optional bool do_submit = 2;
+      case 2: {
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT) {
+         parse_do_submit:
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   bool, ::google::protobuf::internal::WireFormatLite::TYPE_BOOL>(
+                 input, &do_submit_)));
+          set_has_do_submit();
+        } else {
+          goto handle_uninterpreted;
+        }
+        if (input->ExpectTag(24)) goto parse_do_commit;
+        break;
+      }
+      
+      // optional bool do_commit = 3;
+      case 3: {
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT) {
+         parse_do_commit:
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   bool, ::google::protobuf::internal::WireFormatLite::TYPE_BOOL>(
+                 input, &do_commit_)));
+          set_has_do_commit();
+        } else {
+          goto handle_uninterpreted;
+        }
+        if (input->ExpectTag(32)) goto parse_do_rollback;
+        break;
+      }
+      
+      // optional bool do_rollback = 4;
+      case 4: {
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT) {
+         parse_do_rollback:
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   bool, ::google::protobuf::internal::WireFormatLite::TYPE_BOOL>(
+                 input, &do_rollback_)));
+          set_has_do_rollback();
+        } else {
+          goto handle_uninterpreted;
+        }
+        if (input->ExpectAtEnd()) return true;
+        break;
+      }
+      
+      default: {
+      handle_uninterpreted:
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_END_GROUP) {
+          return true;
+        }
+        DO_(::google::protobuf::internal::WireFormatLite::SkipField(input, tag));
+        break;
+      }
+    }
+  }
+  return true;
+#undef DO_
+}
+
+void CqApply::SerializeWithCachedSizes(
+    ::google::protobuf::io::CodedOutputStream* output) const {
+  // optional int64 transaction_id = 1;
+  if (has_transaction_id()) {
+    ::google::protobuf::internal::WireFormatLite::WriteInt64(1, this->transaction_id(), output);
+  }
+  
+  // optional bool do_submit = 2;
+  if (has_do_submit()) {
+    ::google::protobuf::internal::WireFormatLite::WriteBool(2, this->do_submit(), output);
+  }
+  
+  // optional bool do_commit = 3;
+  if (has_do_commit()) {
+    ::google::protobuf::internal::WireFormatLite::WriteBool(3, this->do_commit(), output);
+  }
+  
+  // optional bool do_rollback = 4;
+  if (has_do_rollback()) {
+    ::google::protobuf::internal::WireFormatLite::WriteBool(4, this->do_rollback(), output);
+  }
+  
+}
+
+int CqApply::ByteSize() const {
+  int total_size = 0;
+  
+  if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
+    // optional int64 transaction_id = 1;
+    if (has_transaction_id()) {
+      total_size += 1 +
+        ::google::protobuf::internal::WireFormatLite::Int64Size(
+          this->transaction_id());
+    }
+    
+    // optional bool do_submit = 2;
+    if (has_do_submit()) {
+      total_size += 1 + 1;
+    }
+    
+    // optional bool do_commit = 3;
+    if (has_do_commit()) {
+      total_size += 1 + 1;
+    }
+    
+    // optional bool do_rollback = 4;
+    if (has_do_rollback()) {
+      total_size += 1 + 1;
+    }
+    
+  }
+  GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
+  _cached_size_ = total_size;
+  GOOGLE_SAFE_CONCURRENT_WRITES_END();
+  return total_size;
+}
+
+void CqApply::CheckTypeAndMergeFrom(
+    const ::google::protobuf::MessageLite& from) {
+  MergeFrom(*::google::protobuf::down_cast<const CqApply*>(&from));
+}
+
+void CqApply::MergeFrom(const CqApply& from) {
+  GOOGLE_CHECK_NE(&from, this);
+  if (from._has_bits_[0 / 32] & (0xffu << (0 % 32))) {
+    if (from.has_transaction_id()) {
+      set_transaction_id(from.transaction_id());
+    }
+    if (from.has_do_submit()) {
+      set_do_submit(from.do_submit());
+    }
+    if (from.has_do_commit()) {
+      set_do_commit(from.do_commit());
+    }
+    if (from.has_do_rollback()) {
+      set_do_rollback(from.do_rollback());
+    }
+  }
+}
+
+void CqApply::CopyFrom(const CqApply& from) {
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+bool CqApply::IsInitialized() const {
+  
+  return true;
+}
+
+void CqApply::Swap(CqApply* other) {
+  if (other != this) {
+    std::swap(transaction_id_, other->transaction_id_);
+    std::swap(do_submit_, other->do_submit_);
+    std::swap(do_commit_, other->do_commit_);
+    std::swap(do_rollback_, other->do_rollback_);
+    std::swap(_has_bits_[0], other->_has_bits_[0]);
+    std::swap(_cached_size_, other->_cached_size_);
+  }
+}
+
+::std::string CqApply::GetTypeName() const {
+  return "Api.Proto.CqApply";
 }
 
 
@@ -1970,9 +2940,9 @@ void CqDownloadExtern::Swap(CqDownloadExtern* other) {
 // ===================================================================
 
 #ifndef _MSC_VER
-const int SrFin::kSuccessFieldNumber;
-const int SrFin::kErrCodeFieldNumber;
-const int SrFin::kErrMsgFieldNumber;
+const int SrFin::kErrorFieldNumber;
+const int SrFin::kTransactionIdFieldNumber;
+const int SrFin::kSequenceIdFieldNumber;
 #endif  // !_MSC_VER
 
 SrFin::SrFin()
@@ -1991,9 +2961,9 @@ SrFin::SrFin(const SrFin& from)
 
 void SrFin::SharedCtor() {
   _cached_size_ = 0;
-  success_ = false;
-  err_code_ = 0;
-  err_msg_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
+  error_ = 0;
+  transaction_id_ = GOOGLE_LONGLONG(0);
+  sequence_id_ = GOOGLE_LONGLONG(0);
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
 }
 
@@ -2002,9 +2972,6 @@ SrFin::~SrFin() {
 }
 
 void SrFin::SharedDtor() {
-  if (err_msg_ != &::google::protobuf::internal::kEmptyString) {
-    delete err_msg_;
-  }
   if (this != default_instance_) {
   }
 }
@@ -2026,13 +2993,9 @@ SrFin* SrFin::New() const {
 
 void SrFin::Clear() {
   if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
-    success_ = false;
-    err_code_ = 0;
-    if (has_err_msg()) {
-      if (err_msg_ != &::google::protobuf::internal::kEmptyString) {
-        err_msg_->clear();
-      }
-    }
+    error_ = 0;
+    transaction_id_ = GOOGLE_LONGLONG(0);
+    sequence_id_ = GOOGLE_LONGLONG(0);
   }
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
 }
@@ -2043,47 +3006,49 @@ bool SrFin::MergePartialFromCodedStream(
   ::google::protobuf::uint32 tag;
   while ((tag = input->ReadTag()) != 0) {
     switch (::google::protobuf::internal::WireFormatLite::GetTagFieldNumber(tag)) {
-      // optional bool success = 1;
+      // optional .Api.Proto.ErrorCode error = 1;
       case 1: {
         if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
             ::google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT) {
-          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
-                   bool, ::google::protobuf::internal::WireFormatLite::TYPE_BOOL>(
-                 input, &success_)));
-          set_has_success();
-        } else {
-          goto handle_uninterpreted;
-        }
-        if (input->ExpectTag(16)) goto parse_err_code;
-        break;
-      }
-      
-      // optional .Api.Proto.EnumErrors err_code = 2;
-      case 2: {
-        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
-            ::google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT) {
-         parse_err_code:
           int value;
           DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
                    int, ::google::protobuf::internal::WireFormatLite::TYPE_ENUM>(
                  input, &value)));
-          if (Api::Proto::EnumErrors_IsValid(value)) {
-            set_err_code(static_cast< Api::Proto::EnumErrors >(value));
+          if (Api::Proto::ErrorCode_IsValid(value)) {
+            set_error(static_cast< Api::Proto::ErrorCode >(value));
           }
         } else {
           goto handle_uninterpreted;
         }
-        if (input->ExpectTag(26)) goto parse_err_msg;
+        if (input->ExpectTag(16)) goto parse_transaction_id;
         break;
       }
       
-      // optional string err_msg = 3;
+      // optional int64 transaction_id = 2;
+      case 2: {
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT) {
+         parse_transaction_id:
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   ::google::protobuf::int64, ::google::protobuf::internal::WireFormatLite::TYPE_INT64>(
+                 input, &transaction_id_)));
+          set_has_transaction_id();
+        } else {
+          goto handle_uninterpreted;
+        }
+        if (input->ExpectTag(24)) goto parse_sequence_id;
+        break;
+      }
+      
+      // optional int64 sequence_id = 3;
       case 3: {
         if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
-            ::google::protobuf::internal::WireFormatLite::WIRETYPE_LENGTH_DELIMITED) {
-         parse_err_msg:
-          DO_(::google::protobuf::internal::WireFormatLite::ReadString(
-                input, this->mutable_err_msg()));
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT) {
+         parse_sequence_id:
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   ::google::protobuf::int64, ::google::protobuf::internal::WireFormatLite::TYPE_INT64>(
+                 input, &sequence_id_)));
+          set_has_sequence_id();
         } else {
           goto handle_uninterpreted;
         }
@@ -2108,21 +3073,20 @@ bool SrFin::MergePartialFromCodedStream(
 
 void SrFin::SerializeWithCachedSizes(
     ::google::protobuf::io::CodedOutputStream* output) const {
-  // optional bool success = 1;
-  if (has_success()) {
-    ::google::protobuf::internal::WireFormatLite::WriteBool(1, this->success(), output);
-  }
-  
-  // optional .Api.Proto.EnumErrors err_code = 2;
-  if (has_err_code()) {
+  // optional .Api.Proto.ErrorCode error = 1;
+  if (has_error()) {
     ::google::protobuf::internal::WireFormatLite::WriteEnum(
-      2, this->err_code(), output);
+      1, this->error(), output);
   }
   
-  // optional string err_msg = 3;
-  if (has_err_msg()) {
-    ::google::protobuf::internal::WireFormatLite::WriteString(
-      3, this->err_msg(), output);
+  // optional int64 transaction_id = 2;
+  if (has_transaction_id()) {
+    ::google::protobuf::internal::WireFormatLite::WriteInt64(2, this->transaction_id(), output);
+  }
+  
+  // optional int64 sequence_id = 3;
+  if (has_sequence_id()) {
+    ::google::protobuf::internal::WireFormatLite::WriteInt64(3, this->sequence_id(), output);
   }
   
 }
@@ -2131,22 +3095,24 @@ int SrFin::ByteSize() const {
   int total_size = 0;
   
   if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
-    // optional bool success = 1;
-    if (has_success()) {
-      total_size += 1 + 1;
+    // optional .Api.Proto.ErrorCode error = 1;
+    if (has_error()) {
+      total_size += 1 +
+        ::google::protobuf::internal::WireFormatLite::EnumSize(this->error());
     }
     
-    // optional .Api.Proto.EnumErrors err_code = 2;
-    if (has_err_code()) {
+    // optional int64 transaction_id = 2;
+    if (has_transaction_id()) {
       total_size += 1 +
-        ::google::protobuf::internal::WireFormatLite::EnumSize(this->err_code());
+        ::google::protobuf::internal::WireFormatLite::Int64Size(
+          this->transaction_id());
     }
     
-    // optional string err_msg = 3;
-    if (has_err_msg()) {
+    // optional int64 sequence_id = 3;
+    if (has_sequence_id()) {
       total_size += 1 +
-        ::google::protobuf::internal::WireFormatLite::StringSize(
-          this->err_msg());
+        ::google::protobuf::internal::WireFormatLite::Int64Size(
+          this->sequence_id());
     }
     
   }
@@ -2164,14 +3130,14 @@ void SrFin::CheckTypeAndMergeFrom(
 void SrFin::MergeFrom(const SrFin& from) {
   GOOGLE_CHECK_NE(&from, this);
   if (from._has_bits_[0 / 32] & (0xffu << (0 % 32))) {
-    if (from.has_success()) {
-      set_success(from.success());
+    if (from.has_error()) {
+      set_error(from.error());
     }
-    if (from.has_err_code()) {
-      set_err_code(from.err_code());
+    if (from.has_transaction_id()) {
+      set_transaction_id(from.transaction_id());
     }
-    if (from.has_err_msg()) {
-      set_err_msg(from.err_msg());
+    if (from.has_sequence_id()) {
+      set_sequence_id(from.sequence_id());
     }
   }
 }
@@ -2189,9 +3155,9 @@ bool SrFin::IsInitialized() const {
 
 void SrFin::Swap(SrFin* other) {
   if (other != this) {
-    std::swap(success_, other->success_);
-    std::swap(err_code_, other->err_code_);
-    std::swap(err_msg_, other->err_msg_);
+    std::swap(error_, other->error_);
+    std::swap(transaction_id_, other->transaction_id_);
+    std::swap(sequence_id_, other->sequence_id_);
     std::swap(_has_bits_[0], other->_has_bits_[0]);
     std::swap(_cached_size_, other->_cached_size_);
   }
@@ -2514,164 +3480,6 @@ void SrBlob::Swap(SrBlob* other) {
 
 ::std::string SrBlob::GetTypeName() const {
   return "Api.Proto.SrBlob";
-}
-
-
-// ===================================================================
-
-#ifndef _MSC_VER
-const int SrShortTransact::kSequenceIdFieldNumber;
-#endif  // !_MSC_VER
-
-SrShortTransact::SrShortTransact()
-  : ::google::protobuf::MessageLite() {
-  SharedCtor();
-}
-
-void SrShortTransact::InitAsDefaultInstance() {
-}
-
-SrShortTransact::SrShortTransact(const SrShortTransact& from)
-  : ::google::protobuf::MessageLite() {
-  SharedCtor();
-  MergeFrom(from);
-}
-
-void SrShortTransact::SharedCtor() {
-  _cached_size_ = 0;
-  sequence_id_ = GOOGLE_LONGLONG(0);
-  ::memset(_has_bits_, 0, sizeof(_has_bits_));
-}
-
-SrShortTransact::~SrShortTransact() {
-  SharedDtor();
-}
-
-void SrShortTransact::SharedDtor() {
-  if (this != default_instance_) {
-  }
-}
-
-void SrShortTransact::SetCachedSize(int size) const {
-  GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
-  _cached_size_ = size;
-  GOOGLE_SAFE_CONCURRENT_WRITES_END();
-}
-const SrShortTransact& SrShortTransact::default_instance() {
-  if (default_instance_ == NULL) protobuf_AddDesc_proto_2fApi_2eproto();  return *default_instance_;
-}
-
-SrShortTransact* SrShortTransact::default_instance_ = NULL;
-
-SrShortTransact* SrShortTransact::New() const {
-  return new SrShortTransact;
-}
-
-void SrShortTransact::Clear() {
-  if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
-    sequence_id_ = GOOGLE_LONGLONG(0);
-  }
-  ::memset(_has_bits_, 0, sizeof(_has_bits_));
-}
-
-bool SrShortTransact::MergePartialFromCodedStream(
-    ::google::protobuf::io::CodedInputStream* input) {
-#define DO_(EXPRESSION) if (!(EXPRESSION)) return false
-  ::google::protobuf::uint32 tag;
-  while ((tag = input->ReadTag()) != 0) {
-    switch (::google::protobuf::internal::WireFormatLite::GetTagFieldNumber(tag)) {
-      // optional int64 sequence_id = 1;
-      case 1: {
-        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
-            ::google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT) {
-          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
-                   ::google::protobuf::int64, ::google::protobuf::internal::WireFormatLite::TYPE_INT64>(
-                 input, &sequence_id_)));
-          set_has_sequence_id();
-        } else {
-          goto handle_uninterpreted;
-        }
-        if (input->ExpectAtEnd()) return true;
-        break;
-      }
-      
-      default: {
-      handle_uninterpreted:
-        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
-            ::google::protobuf::internal::WireFormatLite::WIRETYPE_END_GROUP) {
-          return true;
-        }
-        DO_(::google::protobuf::internal::WireFormatLite::SkipField(input, tag));
-        break;
-      }
-    }
-  }
-  return true;
-#undef DO_
-}
-
-void SrShortTransact::SerializeWithCachedSizes(
-    ::google::protobuf::io::CodedOutputStream* output) const {
-  // optional int64 sequence_id = 1;
-  if (has_sequence_id()) {
-    ::google::protobuf::internal::WireFormatLite::WriteInt64(1, this->sequence_id(), output);
-  }
-  
-}
-
-int SrShortTransact::ByteSize() const {
-  int total_size = 0;
-  
-  if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
-    // optional int64 sequence_id = 1;
-    if (has_sequence_id()) {
-      total_size += 1 +
-        ::google::protobuf::internal::WireFormatLite::Int64Size(
-          this->sequence_id());
-    }
-    
-  }
-  GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
-  _cached_size_ = total_size;
-  GOOGLE_SAFE_CONCURRENT_WRITES_END();
-  return total_size;
-}
-
-void SrShortTransact::CheckTypeAndMergeFrom(
-    const ::google::protobuf::MessageLite& from) {
-  MergeFrom(*::google::protobuf::down_cast<const SrShortTransact*>(&from));
-}
-
-void SrShortTransact::MergeFrom(const SrShortTransact& from) {
-  GOOGLE_CHECK_NE(&from, this);
-  if (from._has_bits_[0 / 32] & (0xffu << (0 % 32))) {
-    if (from.has_sequence_id()) {
-      set_sequence_id(from.sequence_id());
-    }
-  }
-}
-
-void SrShortTransact::CopyFrom(const SrShortTransact& from) {
-  if (&from == this) return;
-  Clear();
-  MergeFrom(from);
-}
-
-bool SrShortTransact::IsInitialized() const {
-  
-  return true;
-}
-
-void SrShortTransact::Swap(SrShortTransact* other) {
-  if (other != this) {
-    std::swap(sequence_id_, other->sequence_id_);
-    std::swap(_has_bits_[0], other->_has_bits_[0]);
-    std::swap(_cached_size_, other->_cached_size_);
-  }
-}
-
-::std::string SrShortTransact::GetTypeName() const {
-  return "Api.Proto.SrShortTransact";
 }
 
 

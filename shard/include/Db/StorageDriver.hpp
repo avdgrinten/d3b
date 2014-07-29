@@ -19,6 +19,12 @@ struct FetchData {
 	std::string buffer;
 };
 
+enum FetchError {
+	kFetchNone = 0,
+	kFetchSuccess = 1,
+	kFetchDocumentNotFound = 2
+};
+
 class StorageDriver {
 public:
 	class Factory {
@@ -56,7 +62,7 @@ public:
 	/* processes a query */
 	virtual void fetch(FetchRequest *fetch,
 			Async::Callback<void(FetchData &)> on_data,
-			Async::Callback<void(Error)> callback) = 0;
+			Async::Callback<void(FetchError)> callback) = 0;
 
 	inline Engine *getEngine() {
 		return p_engine;
@@ -110,7 +116,7 @@ public:
 
 	virtual void fetch(FetchRequest *fetch,
 			Async::Callback<void(FetchData &)> on_data,
-			Async::Callback<void(Error)> callback);
+			Async::Callback<void(FetchError)> callback);
 
 protected:
 	void processQueue();
@@ -122,7 +128,7 @@ protected:
 
 	virtual void processFetch(FetchRequest *fetch,
 			Async::Callback<void(FetchData &)> on_data,
-			Async::Callback<void(Error)> callback) = 0;
+			Async::Callback<void(FetchError)> callback) = 0;
 
 private:
 	struct SequenceQueueItem {
@@ -133,7 +139,7 @@ private:
 	struct FetchQueueItem {
 		FetchRequest *fetch;
 		Async::Callback<void(FetchData &)> onData;
-		Async::Callback<void(Error)> callback;
+		Async::Callback<void(FetchError)> callback;
 	};
 	
 	SequenceId p_currentSequenceId;
@@ -151,7 +157,7 @@ private:
 	private:
 		void processSequence();
 		void onSequenceItem(Error error);
-		void onFetchComplete(Error error);
+		void onFetchComplete(FetchError error);
 
 		QueuedStorageDriver *p_storage;
 

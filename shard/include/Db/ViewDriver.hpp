@@ -5,7 +5,7 @@ namespace Db {
 
 class Engine;
 
-struct Query {
+struct QueryRequest {
 	int viewIndex;
 	SequenceId sequenceId;
 
@@ -16,11 +16,16 @@ struct Query {
 	std::string toKey;
 	int limit;
 
-	Query() : useFromKey(false), useToKey(false), limit(-1) { }
+	QueryRequest() : useFromKey(false), useToKey(false), limit(-1) { }
 };
 
 struct QueryData {
 	std::vector<std::string> items;
+};
+
+enum QueryError {
+	kQueryNone = 0,
+	kQuerySuccess = 1
 };
 
 class ViewDriver {
@@ -54,9 +59,9 @@ public:
 			std::vector<Mutation> &mutations,
 			Async::Callback<void()> callback) = 0;
 
-	virtual void query(Query *request,
+	virtual void query(QueryRequest *request,
 			Async::Callback<void(QueryData &)> report,
-			Async::Callback<void(Error)> callback) = 0;
+			Async::Callback<void(QueryError)> callback) = 0;
 
 	inline Engine *getEngine() {
 		return p_engine;
@@ -108,9 +113,9 @@ public:
 			std::vector<Mutation> &mutations,
 			Async::Callback<void()> callback);
 
-	virtual void query(Query *query,
+	virtual void query(QueryRequest *query,
 			Async::Callback<void(QueryData &)> on_data,
-			Async::Callback<void(Error)> callback);
+			Async::Callback<void(QueryError)> callback);
 
 protected:
 	void processQueue();
@@ -120,9 +125,9 @@ protected:
 	virtual void processModify(SequenceId sequence_id,
 			Mutation &mutation, Async::Callback<void(Error)> callback) = 0;
 
-	virtual void processQuery(Query *query,
+	virtual void processQuery(QueryRequest *query,
 			Async::Callback<void(QueryData &)> on_data,
-			Async::Callback<void(Error)> callback) = 0;
+			Async::Callback<void(QueryError)> callback) = 0;
 
 private:
 	struct SequenceQueueItem {
@@ -131,9 +136,9 @@ private:
 		Async::Callback<void()> callback;
 	};
 	struct QueryQueueItem {
-		Query *query;
+		QueryRequest *query;
 		Async::Callback<void(QueryData &)> onData;
-		Async::Callback<void(Error)> callback;
+		Async::Callback<void(QueryError)> callback;
 	};
 	
 	SequenceId p_currentSequenceId;
@@ -151,7 +156,7 @@ private:
 	private:
 		void processSequence();
 		void onSequenceItem(Error error);
-		void onQueryComplete(Error error);
+		void onQueryComplete(QueryError error);
 
 		QueuedViewDriver *p_view;
 

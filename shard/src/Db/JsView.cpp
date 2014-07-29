@@ -230,9 +230,9 @@ void JsView::InsertClosure::onComplete() {
 	delete this;
 }
 
-JsView::QueryClosure::QueryClosure(JsView *view, Query *query,
+JsView::QueryClosure::QueryClosure(JsView *view, QueryRequest *query,
 		Async::Callback<void(QueryData &)> on_data,
-		Async::Callback<void(Error)> on_complete)
+		Async::Callback<void(QueryError)> on_complete)
 	: p_view(view), p_query(query), p_onData(on_data),
 		p_onComplete(on_complete), p_btreeFind(&view->p_orderTree),
 		p_btreeIterate(&view->p_orderTree) { }
@@ -329,8 +329,10 @@ void JsView::QueryClosure::onFetchData(FetchData &data) {
 	
 	++p_fetchedCount;
 }
-void JsView::QueryClosure::onFetchComplete(Error error) {
-	//FIXME: don't ignore error values
+void JsView::QueryClosure::onFetchComplete(FetchError error) {
+	if(error == kFetchSuccess) {
+		// everything is okay
+	}else throw std::logic_error("Unexpected error during fetch");
 
 	if(p_queryData.items.size() >= 1000) {
 		p_onData(p_queryData);
@@ -343,13 +345,13 @@ void JsView::QueryClosure::complete() {
 	if(p_queryData.items.size() > 0)
 		p_onData(p_queryData);
 
-	p_onComplete(Error(true));
+	p_onComplete(kQuerySuccess);
 	delete this;
 }
 
-void JsView::processQuery(Query *request,
+void JsView::processQuery(QueryRequest *request,
 		Async::Callback<void(QueryData &)> on_data,
-		Async::Callback<void(Error)> on_complete) {
+		Async::Callback<void(QueryError)> on_complete) {
 	auto closure = new QueryClosure(this, request, on_data, on_complete);
 	closure->process();
 }

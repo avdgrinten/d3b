@@ -35,9 +35,9 @@ void QueuedViewDriver::sequence(SequenceId sequence_id,
 	p_eventFd->increment();
 }
 
-void QueuedViewDriver::query(Query *query,
+void QueuedViewDriver::query(QueryRequest *query,
 		Async::Callback<void(QueryData &)> on_data,
-		Async::Callback<void(Error)> callback) {
+		Async::Callback<void(QueryError)> callback) {
 	QueryQueueItem item;
 	item.query = query;
 	item.onData = on_data;
@@ -93,9 +93,8 @@ void QueuedViewDriver::ProcessClosure::onSequenceItem(Error error) {
 	p_index++;
 	processSequence();
 }
-void QueuedViewDriver::ProcessClosure::onQueryComplete(Error error) {
-	//FIXME: don't ignore error
-	p_queryItem.callback(Error(true));
+void QueuedViewDriver::ProcessClosure::onQueryComplete(QueryError error) {
+	p_queryItem.callback(error);
 
 	LocalTaskQueue::get()->submit(ASYNC_MEMBER(this, &ProcessClosure::process));
 }

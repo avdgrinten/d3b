@@ -8,73 +8,86 @@
 
 namespace Db {
 
+enum SubmitError {
+	kSubmitNone = 0,
+	kSubmitSuccess = 1,
+	// constraint violated under current database state
+	kSubmitConstraintViolation = 2,
+	// constraint of this transaction conflicts with mutation of other transaction
+	kSubmitConstraintConflict = 3,
+	// mutation of this transaction conflicts with constraint of other transaction
+	kSubmitMutationConflict = 4
+};
+
 class Engine {
 public:
 	Engine(TaskPool *io_pool);
 	
-void createConfig();
-void loadConfig();
+	void createConfig();
+	void loadConfig();
 
-void createStorage(const Proto::StorageConfig &config);
-int getStorage(const std::string &identifier);
-void unlinkStorage(int storage);
+	void createStorage(const Proto::StorageConfig &config);
+	int getStorage(const std::string &identifier);
+	void unlinkStorage(int storage);
 
-void createView(const Proto::ViewConfig &config);
-int getView(const std::string &view);
-void unlinkView(int view);
+	void createView(const Proto::ViewConfig &config);
+	int getView(const std::string &view);
+	void unlinkView(int view);
 
-SequenceId currentSequenceId();
+	SequenceId currentSequenceId();
 
-// begin a transaction. returns a transaction id
-void transaction(Async::Callback<void(Error, TransactionId)> callback);
-// add a mutation to an existing transaction
-void updateMutation(TransactionId trid, Mutation &mutation,
-		Async::Callback<void(Error)> callback);
-// submits the transaction.
-// after submit() return success commit() is guaranteed to succeed
-void submit(TransactionId trid,
-		Async::Callback<void(Error)> callback);
-void commit(TransactionId trid,
-		Async::Callback<void(SequenceId)> callback);
-void rollback(TransactionId trid,
-		Async::Callback<void(Error)> callback);
+	// begin a transaction. returns a transaction id
+	TransactionId transaction();
+	// add a mutation to an existing transaction
+	void updateMutation(TransactionId trid, Mutation &mutation);
+	// add a constraint to an existing transaction
+	void updateConstraint(TransactionId trid, Constraint &constraint);
+	// submits the transaction.
+	// after submit() return success commit() is guaranteed to succeed
+	void submit(TransactionId trid,
+			Async::Callback<void(SubmitError)> callback);
+	void commit(TransactionId trid,
+			Async::Callback<void(SequenceId)> callback);
+	void rollback(TransactionId trid,
+			Async::Callback<void(Error)> callback);
 
-void fetch(FetchRequest *fetch,
-		Async::Callback<void(FetchData &)> on_data,
-		Async::Callback<void(Error)> callback);
+	void fetch(FetchRequest *fetch,
+			Async::Callback<void(FetchData &)> on_data,
+			Async::Callback<void(FetchError)> callback);
 
-Error query(Query *request,
-		Async::Callback<void(QueryData &)> report,
-		Async::Callback<void(Error)> callback);
+	void query(QueryRequest *request,
+			Async::Callback<void(QueryData &)> report,
+			Async::Callback<void(QueryError)> callback);
 
-TaskPool *getIoPool();
+	TaskPool *getIoPool();
 
-void process();
+	void process();
 
-inline void setPath(const std::string &path) {
-	p_path = path;
-}
-inline std::string getPath() {
-	return p_path;
-}
+	inline void setPath(const std::string &path) {
+		p_path = path;
+	}
+	inline std::string getPath() {
+		return p_path;
+	}
 
 private:
-TaskPool *p_ioPool;
+	TaskPool *p_ioPool;
 
-/* ------- request and update queue -------- */
-struct Queued {
-	enum Type {
-		kTypeNone, kTypeSubmit, kTypeCommit, kTypeRollback
+	/* ------- request and update queue -------- */
+	struct QueueItem {
+		enum Type {
+			kTypeNone, kTypeSubmit, kTypeCommit, kTypeRollback
+		};
+		
+		Type type;
+		TransactionId trid;
+		Async::Callback<void(Error)> callback;
+		Async::Callback<void(SubmitError)> submitCallback;
+		Async::Callback<void(SequenceId)> commitCallback;
 	};
 	
-	Type type;
-	TransactionId trid;
-	Async::Callback<void(Error)> callback;
-	Async::Callback<void(SequenceId)> commitCallback;
-};
-	
 	std::unique_ptr<Linux::EventFd> p_eventFd;
-	std::deque<Queued> p_submitQueue;
+	std::deque<QueueItem> p_submitQueue;
 
 	/* --------- active transactions -------- */
 	class Transaction {
@@ -85,6 +98,8 @@ struct Queued {
 		void refDecrement();
 
 		std::vector<Mutation> mutations;
+		std::vector<Constraint> constraints;
+
 	private:
 		Transaction() : p_refCount(1) { }
 
@@ -94,6 +109,7 @@ struct Queued {
 	TransactionId p_nextTransactId;
 	SequenceId p_currentSequenceId;
 	std::unordered_map<TransactionId, Transaction *> p_openTransactions;
+	std::vector<TransactionId> p_submittedTransactions;
 
 	Ll::WriteAhead p_writeAhead;
 	
@@ -106,6 +122,8 @@ struct Queued {
 	
 	void p_writeConfig();
 
+	bool compatible(Mutation &mutation, Constraint &constraint);
+
 	class ProcessQueueClosure {
 	public:
 		ProcessQueueClosure(Engine *engine, Async::Callback<void()> callback);
@@ -113,18 +131,27 @@ struct Queued {
 		void processLoop();
 
 	private:
-		void processSubmit();
 		void processItem();
+		void processSubmit();
+		void submitCheckConstraint();
+		void checkStateOnData(FetchData &data);
+		void checkStateOnFetch(FetchError error);
+		void submitLog();
 		void onSubmitWriteAhead(Error error);
+		void submitFailure(SubmitError error);
 		void processCommit();
 		void onCommitWriteAhead(Error error);
 
 		Engine *p_engine;
 		
-		Queued p_queueItem;
+		QueueItem p_queueItem;
 		Transaction *p_transaction;
 		SequenceId p_sequenceId;
 		Proto::LogEntry p_logEntry;
+		int p_index;
+		bool p_checkOkay;
+
+		FetchRequest p_fetch;
 
 		Async::Callback<void()> p_callback;
 	};

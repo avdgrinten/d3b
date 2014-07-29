@@ -33,9 +33,13 @@ void  protobuf_AddDesc_proto_2fApi_2eproto();
 void protobuf_AssignDesc_proto_2fApi_2eproto();
 void protobuf_ShutdownFile_proto_2fApi_2eproto();
 
-class Update;
+class Mutation;
+class Constraint;
 class CqQuery;
 class CqShortTransact;
+class CqTransaction;
+class CqUpdate;
+class CqApply;
 class CqCreateStorage;
 class CqCreateView;
 class CqUnlinkStorage;
@@ -45,21 +49,49 @@ class CqDownloadExtern;
 class SrFin;
 class SrRows;
 class SrBlob;
-class SrShortTransact;
 
-enum Actions {
-  kActNone = 0,
-  kActInsert = 1,
-  kActUpdate = 2
+enum Mutation_Type {
+  Mutation_Type_kTypeNone = 0,
+  Mutation_Type_kTypeInsert = 1,
+  Mutation_Type_kTypeModify = 2
 };
-bool Actions_IsValid(int value);
-const Actions Actions_MIN = kActNone;
-const Actions Actions_MAX = kActUpdate;
-const int Actions_ARRAYSIZE = Actions_MAX + 1;
+bool Mutation_Type_IsValid(int value);
+const Mutation_Type Mutation_Type_Type_MIN = Mutation_Type_kTypeNone;
+const Mutation_Type Mutation_Type_Type_MAX = Mutation_Type_kTypeModify;
+const int Mutation_Type_Type_ARRAYSIZE = Mutation_Type_Type_MAX + 1;
+
+enum Constraint_Type {
+  Constraint_Type_kTypeNone = 0,
+  Constraint_Type_kTypeDocumentState = 1
+};
+bool Constraint_Type_IsValid(int value);
+const Constraint_Type Constraint_Type_Type_MIN = Constraint_Type_kTypeNone;
+const Constraint_Type Constraint_Type_Type_MAX = Constraint_Type_kTypeDocumentState;
+const int Constraint_Type_Type_ARRAYSIZE = Constraint_Type_Type_MAX + 1;
+
+enum ErrorCode {
+  kCodeNone = 0,
+  kCodeSuccess = 1,
+  kCodeIllegalRequest = 2,
+  kCodeParseError = 3,
+  kCodeIllegalState = 4,
+  kCodeSubmitConstraintViolation = 32,
+  kCodeSubmitConstraintConflict = 33,
+  kCodeSubmitMutationConflict = 34,
+  kCodeIllegalStorage = 128,
+  kCodeIllegalView = 129
+};
+bool ErrorCode_IsValid(int value);
+const ErrorCode ErrorCode_MIN = kCodeNone;
+const ErrorCode ErrorCode_MAX = kCodeIllegalView;
+const int ErrorCode_ARRAYSIZE = ErrorCode_MAX + 1;
 
 enum ClientRequests {
   kCqQuery = 1,
-  kCqShortTransact = 32,
+  kCqShortTransact = 2,
+  kCqTransaction = 3,
+  kCqUpdate = 4,
+  kCqApply = 5,
   kCqCreateStorage = 256,
   kCqCreateView = 257,
   kCqUnlinkStorage = 258,
@@ -75,49 +107,37 @@ const int ClientRequests_ARRAYSIZE = ClientRequests_MAX + 1;
 enum ServerResponses {
   kSrFin = 1,
   kSrRows = 2,
-  kSrBlob = 3,
-  kSrShortTransact = 4
+  kSrBlob = 3
 };
 bool ServerResponses_IsValid(int value);
 const ServerResponses ServerResponses_MIN = kSrFin;
-const ServerResponses ServerResponses_MAX = kSrShortTransact;
+const ServerResponses ServerResponses_MAX = kSrBlob;
 const int ServerResponses_ARRAYSIZE = ServerResponses_MAX + 1;
-
-enum EnumErrors {
-  kErrNone = 0,
-  kErrIllegalRequest = 1,
-  kErrIllegalStorage = 128,
-  kErrIllegalView = 129
-};
-bool EnumErrors_IsValid(int value);
-const EnumErrors EnumErrors_MIN = kErrNone;
-const EnumErrors EnumErrors_MAX = kErrIllegalView;
-const int EnumErrors_ARRAYSIZE = EnumErrors_MAX + 1;
 
 // ===================================================================
 
-class Update : public ::google::protobuf::MessageLite {
+class Mutation : public ::google::protobuf::MessageLite {
  public:
-  Update();
-  virtual ~Update();
+  Mutation();
+  virtual ~Mutation();
   
-  Update(const Update& from);
+  Mutation(const Mutation& from);
   
-  inline Update& operator=(const Update& from) {
+  inline Mutation& operator=(const Mutation& from) {
     CopyFrom(from);
     return *this;
   }
   
-  static const Update& default_instance();
+  static const Mutation& default_instance();
   
-  void Swap(Update* other);
+  void Swap(Mutation* other);
   
   // implements Message ----------------------------------------------
   
-  Update* New() const;
+  Mutation* New() const;
   void CheckTypeAndMergeFrom(const ::google::protobuf::MessageLite& from);
-  void CopyFrom(const Update& from);
-  void MergeFrom(const Update& from);
+  void CopyFrom(const Mutation& from);
+  void MergeFrom(const Mutation& from);
   void Clear();
   bool IsInitialized() const;
   
@@ -137,33 +157,40 @@ class Update : public ::google::protobuf::MessageLite {
   
   // nested types ----------------------------------------------------
   
+  typedef Mutation_Type Type;
+  static const Type kTypeNone = Mutation_Type_kTypeNone;
+  static const Type kTypeInsert = Mutation_Type_kTypeInsert;
+  static const Type kTypeModify = Mutation_Type_kTypeModify;
+  static inline bool Type_IsValid(int value) {
+    return Mutation_Type_IsValid(value);
+  }
+  static const Type Type_MIN =
+    Mutation_Type_Type_MIN;
+  static const Type Type_MAX =
+    Mutation_Type_Type_MAX;
+  static const int Type_ARRAYSIZE =
+    Mutation_Type_Type_ARRAYSIZE;
+  
   // accessors -------------------------------------------------------
   
-  // optional .Api.Proto.Actions action = 1;
-  inline bool has_action() const;
-  inline void clear_action();
-  static const int kActionFieldNumber = 1;
-  inline Api::Proto::Actions action() const;
-  inline void set_action(Api::Proto::Actions value);
+  // optional .Api.Proto.Mutation.Type type = 1;
+  inline bool has_type() const;
+  inline void clear_type();
+  static const int kTypeFieldNumber = 1;
+  inline ::Api::Proto::Mutation_Type type() const;
+  inline void set_type(::Api::Proto::Mutation_Type value);
   
-  // optional int64 id = 2;
-  inline bool has_id() const;
-  inline void clear_id();
-  static const int kIdFieldNumber = 2;
-  inline ::google::protobuf::int64 id() const;
-  inline void set_id(::google::protobuf::int64 value);
+  // optional int64 document_id = 2;
+  inline bool has_document_id() const;
+  inline void clear_document_id();
+  static const int kDocumentIdFieldNumber = 2;
+  inline ::google::protobuf::int64 document_id() const;
+  inline void set_document_id(::google::protobuf::int64 value);
   
-  // optional int32 storage_idx = 3;
-  inline bool has_storage_idx() const;
-  inline void clear_storage_idx();
-  static const int kStorageIdxFieldNumber = 3;
-  inline ::google::protobuf::int32 storage_idx() const;
-  inline void set_storage_idx(::google::protobuf::int32 value);
-  
-  // optional string storage_name = 4;
+  // optional string storage_name = 3;
   inline bool has_storage_name() const;
   inline void clear_storage_name();
-  static const int kStorageNameFieldNumber = 4;
+  static const int kStorageNameFieldNumber = 3;
   inline const ::std::string& storage_name() const;
   inline void set_storage_name(const ::std::string& value);
   inline void set_storage_name(const char* value);
@@ -171,10 +198,10 @@ class Update : public ::google::protobuf::MessageLite {
   inline ::std::string* mutable_storage_name();
   inline ::std::string* release_storage_name();
   
-  // optional bytes buffer = 17;
+  // optional bytes buffer = 4;
   inline bool has_buffer() const;
   inline void clear_buffer();
-  static const int kBufferFieldNumber = 17;
+  static const int kBufferFieldNumber = 4;
   inline const ::std::string& buffer() const;
   inline void set_buffer(const ::std::string& value);
   inline void set_buffer(const char* value);
@@ -182,34 +209,167 @@ class Update : public ::google::protobuf::MessageLite {
   inline ::std::string* mutable_buffer();
   inline ::std::string* release_buffer();
   
-  // @@protoc_insertion_point(class_scope:Api.Proto.Update)
+  // @@protoc_insertion_point(class_scope:Api.Proto.Mutation)
  private:
-  inline void set_has_action();
-  inline void clear_has_action();
-  inline void set_has_id();
-  inline void clear_has_id();
-  inline void set_has_storage_idx();
-  inline void clear_has_storage_idx();
+  inline void set_has_type();
+  inline void clear_has_type();
+  inline void set_has_document_id();
+  inline void clear_has_document_id();
   inline void set_has_storage_name();
   inline void clear_has_storage_name();
   inline void set_has_buffer();
   inline void clear_has_buffer();
   
-  ::google::protobuf::int64 id_;
-  int action_;
-  ::google::protobuf::int32 storage_idx_;
+  ::google::protobuf::int64 document_id_;
   ::std::string* storage_name_;
   ::std::string* buffer_;
+  int type_;
   
   mutable int _cached_size_;
-  ::google::protobuf::uint32 _has_bits_[(5 + 31) / 32];
+  ::google::protobuf::uint32 _has_bits_[(4 + 31) / 32];
   
   friend void  protobuf_AddDesc_proto_2fApi_2eproto();
   friend void protobuf_AssignDesc_proto_2fApi_2eproto();
   friend void protobuf_ShutdownFile_proto_2fApi_2eproto();
   
   void InitAsDefaultInstance();
-  static Update* default_instance_;
+  static Mutation* default_instance_;
+};
+// -------------------------------------------------------------------
+
+class Constraint : public ::google::protobuf::MessageLite {
+ public:
+  Constraint();
+  virtual ~Constraint();
+  
+  Constraint(const Constraint& from);
+  
+  inline Constraint& operator=(const Constraint& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  
+  static const Constraint& default_instance();
+  
+  void Swap(Constraint* other);
+  
+  // implements Message ----------------------------------------------
+  
+  Constraint* New() const;
+  void CheckTypeAndMergeFrom(const ::google::protobuf::MessageLite& from);
+  void CopyFrom(const Constraint& from);
+  void MergeFrom(const Constraint& from);
+  void Clear();
+  bool IsInitialized() const;
+  
+  int ByteSize() const;
+  bool MergePartialFromCodedStream(
+      ::google::protobuf::io::CodedInputStream* input);
+  void SerializeWithCachedSizes(
+      ::google::protobuf::io::CodedOutputStream* output) const;
+  int GetCachedSize() const { return _cached_size_; }
+  private:
+  void SharedCtor();
+  void SharedDtor();
+  void SetCachedSize(int size) const;
+  public:
+  
+  ::std::string GetTypeName() const;
+  
+  // nested types ----------------------------------------------------
+  
+  typedef Constraint_Type Type;
+  static const Type kTypeNone = Constraint_Type_kTypeNone;
+  static const Type kTypeDocumentState = Constraint_Type_kTypeDocumentState;
+  static inline bool Type_IsValid(int value) {
+    return Constraint_Type_IsValid(value);
+  }
+  static const Type Type_MIN =
+    Constraint_Type_Type_MIN;
+  static const Type Type_MAX =
+    Constraint_Type_Type_MAX;
+  static const int Type_ARRAYSIZE =
+    Constraint_Type_Type_ARRAYSIZE;
+  
+  // accessors -------------------------------------------------------
+  
+  // optional .Api.Proto.Constraint.Type type = 1;
+  inline bool has_type() const;
+  inline void clear_type();
+  static const int kTypeFieldNumber = 1;
+  inline ::Api::Proto::Constraint_Type type() const;
+  inline void set_type(::Api::Proto::Constraint_Type value);
+  
+  // optional string storage_name = 2;
+  inline bool has_storage_name() const;
+  inline void clear_storage_name();
+  static const int kStorageNameFieldNumber = 2;
+  inline const ::std::string& storage_name() const;
+  inline void set_storage_name(const ::std::string& value);
+  inline void set_storage_name(const char* value);
+  inline void set_storage_name(const char* value, size_t size);
+  inline ::std::string* mutable_storage_name();
+  inline ::std::string* release_storage_name();
+  
+  // optional int64 document_id = 3;
+  inline bool has_document_id() const;
+  inline void clear_document_id();
+  static const int kDocumentIdFieldNumber = 3;
+  inline ::google::protobuf::int64 document_id() const;
+  inline void set_document_id(::google::protobuf::int64 value);
+  
+  // optional int64 sequence_id = 4;
+  inline bool has_sequence_id() const;
+  inline void clear_sequence_id();
+  static const int kSequenceIdFieldNumber = 4;
+  inline ::google::protobuf::int64 sequence_id() const;
+  inline void set_sequence_id(::google::protobuf::int64 value);
+  
+  // optional bool must_exist = 5;
+  inline bool has_must_exist() const;
+  inline void clear_must_exist();
+  static const int kMustExistFieldNumber = 5;
+  inline bool must_exist() const;
+  inline void set_must_exist(bool value);
+  
+  // optional bool match_sequence_id = 6;
+  inline bool has_match_sequence_id() const;
+  inline void clear_match_sequence_id();
+  static const int kMatchSequenceIdFieldNumber = 6;
+  inline bool match_sequence_id() const;
+  inline void set_match_sequence_id(bool value);
+  
+  // @@protoc_insertion_point(class_scope:Api.Proto.Constraint)
+ private:
+  inline void set_has_type();
+  inline void clear_has_type();
+  inline void set_has_storage_name();
+  inline void clear_has_storage_name();
+  inline void set_has_document_id();
+  inline void clear_has_document_id();
+  inline void set_has_sequence_id();
+  inline void clear_has_sequence_id();
+  inline void set_has_must_exist();
+  inline void clear_has_must_exist();
+  inline void set_has_match_sequence_id();
+  inline void clear_has_match_sequence_id();
+  
+  ::std::string* storage_name_;
+  ::google::protobuf::int64 document_id_;
+  ::google::protobuf::int64 sequence_id_;
+  int type_;
+  bool must_exist_;
+  bool match_sequence_id_;
+  
+  mutable int _cached_size_;
+  ::google::protobuf::uint32 _has_bits_[(6 + 31) / 32];
+  
+  friend void  protobuf_AddDesc_proto_2fApi_2eproto();
+  friend void protobuf_AssignDesc_proto_2fApi_2eproto();
+  friend void protobuf_ShutdownFile_proto_2fApi_2eproto();
+  
+  void InitAsDefaultInstance();
+  static Constraint* default_instance_;
 };
 // -------------------------------------------------------------------
 
@@ -394,25 +554,38 @@ class CqShortTransact : public ::google::protobuf::MessageLite {
   
   // accessors -------------------------------------------------------
   
-  // repeated .Api.Proto.Update updates = 2;
-  inline int updates_size() const;
-  inline void clear_updates();
-  static const int kUpdatesFieldNumber = 2;
-  inline const ::Api::Proto::Update& updates(int index) const;
-  inline ::Api::Proto::Update* mutable_updates(int index);
-  inline ::Api::Proto::Update* add_updates();
-  inline const ::google::protobuf::RepeatedPtrField< ::Api::Proto::Update >&
-      updates() const;
-  inline ::google::protobuf::RepeatedPtrField< ::Api::Proto::Update >*
-      mutable_updates();
+  // repeated .Api.Proto.Mutation mutations = 1;
+  inline int mutations_size() const;
+  inline void clear_mutations();
+  static const int kMutationsFieldNumber = 1;
+  inline const ::Api::Proto::Mutation& mutations(int index) const;
+  inline ::Api::Proto::Mutation* mutable_mutations(int index);
+  inline ::Api::Proto::Mutation* add_mutations();
+  inline const ::google::protobuf::RepeatedPtrField< ::Api::Proto::Mutation >&
+      mutations() const;
+  inline ::google::protobuf::RepeatedPtrField< ::Api::Proto::Mutation >*
+      mutable_mutations();
+  
+  // repeated .Api.Proto.Constraint constraints = 2;
+  inline int constraints_size() const;
+  inline void clear_constraints();
+  static const int kConstraintsFieldNumber = 2;
+  inline const ::Api::Proto::Constraint& constraints(int index) const;
+  inline ::Api::Proto::Constraint* mutable_constraints(int index);
+  inline ::Api::Proto::Constraint* add_constraints();
+  inline const ::google::protobuf::RepeatedPtrField< ::Api::Proto::Constraint >&
+      constraints() const;
+  inline ::google::protobuf::RepeatedPtrField< ::Api::Proto::Constraint >*
+      mutable_constraints();
   
   // @@protoc_insertion_point(class_scope:Api.Proto.CqShortTransact)
  private:
   
-  ::google::protobuf::RepeatedPtrField< ::Api::Proto::Update > updates_;
+  ::google::protobuf::RepeatedPtrField< ::Api::Proto::Mutation > mutations_;
+  ::google::protobuf::RepeatedPtrField< ::Api::Proto::Constraint > constraints_;
   
   mutable int _cached_size_;
-  ::google::protobuf::uint32 _has_bits_[(1 + 31) / 32];
+  ::google::protobuf::uint32 _has_bits_[(2 + 31) / 32];
   
   friend void  protobuf_AddDesc_proto_2fApi_2eproto();
   friend void protobuf_AssignDesc_proto_2fApi_2eproto();
@@ -420,6 +593,259 @@ class CqShortTransact : public ::google::protobuf::MessageLite {
   
   void InitAsDefaultInstance();
   static CqShortTransact* default_instance_;
+};
+// -------------------------------------------------------------------
+
+class CqTransaction : public ::google::protobuf::MessageLite {
+ public:
+  CqTransaction();
+  virtual ~CqTransaction();
+  
+  CqTransaction(const CqTransaction& from);
+  
+  inline CqTransaction& operator=(const CqTransaction& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  
+  static const CqTransaction& default_instance();
+  
+  void Swap(CqTransaction* other);
+  
+  // implements Message ----------------------------------------------
+  
+  CqTransaction* New() const;
+  void CheckTypeAndMergeFrom(const ::google::protobuf::MessageLite& from);
+  void CopyFrom(const CqTransaction& from);
+  void MergeFrom(const CqTransaction& from);
+  void Clear();
+  bool IsInitialized() const;
+  
+  int ByteSize() const;
+  bool MergePartialFromCodedStream(
+      ::google::protobuf::io::CodedInputStream* input);
+  void SerializeWithCachedSizes(
+      ::google::protobuf::io::CodedOutputStream* output) const;
+  int GetCachedSize() const { return _cached_size_; }
+  private:
+  void SharedCtor();
+  void SharedDtor();
+  void SetCachedSize(int size) const;
+  public:
+  
+  ::std::string GetTypeName() const;
+  
+  // nested types ----------------------------------------------------
+  
+  // accessors -------------------------------------------------------
+  
+  // @@protoc_insertion_point(class_scope:Api.Proto.CqTransaction)
+ private:
+  
+  
+  mutable int _cached_size_;
+  ::google::protobuf::uint32 _has_bits_[1];
+  
+  friend void  protobuf_AddDesc_proto_2fApi_2eproto();
+  friend void protobuf_AssignDesc_proto_2fApi_2eproto();
+  friend void protobuf_ShutdownFile_proto_2fApi_2eproto();
+  
+  void InitAsDefaultInstance();
+  static CqTransaction* default_instance_;
+};
+// -------------------------------------------------------------------
+
+class CqUpdate : public ::google::protobuf::MessageLite {
+ public:
+  CqUpdate();
+  virtual ~CqUpdate();
+  
+  CqUpdate(const CqUpdate& from);
+  
+  inline CqUpdate& operator=(const CqUpdate& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  
+  static const CqUpdate& default_instance();
+  
+  void Swap(CqUpdate* other);
+  
+  // implements Message ----------------------------------------------
+  
+  CqUpdate* New() const;
+  void CheckTypeAndMergeFrom(const ::google::protobuf::MessageLite& from);
+  void CopyFrom(const CqUpdate& from);
+  void MergeFrom(const CqUpdate& from);
+  void Clear();
+  bool IsInitialized() const;
+  
+  int ByteSize() const;
+  bool MergePartialFromCodedStream(
+      ::google::protobuf::io::CodedInputStream* input);
+  void SerializeWithCachedSizes(
+      ::google::protobuf::io::CodedOutputStream* output) const;
+  int GetCachedSize() const { return _cached_size_; }
+  private:
+  void SharedCtor();
+  void SharedDtor();
+  void SetCachedSize(int size) const;
+  public:
+  
+  ::std::string GetTypeName() const;
+  
+  // nested types ----------------------------------------------------
+  
+  // accessors -------------------------------------------------------
+  
+  // optional int64 transaction_id = 1;
+  inline bool has_transaction_id() const;
+  inline void clear_transaction_id();
+  static const int kTransactionIdFieldNumber = 1;
+  inline ::google::protobuf::int64 transaction_id() const;
+  inline void set_transaction_id(::google::protobuf::int64 value);
+  
+  // repeated .Api.Proto.Mutation mutations = 2;
+  inline int mutations_size() const;
+  inline void clear_mutations();
+  static const int kMutationsFieldNumber = 2;
+  inline const ::Api::Proto::Mutation& mutations(int index) const;
+  inline ::Api::Proto::Mutation* mutable_mutations(int index);
+  inline ::Api::Proto::Mutation* add_mutations();
+  inline const ::google::protobuf::RepeatedPtrField< ::Api::Proto::Mutation >&
+      mutations() const;
+  inline ::google::protobuf::RepeatedPtrField< ::Api::Proto::Mutation >*
+      mutable_mutations();
+  
+  // repeated .Api.Proto.Constraint constraints = 3;
+  inline int constraints_size() const;
+  inline void clear_constraints();
+  static const int kConstraintsFieldNumber = 3;
+  inline const ::Api::Proto::Constraint& constraints(int index) const;
+  inline ::Api::Proto::Constraint* mutable_constraints(int index);
+  inline ::Api::Proto::Constraint* add_constraints();
+  inline const ::google::protobuf::RepeatedPtrField< ::Api::Proto::Constraint >&
+      constraints() const;
+  inline ::google::protobuf::RepeatedPtrField< ::Api::Proto::Constraint >*
+      mutable_constraints();
+  
+  // @@protoc_insertion_point(class_scope:Api.Proto.CqUpdate)
+ private:
+  inline void set_has_transaction_id();
+  inline void clear_has_transaction_id();
+  
+  ::google::protobuf::int64 transaction_id_;
+  ::google::protobuf::RepeatedPtrField< ::Api::Proto::Mutation > mutations_;
+  ::google::protobuf::RepeatedPtrField< ::Api::Proto::Constraint > constraints_;
+  
+  mutable int _cached_size_;
+  ::google::protobuf::uint32 _has_bits_[(3 + 31) / 32];
+  
+  friend void  protobuf_AddDesc_proto_2fApi_2eproto();
+  friend void protobuf_AssignDesc_proto_2fApi_2eproto();
+  friend void protobuf_ShutdownFile_proto_2fApi_2eproto();
+  
+  void InitAsDefaultInstance();
+  static CqUpdate* default_instance_;
+};
+// -------------------------------------------------------------------
+
+class CqApply : public ::google::protobuf::MessageLite {
+ public:
+  CqApply();
+  virtual ~CqApply();
+  
+  CqApply(const CqApply& from);
+  
+  inline CqApply& operator=(const CqApply& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  
+  static const CqApply& default_instance();
+  
+  void Swap(CqApply* other);
+  
+  // implements Message ----------------------------------------------
+  
+  CqApply* New() const;
+  void CheckTypeAndMergeFrom(const ::google::protobuf::MessageLite& from);
+  void CopyFrom(const CqApply& from);
+  void MergeFrom(const CqApply& from);
+  void Clear();
+  bool IsInitialized() const;
+  
+  int ByteSize() const;
+  bool MergePartialFromCodedStream(
+      ::google::protobuf::io::CodedInputStream* input);
+  void SerializeWithCachedSizes(
+      ::google::protobuf::io::CodedOutputStream* output) const;
+  int GetCachedSize() const { return _cached_size_; }
+  private:
+  void SharedCtor();
+  void SharedDtor();
+  void SetCachedSize(int size) const;
+  public:
+  
+  ::std::string GetTypeName() const;
+  
+  // nested types ----------------------------------------------------
+  
+  // accessors -------------------------------------------------------
+  
+  // optional int64 transaction_id = 1;
+  inline bool has_transaction_id() const;
+  inline void clear_transaction_id();
+  static const int kTransactionIdFieldNumber = 1;
+  inline ::google::protobuf::int64 transaction_id() const;
+  inline void set_transaction_id(::google::protobuf::int64 value);
+  
+  // optional bool do_submit = 2;
+  inline bool has_do_submit() const;
+  inline void clear_do_submit();
+  static const int kDoSubmitFieldNumber = 2;
+  inline bool do_submit() const;
+  inline void set_do_submit(bool value);
+  
+  // optional bool do_commit = 3;
+  inline bool has_do_commit() const;
+  inline void clear_do_commit();
+  static const int kDoCommitFieldNumber = 3;
+  inline bool do_commit() const;
+  inline void set_do_commit(bool value);
+  
+  // optional bool do_rollback = 4;
+  inline bool has_do_rollback() const;
+  inline void clear_do_rollback();
+  static const int kDoRollbackFieldNumber = 4;
+  inline bool do_rollback() const;
+  inline void set_do_rollback(bool value);
+  
+  // @@protoc_insertion_point(class_scope:Api.Proto.CqApply)
+ private:
+  inline void set_has_transaction_id();
+  inline void clear_has_transaction_id();
+  inline void set_has_do_submit();
+  inline void clear_has_do_submit();
+  inline void set_has_do_commit();
+  inline void clear_has_do_commit();
+  inline void set_has_do_rollback();
+  inline void clear_has_do_rollback();
+  
+  ::google::protobuf::int64 transaction_id_;
+  bool do_submit_;
+  bool do_commit_;
+  bool do_rollback_;
+  
+  mutable int _cached_size_;
+  ::google::protobuf::uint32 _has_bits_[(4 + 31) / 32];
+  
+  friend void  protobuf_AddDesc_proto_2fApi_2eproto();
+  friend void protobuf_AssignDesc_proto_2fApi_2eproto();
+  friend void protobuf_ShutdownFile_proto_2fApi_2eproto();
+  
+  void InitAsDefaultInstance();
+  static CqApply* default_instance_;
 };
 // -------------------------------------------------------------------
 
@@ -912,43 +1338,39 @@ class SrFin : public ::google::protobuf::MessageLite {
   
   // accessors -------------------------------------------------------
   
-  // optional bool success = 1;
-  inline bool has_success() const;
-  inline void clear_success();
-  static const int kSuccessFieldNumber = 1;
-  inline bool success() const;
-  inline void set_success(bool value);
+  // optional .Api.Proto.ErrorCode error = 1;
+  inline bool has_error() const;
+  inline void clear_error();
+  static const int kErrorFieldNumber = 1;
+  inline Api::Proto::ErrorCode error() const;
+  inline void set_error(Api::Proto::ErrorCode value);
   
-  // optional .Api.Proto.EnumErrors err_code = 2;
-  inline bool has_err_code() const;
-  inline void clear_err_code();
-  static const int kErrCodeFieldNumber = 2;
-  inline Api::Proto::EnumErrors err_code() const;
-  inline void set_err_code(Api::Proto::EnumErrors value);
+  // optional int64 transaction_id = 2;
+  inline bool has_transaction_id() const;
+  inline void clear_transaction_id();
+  static const int kTransactionIdFieldNumber = 2;
+  inline ::google::protobuf::int64 transaction_id() const;
+  inline void set_transaction_id(::google::protobuf::int64 value);
   
-  // optional string err_msg = 3;
-  inline bool has_err_msg() const;
-  inline void clear_err_msg();
-  static const int kErrMsgFieldNumber = 3;
-  inline const ::std::string& err_msg() const;
-  inline void set_err_msg(const ::std::string& value);
-  inline void set_err_msg(const char* value);
-  inline void set_err_msg(const char* value, size_t size);
-  inline ::std::string* mutable_err_msg();
-  inline ::std::string* release_err_msg();
+  // optional int64 sequence_id = 3;
+  inline bool has_sequence_id() const;
+  inline void clear_sequence_id();
+  static const int kSequenceIdFieldNumber = 3;
+  inline ::google::protobuf::int64 sequence_id() const;
+  inline void set_sequence_id(::google::protobuf::int64 value);
   
   // @@protoc_insertion_point(class_scope:Api.Proto.SrFin)
  private:
-  inline void set_has_success();
-  inline void clear_has_success();
-  inline void set_has_err_code();
-  inline void clear_has_err_code();
-  inline void set_has_err_msg();
-  inline void clear_has_err_msg();
+  inline void set_has_error();
+  inline void clear_has_error();
+  inline void set_has_transaction_id();
+  inline void clear_has_transaction_id();
+  inline void set_has_sequence_id();
+  inline void clear_has_sequence_id();
   
-  bool success_;
-  int err_code_;
-  ::std::string* err_msg_;
+  ::google::protobuf::int64 transaction_id_;
+  ::google::protobuf::int64 sequence_id_;
+  int error_;
   
   mutable int _cached_size_;
   ::google::protobuf::uint32 _has_bits_[(3 + 31) / 32];
@@ -1109,197 +1531,106 @@ class SrBlob : public ::google::protobuf::MessageLite {
   void InitAsDefaultInstance();
   static SrBlob* default_instance_;
 };
-// -------------------------------------------------------------------
-
-class SrShortTransact : public ::google::protobuf::MessageLite {
- public:
-  SrShortTransact();
-  virtual ~SrShortTransact();
-  
-  SrShortTransact(const SrShortTransact& from);
-  
-  inline SrShortTransact& operator=(const SrShortTransact& from) {
-    CopyFrom(from);
-    return *this;
-  }
-  
-  static const SrShortTransact& default_instance();
-  
-  void Swap(SrShortTransact* other);
-  
-  // implements Message ----------------------------------------------
-  
-  SrShortTransact* New() const;
-  void CheckTypeAndMergeFrom(const ::google::protobuf::MessageLite& from);
-  void CopyFrom(const SrShortTransact& from);
-  void MergeFrom(const SrShortTransact& from);
-  void Clear();
-  bool IsInitialized() const;
-  
-  int ByteSize() const;
-  bool MergePartialFromCodedStream(
-      ::google::protobuf::io::CodedInputStream* input);
-  void SerializeWithCachedSizes(
-      ::google::protobuf::io::CodedOutputStream* output) const;
-  int GetCachedSize() const { return _cached_size_; }
-  private:
-  void SharedCtor();
-  void SharedDtor();
-  void SetCachedSize(int size) const;
-  public:
-  
-  ::std::string GetTypeName() const;
-  
-  // nested types ----------------------------------------------------
-  
-  // accessors -------------------------------------------------------
-  
-  // optional int64 sequence_id = 1;
-  inline bool has_sequence_id() const;
-  inline void clear_sequence_id();
-  static const int kSequenceIdFieldNumber = 1;
-  inline ::google::protobuf::int64 sequence_id() const;
-  inline void set_sequence_id(::google::protobuf::int64 value);
-  
-  // @@protoc_insertion_point(class_scope:Api.Proto.SrShortTransact)
- private:
-  inline void set_has_sequence_id();
-  inline void clear_has_sequence_id();
-  
-  ::google::protobuf::int64 sequence_id_;
-  
-  mutable int _cached_size_;
-  ::google::protobuf::uint32 _has_bits_[(1 + 31) / 32];
-  
-  friend void  protobuf_AddDesc_proto_2fApi_2eproto();
-  friend void protobuf_AssignDesc_proto_2fApi_2eproto();
-  friend void protobuf_ShutdownFile_proto_2fApi_2eproto();
-  
-  void InitAsDefaultInstance();
-  static SrShortTransact* default_instance_;
-};
 // ===================================================================
 
 
 // ===================================================================
 
-// Update
+// Mutation
 
-// optional .Api.Proto.Actions action = 1;
-inline bool Update::has_action() const {
+// optional .Api.Proto.Mutation.Type type = 1;
+inline bool Mutation::has_type() const {
   return (_has_bits_[0] & 0x00000001u) != 0;
 }
-inline void Update::set_has_action() {
+inline void Mutation::set_has_type() {
   _has_bits_[0] |= 0x00000001u;
 }
-inline void Update::clear_has_action() {
+inline void Mutation::clear_has_type() {
   _has_bits_[0] &= ~0x00000001u;
 }
-inline void Update::clear_action() {
-  action_ = 0;
-  clear_has_action();
+inline void Mutation::clear_type() {
+  type_ = 0;
+  clear_has_type();
 }
-inline Api::Proto::Actions Update::action() const {
-  return static_cast< Api::Proto::Actions >(action_);
+inline ::Api::Proto::Mutation_Type Mutation::type() const {
+  return static_cast< ::Api::Proto::Mutation_Type >(type_);
 }
-inline void Update::set_action(Api::Proto::Actions value) {
-  GOOGLE_DCHECK(Api::Proto::Actions_IsValid(value));
-  set_has_action();
-  action_ = value;
+inline void Mutation::set_type(::Api::Proto::Mutation_Type value) {
+  GOOGLE_DCHECK(::Api::Proto::Mutation_Type_IsValid(value));
+  set_has_type();
+  type_ = value;
 }
 
-// optional int64 id = 2;
-inline bool Update::has_id() const {
+// optional int64 document_id = 2;
+inline bool Mutation::has_document_id() const {
   return (_has_bits_[0] & 0x00000002u) != 0;
 }
-inline void Update::set_has_id() {
+inline void Mutation::set_has_document_id() {
   _has_bits_[0] |= 0x00000002u;
 }
-inline void Update::clear_has_id() {
+inline void Mutation::clear_has_document_id() {
   _has_bits_[0] &= ~0x00000002u;
 }
-inline void Update::clear_id() {
-  id_ = GOOGLE_LONGLONG(0);
-  clear_has_id();
+inline void Mutation::clear_document_id() {
+  document_id_ = GOOGLE_LONGLONG(0);
+  clear_has_document_id();
 }
-inline ::google::protobuf::int64 Update::id() const {
-  return id_;
+inline ::google::protobuf::int64 Mutation::document_id() const {
+  return document_id_;
 }
-inline void Update::set_id(::google::protobuf::int64 value) {
-  set_has_id();
-  id_ = value;
+inline void Mutation::set_document_id(::google::protobuf::int64 value) {
+  set_has_document_id();
+  document_id_ = value;
 }
 
-// optional int32 storage_idx = 3;
-inline bool Update::has_storage_idx() const {
+// optional string storage_name = 3;
+inline bool Mutation::has_storage_name() const {
   return (_has_bits_[0] & 0x00000004u) != 0;
 }
-inline void Update::set_has_storage_idx() {
+inline void Mutation::set_has_storage_name() {
   _has_bits_[0] |= 0x00000004u;
 }
-inline void Update::clear_has_storage_idx() {
+inline void Mutation::clear_has_storage_name() {
   _has_bits_[0] &= ~0x00000004u;
 }
-inline void Update::clear_storage_idx() {
-  storage_idx_ = 0;
-  clear_has_storage_idx();
-}
-inline ::google::protobuf::int32 Update::storage_idx() const {
-  return storage_idx_;
-}
-inline void Update::set_storage_idx(::google::protobuf::int32 value) {
-  set_has_storage_idx();
-  storage_idx_ = value;
-}
-
-// optional string storage_name = 4;
-inline bool Update::has_storage_name() const {
-  return (_has_bits_[0] & 0x00000008u) != 0;
-}
-inline void Update::set_has_storage_name() {
-  _has_bits_[0] |= 0x00000008u;
-}
-inline void Update::clear_has_storage_name() {
-  _has_bits_[0] &= ~0x00000008u;
-}
-inline void Update::clear_storage_name() {
+inline void Mutation::clear_storage_name() {
   if (storage_name_ != &::google::protobuf::internal::kEmptyString) {
     storage_name_->clear();
   }
   clear_has_storage_name();
 }
-inline const ::std::string& Update::storage_name() const {
+inline const ::std::string& Mutation::storage_name() const {
   return *storage_name_;
 }
-inline void Update::set_storage_name(const ::std::string& value) {
+inline void Mutation::set_storage_name(const ::std::string& value) {
   set_has_storage_name();
   if (storage_name_ == &::google::protobuf::internal::kEmptyString) {
     storage_name_ = new ::std::string;
   }
   storage_name_->assign(value);
 }
-inline void Update::set_storage_name(const char* value) {
+inline void Mutation::set_storage_name(const char* value) {
   set_has_storage_name();
   if (storage_name_ == &::google::protobuf::internal::kEmptyString) {
     storage_name_ = new ::std::string;
   }
   storage_name_->assign(value);
 }
-inline void Update::set_storage_name(const char* value, size_t size) {
+inline void Mutation::set_storage_name(const char* value, size_t size) {
   set_has_storage_name();
   if (storage_name_ == &::google::protobuf::internal::kEmptyString) {
     storage_name_ = new ::std::string;
   }
   storage_name_->assign(reinterpret_cast<const char*>(value), size);
 }
-inline ::std::string* Update::mutable_storage_name() {
+inline ::std::string* Mutation::mutable_storage_name() {
   set_has_storage_name();
   if (storage_name_ == &::google::protobuf::internal::kEmptyString) {
     storage_name_ = new ::std::string;
   }
   return storage_name_;
 }
-inline ::std::string* Update::release_storage_name() {
+inline ::std::string* Mutation::release_storage_name() {
   clear_has_storage_name();
   if (storage_name_ == &::google::protobuf::internal::kEmptyString) {
     return NULL;
@@ -1310,54 +1641,54 @@ inline ::std::string* Update::release_storage_name() {
   }
 }
 
-// optional bytes buffer = 17;
-inline bool Update::has_buffer() const {
-  return (_has_bits_[0] & 0x00000010u) != 0;
+// optional bytes buffer = 4;
+inline bool Mutation::has_buffer() const {
+  return (_has_bits_[0] & 0x00000008u) != 0;
 }
-inline void Update::set_has_buffer() {
-  _has_bits_[0] |= 0x00000010u;
+inline void Mutation::set_has_buffer() {
+  _has_bits_[0] |= 0x00000008u;
 }
-inline void Update::clear_has_buffer() {
-  _has_bits_[0] &= ~0x00000010u;
+inline void Mutation::clear_has_buffer() {
+  _has_bits_[0] &= ~0x00000008u;
 }
-inline void Update::clear_buffer() {
+inline void Mutation::clear_buffer() {
   if (buffer_ != &::google::protobuf::internal::kEmptyString) {
     buffer_->clear();
   }
   clear_has_buffer();
 }
-inline const ::std::string& Update::buffer() const {
+inline const ::std::string& Mutation::buffer() const {
   return *buffer_;
 }
-inline void Update::set_buffer(const ::std::string& value) {
+inline void Mutation::set_buffer(const ::std::string& value) {
   set_has_buffer();
   if (buffer_ == &::google::protobuf::internal::kEmptyString) {
     buffer_ = new ::std::string;
   }
   buffer_->assign(value);
 }
-inline void Update::set_buffer(const char* value) {
+inline void Mutation::set_buffer(const char* value) {
   set_has_buffer();
   if (buffer_ == &::google::protobuf::internal::kEmptyString) {
     buffer_ = new ::std::string;
   }
   buffer_->assign(value);
 }
-inline void Update::set_buffer(const void* value, size_t size) {
+inline void Mutation::set_buffer(const void* value, size_t size) {
   set_has_buffer();
   if (buffer_ == &::google::protobuf::internal::kEmptyString) {
     buffer_ = new ::std::string;
   }
   buffer_->assign(reinterpret_cast<const char*>(value), size);
 }
-inline ::std::string* Update::mutable_buffer() {
+inline ::std::string* Mutation::mutable_buffer() {
   set_has_buffer();
   if (buffer_ == &::google::protobuf::internal::kEmptyString) {
     buffer_ = new ::std::string;
   }
   return buffer_;
 }
-inline ::std::string* Update::release_buffer() {
+inline ::std::string* Mutation::release_buffer() {
   clear_has_buffer();
   if (buffer_ == &::google::protobuf::internal::kEmptyString) {
     return NULL;
@@ -1366,6 +1697,179 @@ inline ::std::string* Update::release_buffer() {
     buffer_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
     return temp;
   }
+}
+
+// -------------------------------------------------------------------
+
+// Constraint
+
+// optional .Api.Proto.Constraint.Type type = 1;
+inline bool Constraint::has_type() const {
+  return (_has_bits_[0] & 0x00000001u) != 0;
+}
+inline void Constraint::set_has_type() {
+  _has_bits_[0] |= 0x00000001u;
+}
+inline void Constraint::clear_has_type() {
+  _has_bits_[0] &= ~0x00000001u;
+}
+inline void Constraint::clear_type() {
+  type_ = 0;
+  clear_has_type();
+}
+inline ::Api::Proto::Constraint_Type Constraint::type() const {
+  return static_cast< ::Api::Proto::Constraint_Type >(type_);
+}
+inline void Constraint::set_type(::Api::Proto::Constraint_Type value) {
+  GOOGLE_DCHECK(::Api::Proto::Constraint_Type_IsValid(value));
+  set_has_type();
+  type_ = value;
+}
+
+// optional string storage_name = 2;
+inline bool Constraint::has_storage_name() const {
+  return (_has_bits_[0] & 0x00000002u) != 0;
+}
+inline void Constraint::set_has_storage_name() {
+  _has_bits_[0] |= 0x00000002u;
+}
+inline void Constraint::clear_has_storage_name() {
+  _has_bits_[0] &= ~0x00000002u;
+}
+inline void Constraint::clear_storage_name() {
+  if (storage_name_ != &::google::protobuf::internal::kEmptyString) {
+    storage_name_->clear();
+  }
+  clear_has_storage_name();
+}
+inline const ::std::string& Constraint::storage_name() const {
+  return *storage_name_;
+}
+inline void Constraint::set_storage_name(const ::std::string& value) {
+  set_has_storage_name();
+  if (storage_name_ == &::google::protobuf::internal::kEmptyString) {
+    storage_name_ = new ::std::string;
+  }
+  storage_name_->assign(value);
+}
+inline void Constraint::set_storage_name(const char* value) {
+  set_has_storage_name();
+  if (storage_name_ == &::google::protobuf::internal::kEmptyString) {
+    storage_name_ = new ::std::string;
+  }
+  storage_name_->assign(value);
+}
+inline void Constraint::set_storage_name(const char* value, size_t size) {
+  set_has_storage_name();
+  if (storage_name_ == &::google::protobuf::internal::kEmptyString) {
+    storage_name_ = new ::std::string;
+  }
+  storage_name_->assign(reinterpret_cast<const char*>(value), size);
+}
+inline ::std::string* Constraint::mutable_storage_name() {
+  set_has_storage_name();
+  if (storage_name_ == &::google::protobuf::internal::kEmptyString) {
+    storage_name_ = new ::std::string;
+  }
+  return storage_name_;
+}
+inline ::std::string* Constraint::release_storage_name() {
+  clear_has_storage_name();
+  if (storage_name_ == &::google::protobuf::internal::kEmptyString) {
+    return NULL;
+  } else {
+    ::std::string* temp = storage_name_;
+    storage_name_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
+    return temp;
+  }
+}
+
+// optional int64 document_id = 3;
+inline bool Constraint::has_document_id() const {
+  return (_has_bits_[0] & 0x00000004u) != 0;
+}
+inline void Constraint::set_has_document_id() {
+  _has_bits_[0] |= 0x00000004u;
+}
+inline void Constraint::clear_has_document_id() {
+  _has_bits_[0] &= ~0x00000004u;
+}
+inline void Constraint::clear_document_id() {
+  document_id_ = GOOGLE_LONGLONG(0);
+  clear_has_document_id();
+}
+inline ::google::protobuf::int64 Constraint::document_id() const {
+  return document_id_;
+}
+inline void Constraint::set_document_id(::google::protobuf::int64 value) {
+  set_has_document_id();
+  document_id_ = value;
+}
+
+// optional int64 sequence_id = 4;
+inline bool Constraint::has_sequence_id() const {
+  return (_has_bits_[0] & 0x00000008u) != 0;
+}
+inline void Constraint::set_has_sequence_id() {
+  _has_bits_[0] |= 0x00000008u;
+}
+inline void Constraint::clear_has_sequence_id() {
+  _has_bits_[0] &= ~0x00000008u;
+}
+inline void Constraint::clear_sequence_id() {
+  sequence_id_ = GOOGLE_LONGLONG(0);
+  clear_has_sequence_id();
+}
+inline ::google::protobuf::int64 Constraint::sequence_id() const {
+  return sequence_id_;
+}
+inline void Constraint::set_sequence_id(::google::protobuf::int64 value) {
+  set_has_sequence_id();
+  sequence_id_ = value;
+}
+
+// optional bool must_exist = 5;
+inline bool Constraint::has_must_exist() const {
+  return (_has_bits_[0] & 0x00000010u) != 0;
+}
+inline void Constraint::set_has_must_exist() {
+  _has_bits_[0] |= 0x00000010u;
+}
+inline void Constraint::clear_has_must_exist() {
+  _has_bits_[0] &= ~0x00000010u;
+}
+inline void Constraint::clear_must_exist() {
+  must_exist_ = false;
+  clear_has_must_exist();
+}
+inline bool Constraint::must_exist() const {
+  return must_exist_;
+}
+inline void Constraint::set_must_exist(bool value) {
+  set_has_must_exist();
+  must_exist_ = value;
+}
+
+// optional bool match_sequence_id = 6;
+inline bool Constraint::has_match_sequence_id() const {
+  return (_has_bits_[0] & 0x00000020u) != 0;
+}
+inline void Constraint::set_has_match_sequence_id() {
+  _has_bits_[0] |= 0x00000020u;
+}
+inline void Constraint::clear_has_match_sequence_id() {
+  _has_bits_[0] &= ~0x00000020u;
+}
+inline void Constraint::clear_match_sequence_id() {
+  match_sequence_id_ = false;
+  clear_has_match_sequence_id();
+}
+inline bool Constraint::match_sequence_id() const {
+  return match_sequence_id_;
+}
+inline void Constraint::set_match_sequence_id(bool value) {
+  set_has_match_sequence_id();
+  match_sequence_id_ = value;
 }
 
 // -------------------------------------------------------------------
@@ -1638,29 +2142,226 @@ inline void CqQuery::set_limit(::google::protobuf::uint32 value) {
 
 // CqShortTransact
 
-// repeated .Api.Proto.Update updates = 2;
-inline int CqShortTransact::updates_size() const {
-  return updates_.size();
+// repeated .Api.Proto.Mutation mutations = 1;
+inline int CqShortTransact::mutations_size() const {
+  return mutations_.size();
 }
-inline void CqShortTransact::clear_updates() {
-  updates_.Clear();
+inline void CqShortTransact::clear_mutations() {
+  mutations_.Clear();
 }
-inline const ::Api::Proto::Update& CqShortTransact::updates(int index) const {
-  return updates_.Get(index);
+inline const ::Api::Proto::Mutation& CqShortTransact::mutations(int index) const {
+  return mutations_.Get(index);
 }
-inline ::Api::Proto::Update* CqShortTransact::mutable_updates(int index) {
-  return updates_.Mutable(index);
+inline ::Api::Proto::Mutation* CqShortTransact::mutable_mutations(int index) {
+  return mutations_.Mutable(index);
 }
-inline ::Api::Proto::Update* CqShortTransact::add_updates() {
-  return updates_.Add();
+inline ::Api::Proto::Mutation* CqShortTransact::add_mutations() {
+  return mutations_.Add();
 }
-inline const ::google::protobuf::RepeatedPtrField< ::Api::Proto::Update >&
-CqShortTransact::updates() const {
-  return updates_;
+inline const ::google::protobuf::RepeatedPtrField< ::Api::Proto::Mutation >&
+CqShortTransact::mutations() const {
+  return mutations_;
 }
-inline ::google::protobuf::RepeatedPtrField< ::Api::Proto::Update >*
-CqShortTransact::mutable_updates() {
-  return &updates_;
+inline ::google::protobuf::RepeatedPtrField< ::Api::Proto::Mutation >*
+CqShortTransact::mutable_mutations() {
+  return &mutations_;
+}
+
+// repeated .Api.Proto.Constraint constraints = 2;
+inline int CqShortTransact::constraints_size() const {
+  return constraints_.size();
+}
+inline void CqShortTransact::clear_constraints() {
+  constraints_.Clear();
+}
+inline const ::Api::Proto::Constraint& CqShortTransact::constraints(int index) const {
+  return constraints_.Get(index);
+}
+inline ::Api::Proto::Constraint* CqShortTransact::mutable_constraints(int index) {
+  return constraints_.Mutable(index);
+}
+inline ::Api::Proto::Constraint* CqShortTransact::add_constraints() {
+  return constraints_.Add();
+}
+inline const ::google::protobuf::RepeatedPtrField< ::Api::Proto::Constraint >&
+CqShortTransact::constraints() const {
+  return constraints_;
+}
+inline ::google::protobuf::RepeatedPtrField< ::Api::Proto::Constraint >*
+CqShortTransact::mutable_constraints() {
+  return &constraints_;
+}
+
+// -------------------------------------------------------------------
+
+// CqTransaction
+
+// -------------------------------------------------------------------
+
+// CqUpdate
+
+// optional int64 transaction_id = 1;
+inline bool CqUpdate::has_transaction_id() const {
+  return (_has_bits_[0] & 0x00000001u) != 0;
+}
+inline void CqUpdate::set_has_transaction_id() {
+  _has_bits_[0] |= 0x00000001u;
+}
+inline void CqUpdate::clear_has_transaction_id() {
+  _has_bits_[0] &= ~0x00000001u;
+}
+inline void CqUpdate::clear_transaction_id() {
+  transaction_id_ = GOOGLE_LONGLONG(0);
+  clear_has_transaction_id();
+}
+inline ::google::protobuf::int64 CqUpdate::transaction_id() const {
+  return transaction_id_;
+}
+inline void CqUpdate::set_transaction_id(::google::protobuf::int64 value) {
+  set_has_transaction_id();
+  transaction_id_ = value;
+}
+
+// repeated .Api.Proto.Mutation mutations = 2;
+inline int CqUpdate::mutations_size() const {
+  return mutations_.size();
+}
+inline void CqUpdate::clear_mutations() {
+  mutations_.Clear();
+}
+inline const ::Api::Proto::Mutation& CqUpdate::mutations(int index) const {
+  return mutations_.Get(index);
+}
+inline ::Api::Proto::Mutation* CqUpdate::mutable_mutations(int index) {
+  return mutations_.Mutable(index);
+}
+inline ::Api::Proto::Mutation* CqUpdate::add_mutations() {
+  return mutations_.Add();
+}
+inline const ::google::protobuf::RepeatedPtrField< ::Api::Proto::Mutation >&
+CqUpdate::mutations() const {
+  return mutations_;
+}
+inline ::google::protobuf::RepeatedPtrField< ::Api::Proto::Mutation >*
+CqUpdate::mutable_mutations() {
+  return &mutations_;
+}
+
+// repeated .Api.Proto.Constraint constraints = 3;
+inline int CqUpdate::constraints_size() const {
+  return constraints_.size();
+}
+inline void CqUpdate::clear_constraints() {
+  constraints_.Clear();
+}
+inline const ::Api::Proto::Constraint& CqUpdate::constraints(int index) const {
+  return constraints_.Get(index);
+}
+inline ::Api::Proto::Constraint* CqUpdate::mutable_constraints(int index) {
+  return constraints_.Mutable(index);
+}
+inline ::Api::Proto::Constraint* CqUpdate::add_constraints() {
+  return constraints_.Add();
+}
+inline const ::google::protobuf::RepeatedPtrField< ::Api::Proto::Constraint >&
+CqUpdate::constraints() const {
+  return constraints_;
+}
+inline ::google::protobuf::RepeatedPtrField< ::Api::Proto::Constraint >*
+CqUpdate::mutable_constraints() {
+  return &constraints_;
+}
+
+// -------------------------------------------------------------------
+
+// CqApply
+
+// optional int64 transaction_id = 1;
+inline bool CqApply::has_transaction_id() const {
+  return (_has_bits_[0] & 0x00000001u) != 0;
+}
+inline void CqApply::set_has_transaction_id() {
+  _has_bits_[0] |= 0x00000001u;
+}
+inline void CqApply::clear_has_transaction_id() {
+  _has_bits_[0] &= ~0x00000001u;
+}
+inline void CqApply::clear_transaction_id() {
+  transaction_id_ = GOOGLE_LONGLONG(0);
+  clear_has_transaction_id();
+}
+inline ::google::protobuf::int64 CqApply::transaction_id() const {
+  return transaction_id_;
+}
+inline void CqApply::set_transaction_id(::google::protobuf::int64 value) {
+  set_has_transaction_id();
+  transaction_id_ = value;
+}
+
+// optional bool do_submit = 2;
+inline bool CqApply::has_do_submit() const {
+  return (_has_bits_[0] & 0x00000002u) != 0;
+}
+inline void CqApply::set_has_do_submit() {
+  _has_bits_[0] |= 0x00000002u;
+}
+inline void CqApply::clear_has_do_submit() {
+  _has_bits_[0] &= ~0x00000002u;
+}
+inline void CqApply::clear_do_submit() {
+  do_submit_ = false;
+  clear_has_do_submit();
+}
+inline bool CqApply::do_submit() const {
+  return do_submit_;
+}
+inline void CqApply::set_do_submit(bool value) {
+  set_has_do_submit();
+  do_submit_ = value;
+}
+
+// optional bool do_commit = 3;
+inline bool CqApply::has_do_commit() const {
+  return (_has_bits_[0] & 0x00000004u) != 0;
+}
+inline void CqApply::set_has_do_commit() {
+  _has_bits_[0] |= 0x00000004u;
+}
+inline void CqApply::clear_has_do_commit() {
+  _has_bits_[0] &= ~0x00000004u;
+}
+inline void CqApply::clear_do_commit() {
+  do_commit_ = false;
+  clear_has_do_commit();
+}
+inline bool CqApply::do_commit() const {
+  return do_commit_;
+}
+inline void CqApply::set_do_commit(bool value) {
+  set_has_do_commit();
+  do_commit_ = value;
+}
+
+// optional bool do_rollback = 4;
+inline bool CqApply::has_do_rollback() const {
+  return (_has_bits_[0] & 0x00000008u) != 0;
+}
+inline void CqApply::set_has_do_rollback() {
+  _has_bits_[0] |= 0x00000008u;
+}
+inline void CqApply::clear_has_do_rollback() {
+  _has_bits_[0] &= ~0x00000008u;
+}
+inline void CqApply::clear_do_rollback() {
+  do_rollback_ = false;
+  clear_has_do_rollback();
+}
+inline bool CqApply::do_rollback() const {
+  return do_rollback_;
+}
+inline void CqApply::set_do_rollback(bool value) {
+  set_has_do_rollback();
+  do_rollback_ = value;
 }
 
 // -------------------------------------------------------------------
@@ -2039,107 +2740,71 @@ inline ::std::string* CqDownloadExtern::release_file_name() {
 
 // SrFin
 
-// optional bool success = 1;
-inline bool SrFin::has_success() const {
+// optional .Api.Proto.ErrorCode error = 1;
+inline bool SrFin::has_error() const {
   return (_has_bits_[0] & 0x00000001u) != 0;
 }
-inline void SrFin::set_has_success() {
+inline void SrFin::set_has_error() {
   _has_bits_[0] |= 0x00000001u;
 }
-inline void SrFin::clear_has_success() {
+inline void SrFin::clear_has_error() {
   _has_bits_[0] &= ~0x00000001u;
 }
-inline void SrFin::clear_success() {
-  success_ = false;
-  clear_has_success();
+inline void SrFin::clear_error() {
+  error_ = 0;
+  clear_has_error();
 }
-inline bool SrFin::success() const {
-  return success_;
+inline Api::Proto::ErrorCode SrFin::error() const {
+  return static_cast< Api::Proto::ErrorCode >(error_);
 }
-inline void SrFin::set_success(bool value) {
-  set_has_success();
-  success_ = value;
+inline void SrFin::set_error(Api::Proto::ErrorCode value) {
+  GOOGLE_DCHECK(Api::Proto::ErrorCode_IsValid(value));
+  set_has_error();
+  error_ = value;
 }
 
-// optional .Api.Proto.EnumErrors err_code = 2;
-inline bool SrFin::has_err_code() const {
+// optional int64 transaction_id = 2;
+inline bool SrFin::has_transaction_id() const {
   return (_has_bits_[0] & 0x00000002u) != 0;
 }
-inline void SrFin::set_has_err_code() {
+inline void SrFin::set_has_transaction_id() {
   _has_bits_[0] |= 0x00000002u;
 }
-inline void SrFin::clear_has_err_code() {
+inline void SrFin::clear_has_transaction_id() {
   _has_bits_[0] &= ~0x00000002u;
 }
-inline void SrFin::clear_err_code() {
-  err_code_ = 0;
-  clear_has_err_code();
+inline void SrFin::clear_transaction_id() {
+  transaction_id_ = GOOGLE_LONGLONG(0);
+  clear_has_transaction_id();
 }
-inline Api::Proto::EnumErrors SrFin::err_code() const {
-  return static_cast< Api::Proto::EnumErrors >(err_code_);
+inline ::google::protobuf::int64 SrFin::transaction_id() const {
+  return transaction_id_;
 }
-inline void SrFin::set_err_code(Api::Proto::EnumErrors value) {
-  GOOGLE_DCHECK(Api::Proto::EnumErrors_IsValid(value));
-  set_has_err_code();
-  err_code_ = value;
+inline void SrFin::set_transaction_id(::google::protobuf::int64 value) {
+  set_has_transaction_id();
+  transaction_id_ = value;
 }
 
-// optional string err_msg = 3;
-inline bool SrFin::has_err_msg() const {
+// optional int64 sequence_id = 3;
+inline bool SrFin::has_sequence_id() const {
   return (_has_bits_[0] & 0x00000004u) != 0;
 }
-inline void SrFin::set_has_err_msg() {
+inline void SrFin::set_has_sequence_id() {
   _has_bits_[0] |= 0x00000004u;
 }
-inline void SrFin::clear_has_err_msg() {
+inline void SrFin::clear_has_sequence_id() {
   _has_bits_[0] &= ~0x00000004u;
 }
-inline void SrFin::clear_err_msg() {
-  if (err_msg_ != &::google::protobuf::internal::kEmptyString) {
-    err_msg_->clear();
-  }
-  clear_has_err_msg();
+inline void SrFin::clear_sequence_id() {
+  sequence_id_ = GOOGLE_LONGLONG(0);
+  clear_has_sequence_id();
 }
-inline const ::std::string& SrFin::err_msg() const {
-  return *err_msg_;
+inline ::google::protobuf::int64 SrFin::sequence_id() const {
+  return sequence_id_;
 }
-inline void SrFin::set_err_msg(const ::std::string& value) {
-  set_has_err_msg();
-  if (err_msg_ == &::google::protobuf::internal::kEmptyString) {
-    err_msg_ = new ::std::string;
-  }
-  err_msg_->assign(value);
-}
-inline void SrFin::set_err_msg(const char* value) {
-  set_has_err_msg();
-  if (err_msg_ == &::google::protobuf::internal::kEmptyString) {
-    err_msg_ = new ::std::string;
-  }
-  err_msg_->assign(value);
-}
-inline void SrFin::set_err_msg(const char* value, size_t size) {
-  set_has_err_msg();
-  if (err_msg_ == &::google::protobuf::internal::kEmptyString) {
-    err_msg_ = new ::std::string;
-  }
-  err_msg_->assign(reinterpret_cast<const char*>(value), size);
-}
-inline ::std::string* SrFin::mutable_err_msg() {
-  set_has_err_msg();
-  if (err_msg_ == &::google::protobuf::internal::kEmptyString) {
-    err_msg_ = new ::std::string;
-  }
-  return err_msg_;
-}
-inline ::std::string* SrFin::release_err_msg() {
-  clear_has_err_msg();
-  if (err_msg_ == &::google::protobuf::internal::kEmptyString) {
-    return NULL;
-  } else {
-    ::std::string* temp = err_msg_;
-    err_msg_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
-    return temp;
-  }
+inline void SrFin::set_sequence_id(::google::protobuf::int64 value) {
+  set_has_sequence_id();
+  sequence_id_ = value;
 }
 
 // -------------------------------------------------------------------
@@ -2250,32 +2915,6 @@ inline ::std::string* SrBlob::release_buffer() {
     buffer_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
     return temp;
   }
-}
-
-// -------------------------------------------------------------------
-
-// SrShortTransact
-
-// optional int64 sequence_id = 1;
-inline bool SrShortTransact::has_sequence_id() const {
-  return (_has_bits_[0] & 0x00000001u) != 0;
-}
-inline void SrShortTransact::set_has_sequence_id() {
-  _has_bits_[0] |= 0x00000001u;
-}
-inline void SrShortTransact::clear_has_sequence_id() {
-  _has_bits_[0] &= ~0x00000001u;
-}
-inline void SrShortTransact::clear_sequence_id() {
-  sequence_id_ = GOOGLE_LONGLONG(0);
-  clear_has_sequence_id();
-}
-inline ::google::protobuf::int64 SrShortTransact::sequence_id() const {
-  return sequence_id_;
-}
-inline void SrShortTransact::set_sequence_id(::google::protobuf::int64 value) {
-  set_has_sequence_id();
-  sequence_id_ = value;
 }
 
 

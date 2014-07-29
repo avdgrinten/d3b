@@ -61,9 +61,14 @@ void Server::Connection::onReadTls(int size, const char *buffer) {
 				p_curPacket.opcode = OS::unpackLe32(p_headBuffer + PacketHead::kOpcode);
 				p_curPacket.length = OS::unpackLe32(p_headBuffer + PacketHead::kLength);
 				p_curPacket.seqNumber = OS::unpackLe32(p_headBuffer + PacketHead::kResponseId);
-				p_bodyBuffer = new char[p_curPacket.length];
+
 				p_readOffset = 0;
-				p_validHead = true;
+				if(p_curPacket.length == 0) {
+					processMessage();
+				}else{
+					p_bodyBuffer = new char[p_curPacket.length];
+					p_validHead = true;
+				}
 			}
 		}else{
 			//FIXME: ugly cast
@@ -114,6 +119,211 @@ void Server::Connection::onClose() {
 	std::cout << "Connection closed" << std::endl;
 }
 
+void Server::Connection::processMessage() {
+	uint32_t seq_number = p_curPacket.seqNumber;
+	//std::cout << "Message: " << p_curPacket.opcode << std::endl;
+
+	Db::Engine *engine = p_server->getEngine();
+	if(p_curPacket.opcode == Proto::kCqQuery) {
+		auto closure = new QueryClosure(engine, this, p_curPacket.seqNumber);
+		closure->execute(p_curPacket.length, p_bodyBuffer);
+	}else if(p_curPacket.opcode == Proto::kCqShortTransact) {
+		auto closure = new ShortTransactClosure(engine, this, p_curPacket.seqNumber);
+		closure->execute(p_curPacket.length, p_bodyBuffer);
+	}else if(p_curPacket.opcode == Proto::kCqTransaction) {
+		Proto::CqTransaction request;
+		if(!request.ParseFromArray(p_bodyBuffer, p_curPacket.length)) {
+			Proto::SrFin response;
+			response.set_error(Proto::kCodeParseError);
+			postResponse(Proto::kSrFin, p_curPacket.seqNumber, response);
+			return;
+		}
+
+		Db::TransactionId transaction_id = engine->transaction();
+
+		Proto::SrFin response;
+		response.set_error(Proto::kCodeSuccess);
+		response.set_transaction_id(transaction_id);
+		postResponse(Proto::kSrFin, p_curPacket.seqNumber, response);
+	}else if(p_curPacket.opcode == Proto::kCqUpdate) {
+		Proto::CqUpdate request;
+		if(!request.ParseFromArray(p_bodyBuffer, p_curPacket.length)) {
+			Proto::SrFin response;
+			response.set_error(Proto::kCodeParseError);
+			postResponse(Proto::kSrFin, p_curPacket.seqNumber, response);
+			return;
+		}
+	
+		for(int i = 0; i < request.mutations_size(); i++) {
+			const Proto::Mutation &pb_mutation = request.mutations(i);
+
+			Db::Mutation mutation;
+			parseMutation(mutation, pb_mutation);
+			engine->updateMutation(request.transaction_id(), mutation);
+		}
+		
+		for(int i = 0; i < request.constraints_size(); i++) {
+			const Proto::Constraint &pb_constraint = request.constraints(i);
+
+			Db::Constraint constraint;
+			parseConstraint(constraint, pb_constraint);
+			engine->updateConstraint(request.transaction_id(), constraint);
+		}
+
+		Proto::SrFin response;
+		response.set_error(Proto::kCodeSuccess);
+		postResponse(Proto::kSrFin, p_curPacket.seqNumber, response);
+	}else if(p_curPacket.opcode == Proto::kCqApply) {
+		auto closure = new ApplyClosure(engine, this, p_curPacket.seqNumber);
+		closure->execute(p_curPacket.length, p_bodyBuffer);
+	}else if(p_curPacket.opcode == Proto::kCqCreateStorage) {
+		Proto::CqCreateStorage request;
+		if(!request.ParseFromArray(p_bodyBuffer, p_curPacket.length)) {
+			Proto::SrFin response;
+			response.set_error(Proto::kCodeParseError);
+			postResponse(Proto::kSrFin, seq_number, response);
+			return;
+		}
+
+		engine->createStorage(request.config());
+		
+		Proto::SrFin response;
+		postResponse(Proto::kSrFin, seq_number, response);
+	}else if(p_curPacket.opcode == Proto::kCqCreateView) {
+		Proto::CqCreateView request;
+		if(!request.ParseFromArray(p_bodyBuffer, p_curPacket.length)) {
+			Proto::SrFin response;
+			response.set_error(Proto::kCodeParseError);
+			postResponse(Proto::kSrFin, seq_number, response);
+			return;
+		}
+
+		engine->createView(request.config());
+		
+		Proto::SrFin response;
+		postResponse(Proto::kSrFin, seq_number, response);
+	}else if(p_curPacket.opcode == Proto::kCqUnlinkStorage) {
+		Proto::CqUnlinkStorage request;
+		if(!request.ParseFromArray(p_bodyBuffer, p_curPacket.length)) {
+			Proto::SrFin response;
+			response.set_error(Proto::kCodeParseError);
+			postResponse(Proto::kSrFin, seq_number, response);
+			return;
+		}
+		
+		int index = engine->getStorage(request.identifier());
+		engine->unlinkStorage(index);
+		
+		Proto::SrFin response;
+		postResponse(Proto::kSrFin, seq_number, response);
+	}else if(p_curPacket.opcode == Proto::kCqUnlinkView) {
+		Proto::CqUnlinkView request;
+		if(!request.ParseFromArray(p_bodyBuffer, p_curPacket.length)) {
+			Proto::SrFin response;
+			response.set_error(Proto::kCodeParseError);
+			postResponse(Proto::kSrFin, seq_number, response);
+			return;
+		}
+		
+		int index = engine->getView(request.identifier());
+		engine->unlinkView(index);
+		
+		Proto::SrFin response;
+		postResponse(Proto::kSrFin, seq_number, response);
+	}else if(p_curPacket.opcode == Proto::kCqUploadExtern) {
+		Proto::CqUploadExtern request;
+		if(!request.ParseFromArray(p_bodyBuffer, p_curPacket.length)) {
+			Proto::SrFin response;
+			response.set_error(Proto::kCodeParseError);
+			postResponse(Proto::kSrFin, seq_number, response);
+			return;
+		}
+		
+		auto fd = osIntf->createFile();
+		fd->openSync(engine->getPath() + "/extern/" + request.file_name(),
+				Linux::kFileCreate | Linux::kFileTrunc | Linux::kFileWrite);
+		fd->pwriteSync(0, request.buffer().length(), request.buffer().c_str());
+		fd->closeSync();
+		
+		Proto::SrFin response;
+		postResponse(Proto::kSrFin, seq_number, response);
+	}else if(p_curPacket.opcode == Proto::kCqDownloadExtern) {
+		Proto::CqDownloadExtern request;
+		if(!request.ParseFromArray(p_bodyBuffer, p_curPacket.length)) {
+			Proto::SrFin response;
+			response.set_error(Proto::kCodeParseError);
+			postResponse(Proto::kSrFin, seq_number, response);
+			return;
+		}
+		
+		auto fd = osIntf->createFile();
+		fd->openSync(engine->getPath() + "/extern/" + request.file_name(),
+				Linux::kFileRead);
+		Linux::size_type length = fd->lengthSync();
+		
+		char *buffer = new char[length];
+		fd->preadSync(0, length, buffer);
+		fd->closeSync();
+		
+		Proto::SrBlob blob_resp;
+		blob_resp.set_buffer(std::string(buffer, length));
+		postResponse(Proto::kSrBlob, seq_number, blob_resp);
+		delete[] buffer;
+		
+		Proto::SrFin fin_resp;
+		postResponse(Proto::kSrFin, seq_number, fin_resp);
+	}else{
+		Proto::SrFin response;
+		response.set_error(Proto::kCodeIllegalRequest);
+		postResponse(Proto::kSrFin, seq_number, response);
+	}
+}
+
+void Server::Connection::parseMutation(Db::Mutation &mutation, const Proto::Mutation &pb_mutation) {
+	auto engine = p_server->getEngine();
+	if(pb_mutation.type() == Proto::Mutation::kTypeInsert) {
+		mutation.type = Db::Mutation::kTypeInsert;
+		mutation.storageIndex = engine->getStorage(pb_mutation.storage_name());
+		mutation.buffer = pb_mutation.buffer();
+	}else if(pb_mutation.type() == Proto::Mutation::kTypeModify) {
+		mutation.type = Db::Mutation::kTypeModify;
+		mutation.storageIndex = engine->getStorage(pb_mutation.storage_name());
+		mutation.documentId = pb_mutation.document_id();
+		mutation.buffer = pb_mutation.buffer();
+	}else throw std::runtime_error("Illegal mutation type");
+}
+
+void Server::Connection::parseConstraint(Db::Constraint &constraint, const Proto::Constraint &pb_constraint) {
+	auto engine = p_server->getEngine();
+	if(pb_constraint.type() == Proto::Constraint::kTypeDocumentState) {
+		constraint.type = Db::Constraint::kTypeDocumentState;
+		constraint.storageIndex = engine->getStorage(pb_constraint.storage_name());
+		constraint.documentId = pb_constraint.document_id();
+		constraint.sequenceId = pb_constraint.sequence_id();
+		constraint.mustExist = pb_constraint.must_exist();
+		constraint.matchSequenceId = pb_constraint.match_sequence_id();
+	}else throw std::runtime_error("Illegal constraint type");
+}
+
+Server::Server(Db::Engine *engine) : p_engine(engine) {
+}
+
+void Server::start() {
+	p_sockServer = osIntf->createSockServer();
+	
+	p_sockServer->onConnect(ASYNC_MEMBER(this, &Server::p_onConnect));
+	p_sockServer->listen(7963);
+}
+
+void Server::p_onConnect(Linux::SockStream *stream) {
+	Connection *connection = new Connection(this, stream);
+	connection->processWrite();
+}
+
+// --------------------------------------------------------
+// QueryClosure
+// --------------------------------------------------------
+
 Server::QueryClosure::QueryClosure(Db::Engine *engine, Connection *connection,
 		ResponseId response_id)
 	: p_engine(engine), p_connection(connection), p_responseId(response_id) { }
@@ -122,9 +332,10 @@ void Server::QueryClosure::execute(size_t packet_size, const void *packet_buffer
 	Proto::CqQuery request;
 	if(!request.ParseFromArray(packet_buffer, packet_size)) {
 		Proto::SrFin response;
-		response.set_success(false);
-		response.set_err_code(Proto::kErrIllegalRequest);
+		response.set_error(Proto::kCodeParseError);
 		p_connection->postResponse(Proto::kSrFin, p_responseId, response);
+		
+		delete this;
 		return;
 	}
 	
@@ -154,215 +365,148 @@ void Server::QueryClosure::onData(Db::QueryData &rows) {
 		response.add_row_data(rows.items[i]);
 	p_connection->postResponse(Proto::kSrRows, p_responseId, response);
 }
-void Server::QueryClosure::complete(Error error) {
-	// FIXME: don't ignore error value
-	Proto::SrFin response;
-	p_connection->postResponse(Proto::kSrFin, p_responseId, response);
+void Server::QueryClosure::complete(Db::QueryError error) {
+	if(error == Db::kQuerySuccess) {
+		Proto::SrFin response;
+		response.set_error(Proto::kCodeSuccess);
+		p_connection->postResponse(Proto::kSrFin, p_responseId, response);
+	}else throw std::logic_error("Unexpected error during query");
 
 	delete this;
 }
 
+// --------------------------------------------------------
+// ShortTransactClosure
+// --------------------------------------------------------
+
 Server::ShortTransactClosure::ShortTransactClosure(Db::Engine *engine, Connection *connection,
 		ResponseId response_id)
-	: p_engine(engine), p_connection(connection), p_responseId(response_id),
-	p_updatedMutationsCount(0) { }
+	: p_engine(engine), p_connection(connection), p_responseId(response_id) { }
 
 void Server::ShortTransactClosure::execute(size_t packet_size, const void *packet_buffer) {
 	Proto::CqShortTransact request;
 	if(!request.ParseFromArray(packet_buffer, packet_size)) {
 		Proto::SrFin response;
-		response.set_success(false);
-		response.set_err_code(Proto::kErrIllegalRequest);
+		response.set_error(Proto::kCodeParseError);
 		p_connection->postResponse(Proto::kSrFin, p_responseId, response);
+
+		delete this;
 		return;
 	}
 
-	for(int i = 0; i < request.updates_size(); i++) {
-		const Proto::Update &update = request.updates(i);
+	p_transactionId = p_engine->transaction();
+
+	for(int i = 0; i < request.mutations_size(); i++) {
+		const Proto::Mutation &pb_mutation = request.mutations(i);
 
 		Db::Mutation mutation;
-		if(update.action() == Proto::Actions::kActInsert) {
-			mutation.type = Db::Mutation::kTypeInsert;
-			mutation.storageIndex = p_engine->getStorage(update.storage_name());
-			mutation.buffer = update.buffer();
-		}else if(update.action() == Proto::Actions::kActUpdate) {
-			mutation.type = Db::Mutation::kTypeModify;
-			mutation.storageIndex = p_engine->getStorage(update.storage_name());
-			mutation.documentId = update.id();
-			mutation.buffer = update.buffer();
-		}else throw std::runtime_error("Illegal update type");
-		p_mutations.push_back(mutation);
+		p_connection->parseMutation(mutation, pb_mutation);
+		p_engine->updateMutation(p_transactionId, mutation);
+	}
+	
+	for(int i = 0; i < request.constraints_size(); i++) {
+		const Proto::Constraint &pb_constraint = request.constraints(i);
+
+		Db::Constraint constraint;
+		p_connection->parseConstraint(constraint, pb_constraint);
+		p_engine->updateConstraint(p_transactionId, constraint);
 	}
 
-	p_engine->transaction(ASYNC_MEMBER(this, &ShortTransactClosure::onTransaction));
+	p_engine->submit(p_transactionId,
+			ASYNC_MEMBER(this, &ShortTransactClosure::onSubmit));
 };
-void Server::ShortTransactClosure::onTransaction(Error error,
-		Db::TransactionId transaction_id) {
-	p_transactionId = transaction_id;
-	updateMutation();
-}
-void Server::ShortTransactClosure::updateMutation() {
-	if(p_updatedMutationsCount == p_mutations.size()) {
-		p_engine->submit(p_transactionId,
-				ASYNC_MEMBER(this, &ShortTransactClosure::onSubmit));
-	}else{
-		p_engine->updateMutation(p_transactionId,
-				p_mutations[p_updatedMutationsCount],
-				ASYNC_MEMBER(this, &ShortTransactClosure::onUpdateMutation));
-	}
-}
-void Server::ShortTransactClosure::onUpdateMutation(Error error) {
-	p_updatedMutationsCount++;
-	updateMutation();
-}
-void Server::ShortTransactClosure::onSubmit(Error error) {
-	p_engine->commit(p_transactionId,
-			ASYNC_MEMBER(this, &ShortTransactClosure::onCommit));
+void Server::ShortTransactClosure::onSubmit(Db::SubmitError result) {
+	if(result == Db::kSubmitSuccess) {
+		p_engine->commit(p_transactionId,
+				ASYNC_MEMBER(this, &ShortTransactClosure::onCommit));
+	}else if(result == Db::kSubmitConstraintViolation) {
+		Proto::SrFin response;
+		response.set_error(Proto::kCodeSubmitConstraintViolation);
+		p_connection->postResponse(Proto::kSrFin, p_responseId, response);
+
+		delete this;
+	}else throw std::logic_error("Unexpected error during submit");
 }
 void Server::ShortTransactClosure::onCommit(Db::SequenceId sequence_id) {
-	Proto::SrShortTransact response;
+	Proto::SrFin response;
 	response.set_sequence_id(sequence_id);
-	p_connection->postResponse(Proto::kSrShortTransact, p_responseId, response);
+	response.set_error(Proto::kCodeSuccess);
+	p_connection->postResponse(Proto::kSrFin, p_responseId, response);
 	
 	delete this;
 }
 
-void Server::Connection::processMessage() {
-	uint32_t seq_number = p_curPacket.seqNumber;
-	//std::cout << "Message: " << p_curPacket.opcode << std::endl;
+// --------------------------------------------------------
+// ApplyClosure
+// --------------------------------------------------------
 
-	Db::Engine *engine = p_server->getEngine();
-	if(p_curPacket.opcode == Proto::kCqQuery) {
-		auto closure = new QueryClosure(engine, this, p_curPacket.seqNumber);
-		closure->execute(p_curPacket.length, p_bodyBuffer);
-	}else if(p_curPacket.opcode == Proto::kCqShortTransact) {
-		auto closure = new ShortTransactClosure(engine, this, p_curPacket.seqNumber);
-		closure->execute(p_curPacket.length, p_bodyBuffer);
-	}else if(p_curPacket.opcode == Proto::kCqCreateStorage) {
-		Proto::CqCreateStorage request;
-		if(!request.ParseFromArray(p_bodyBuffer, p_curPacket.length)) {
-			Proto::SrFin response;
-			response.set_success(false);
-			response.set_err_code(Proto::kErrIllegalRequest);
-			postResponse(Proto::kSrFin, seq_number, response);
-			return;
-		}
+Server::ApplyClosure::ApplyClosure(Db::Engine *engine, Connection *connection,
+		ResponseId response_id)
+	: p_engine(engine), p_connection(connection), p_responseId(response_id) { }
 
-		engine->createStorage(request.config());
-		
+void Server::ApplyClosure::execute(size_t packet_size, const char *packet_buffer) {
+	Proto::CqApply request;
+	if(!request.ParseFromArray(packet_buffer, packet_size)) {
 		Proto::SrFin response;
-		postResponse(Proto::kSrFin, seq_number, response);
-	}else if(p_curPacket.opcode == Proto::kCqCreateView) {
-		Proto::CqCreateView request;
-		if(!request.ParseFromArray(p_bodyBuffer, p_curPacket.length)) {
-			Proto::SrFin response;
-			response.set_success(false);
-			response.set_err_code(Proto::kErrIllegalRequest);
-			postResponse(Proto::kSrFin, seq_number, response);
-			return;
-		}
+		response.set_error(Proto::kCodeParseError);
+		p_connection->postResponse(Proto::kSrFin, p_responseId, response);
 
-		engine->createView(request.config());
-		
-		Proto::SrFin response;
-		postResponse(Proto::kSrFin, seq_number, response);
-	}else if(p_curPacket.opcode == Proto::kCqUnlinkStorage) {
-		Proto::CqUnlinkStorage request;
-		if(!request.ParseFromArray(p_bodyBuffer, p_curPacket.length)) {
-			Proto::SrFin response;
-			response.set_success(false);
-			response.set_err_code(Proto::kErrIllegalRequest);
-			postResponse(Proto::kSrFin, seq_number, response);
-			return;
-		}
-		
-		int index = engine->getStorage(request.identifier());
-		engine->unlinkStorage(index);
-		
-		Proto::SrFin response;
-		postResponse(Proto::kSrFin, seq_number, response);
-	}else if(p_curPacket.opcode == Proto::kCqUnlinkView) {
-		Proto::CqUnlinkView request;
-		if(!request.ParseFromArray(p_bodyBuffer, p_curPacket.length)) {
-			Proto::SrFin response;
-			response.set_success(false);
-			response.set_err_code(Proto::kErrIllegalRequest);
-			postResponse(Proto::kSrFin, seq_number, response);
-			return;
-		}
-		
-		int index = engine->getView(request.identifier());
-		engine->unlinkView(index);
-		
-		Proto::SrFin response;
-		postResponse(Proto::kSrFin, seq_number, response);
-	}else if(p_curPacket.opcode == Proto::kCqUploadExtern) {
-		Proto::CqUploadExtern request;
-		if(!request.ParseFromArray(p_bodyBuffer, p_curPacket.length)) {
-			Proto::SrFin response;
-			response.set_success(false);
-			response.set_err_code(Proto::kErrIllegalRequest);
-			postResponse(Proto::kSrFin, seq_number, response);
-			return;
-		}
-		
-		auto fd = osIntf->createFile();
-		fd->openSync(engine->getPath() + "/extern/" + request.file_name(),
-				Linux::kFileCreate | Linux::kFileTrunc | Linux::kFileWrite);
-		fd->pwriteSync(0, request.buffer().length(), request.buffer().c_str());
-		fd->closeSync();
-		
-		Proto::SrFin response;
-		postResponse(Proto::kSrFin, seq_number, response);
-	}else if(p_curPacket.opcode == Proto::kCqDownloadExtern) {
-		Proto::CqDownloadExtern request;
-		if(!request.ParseFromArray(p_bodyBuffer, p_curPacket.length)) {
-			Proto::SrFin response;
-			response.set_success(false);
-			response.set_err_code(Proto::kErrIllegalRequest);
-			postResponse(Proto::kSrFin, seq_number, response);
-			return;
-		}
-		
-		auto fd = osIntf->createFile();
-		fd->openSync(engine->getPath() + "/extern/" + request.file_name(),
-				Linux::kFileRead);
-		Linux::size_type length = fd->lengthSync();
-		
-		char *buffer = new char[length];
-		fd->preadSync(0, length, buffer);
-		fd->closeSync();
-		
-		Proto::SrBlob blob_resp;
-		blob_resp.set_buffer(std::string(buffer, length));
-		postResponse(Proto::kSrBlob, seq_number, blob_resp);
-		delete[] buffer;
-		
-		Proto::SrFin fin_resp;
-		postResponse(Proto::kSrFin, seq_number, fin_resp);
+		delete this;
+		return;
+	}
+
+	if(request.do_submit()) {
+		p_engine->submit(request.transaction_id(),
+				ASYNC_MEMBER(this, &ApplyClosure::onSubmit));
+	}else if(request.do_commit()) {
+		p_engine->commit(request.transaction_id(),
+				ASYNC_MEMBER(this, &ApplyClosure::onCommit));
 	}else{
 		Proto::SrFin response;
-		response.set_success(false);
-		response.set_err_code(Proto::kErrIllegalRequest);
-		postResponse(Proto::kSrFin, seq_number, response);
+		response.set_error(Proto::kCodeIllegalState);
+		p_connection->postResponse(Proto::kSrFin, p_responseId, response);
+
+		delete this;
+		return;
 	}
 }
 
-Server::Server(Db::Engine *engine) : p_engine(engine) {
+void Server::ApplyClosure::onSubmit(Db::SubmitError result) {
+	if(result == Db::kSubmitSuccess) {
+		Proto::SrFin response;
+		response.set_error(Proto::kCodeSuccess);
+		p_connection->postResponse(Proto::kSrFin, p_responseId, response);
+
+		delete this;
+	}else if(result == Db::kSubmitConstraintViolation) {
+		Proto::SrFin response;
+		response.set_error(Proto::kCodeSubmitConstraintViolation);
+		p_connection->postResponse(Proto::kSrFin, p_responseId, response);
+
+		delete this;
+	}else if(result == Db::kSubmitConstraintConflict) {
+		Proto::SrFin response;
+		response.set_error(Proto::kCodeSubmitConstraintConflict);
+		p_connection->postResponse(Proto::kSrFin, p_responseId, response);
+
+		delete this;
+	}else if(result == Db::kSubmitMutationConflict) {
+		Proto::SrFin response;
+		response.set_error(Proto::kCodeSubmitMutationConflict);
+		p_connection->postResponse(Proto::kSrFin, p_responseId, response);
+
+		delete this;
+	}else throw std::logic_error("Unexpected error during submit");
 }
 
-void Server::start() {
-	p_sockServer = osIntf->createSockServer();
+void Server::ApplyClosure::onCommit(Db::SequenceId sequence_id) {
+	Proto::SrFin response;
+	response.set_error(Proto::kCodeSuccess);
+	response.set_sequence_id(sequence_id);
+	p_connection->postResponse(Proto::kSrFin, p_responseId, response);
 	
-	p_sockServer->onConnect(ASYNC_MEMBER(this, &Server::p_onConnect));
-	p_sockServer->listen(7963);
+	delete this;
 }
 
-void Server::p_onConnect(Linux::SockStream *stream) {
-	Connection *connection = new Connection(this, stream);
-	connection->processWrite();
-}
-
-
-};
+} // namespace Api
 

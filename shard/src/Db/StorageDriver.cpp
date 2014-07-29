@@ -36,7 +36,7 @@ void QueuedStorageDriver::sequence(SequenceId sequence_id,
 
 void QueuedStorageDriver::fetch(FetchRequest *fetch,
 		Async::Callback<void(FetchData &)> on_data,
-		Async::Callback<void(Error)> callback) {
+		Async::Callback<void(FetchError)> callback) {
 	FetchQueueItem item;
 	item.fetch = fetch;
 	item.onData = on_data;
@@ -92,9 +92,8 @@ void QueuedStorageDriver::ProcessClosure::onSequenceItem(Error error) {
 	p_index++;
 	processSequence();
 }
-void QueuedStorageDriver::ProcessClosure::onFetchComplete(Error error) {
-	//FIXME: don't ignore error
-	p_fetchItem.callback(Error(true));
+void QueuedStorageDriver::ProcessClosure::onFetchComplete(FetchError error) {
+	p_fetchItem.callback(error);
 
 	LocalTaskQueue::get()->submit(ASYNC_MEMBER(this, &ProcessClosure::process));
 }

@@ -31,9 +31,9 @@ protected:
 	virtual void processModify(SequenceId sequence_id,
 			Mutation &mutation, Async::Callback<void(Error)> callback);
 	
-	virtual void processQuery(Query *request,
+	virtual void processQuery(QueryRequest *request,
 			Async::Callback<void(QueryData &)> report,
-			Async::Callback<void(Error)> callback);
+			Async::Callback<void(QueryError)> callback);
 
 private:
 	struct Link {
@@ -88,9 +88,9 @@ private:
 
 	class QueryClosure {
 	public:
-		QueryClosure(JsView *view, Query *query,
+		QueryClosure(JsView *view, QueryRequest *query,
 				Async::Callback<void(QueryData &)> on_data,
-				Async::Callback<void(Error)> on_complete);
+				Async::Callback<void(QueryError)> on_complete);
 		
 		void process();
 	
@@ -101,13 +101,13 @@ private:
 		void fetchItem();
 		void fetchItemLoop();
 		void onFetchData(FetchData &data);
-		void onFetchComplete(Error error);
+		void onFetchComplete(FetchError error);
 		void complete();
 
 		JsView *p_view;
-		Query *p_query;
+		QueryRequest *p_query;
 		Async::Callback<void(QueryData &)> p_onData;
-		Async::Callback<void(Error)> p_onComplete;
+		Async::Callback<void(QueryError)> p_onComplete;
 
 		v8::Persistent<v8::Value> p_beginKey;
 		v8::Persistent<v8::Value> p_endKey;

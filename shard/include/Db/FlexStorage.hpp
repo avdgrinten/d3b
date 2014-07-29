@@ -30,7 +30,7 @@ protected:
 
 	virtual void processFetch(FetchRequest *fetch,
 			Async::Callback<void(FetchData &)> on_data,
-			Async::Callback<void(Error)> callback);
+			Async::Callback<void(FetchError)> callback);
 
 private:
 	struct Index {
@@ -95,7 +95,7 @@ private:
 		FetchClosure(FlexStorage *storage, DocumentId document_id,
 				SequenceId sequence_id,
 				Async::Callback<void(FetchData &)> on_data,
-				Async::Callback<void(Error)> callback);
+				Async::Callback<void(FetchError)> callback);
 
 		void process();
 	
@@ -109,7 +109,7 @@ private:
 		DocumentId p_documentId;
 		SequenceId p_sequenceId;
 		Async::Callback<void(FetchData &)> p_onData;
-		Async::Callback<void(Error)> p_callback;
+		Async::Callback<void(FetchError)> p_callback;
 
 		FetchData p_fetchData;
 		size_t p_fetchLength;

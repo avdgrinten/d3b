@@ -12,7 +12,11 @@ var schema = new protobuf.Schema(fs.readFileSync(dirname + '/Api.desc'));
 
 var ClientRequests = {
 	kCqQuery: 1,
-	kCqShortTransact: 32,
+	kCqShortTransact: 2,
+	kCqTransaction: 3,
+	kCqUpdate: 4,
+	kCqApply: 5,
+
 	kCqCreateStorage: 256,
 	kCqCreateView: 257,
 	kCqUnlinkStorage: 258,
@@ -92,6 +96,12 @@ Client.prototype.p_send = function(opcode, seq_number, request) {
 		msg = schema['Api.Proto.CqQuery']; break;
 	case ClientRequests.kCqShortTransact:
 		msg = schema['Api.Proto.CqShortTransact']; break;
+	case ClientRequests.kCqTransaction:
+		msg = schema['Api.Proto.CqTransaction']; break;
+	case ClientRequests.kCqUpdate:
+		msg = schema['Api.Proto.CqUpdate']; break;
+	case ClientRequests.kCqApply:
+		msg = schema['Api.Proto.CqApply']; break;
 	case ClientRequests.kCqCreateStorage:
 		msg = schema['Api.Proto.CqCreateStorage']; break;
 	case ClientRequests.kCqCreateView:

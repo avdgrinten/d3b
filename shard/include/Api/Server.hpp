@@ -26,6 +26,10 @@ private:
 		
 		void postResponse(int opcode, int seq_number,
 				const google::protobuf::MessageLite &reponse);
+
+		void parseMutation(Db::Mutation &mutation, const Proto::Mutation &pb_mutation);
+		void parseConstraint(Db::Constraint &constraint, const Proto::Constraint &pb_constraint);
+
 	private:
 		struct PacketHead {
 			enum Fields {
@@ -83,13 +87,13 @@ private:
 
 	private:
 		void onData(Db::QueryData &data);
-		void complete(Error error);
+		void complete(Db::QueryError error);
 
 		Db::Engine *p_engine;
 		Connection *p_connection;
 		ResponseId p_responseId;
 
-		Db::Query p_query;
+		Db::QueryRequest p_query;
 	};
 
 	class ShortTransactClosure {
@@ -100,10 +104,7 @@ private:
 		void execute(size_t packet_size, const void *packet_buffer);
 	
 	private:
-		void onTransaction(Error, Db::TransactionId transaction_id);
-		void updateMutation();
-		void onUpdateMutation(Error error);
-		void onSubmit(Error error);
+		void onSubmit(Db::SubmitError);
 		void onCommit(Db::SequenceId sequence_id);
 
 		Db::Engine *p_engine;
@@ -111,8 +112,22 @@ private:
 		ResponseId p_responseId;
 
 		Db::TransactionId p_transactionId;
-		std::vector<Db::Mutation> p_mutations;
-		int p_updatedMutationsCount;
+	};
+	
+	class ApplyClosure {
+	public:
+		ApplyClosure(Db::Engine *engine, Connection *connection,
+				ResponseId response_id);
+		
+		void execute(size_t packet_size, const char *packet_buffer);
+
+	private:
+		void onSubmit(Db::SubmitError error);
+		void onCommit(Db::SequenceId sequence_id);
+
+		Db::Engine *p_engine;
+		Connection *p_connection;
+		ResponseId p_responseId;
 	};
 };
 

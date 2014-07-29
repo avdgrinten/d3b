@@ -1,6 +1,6 @@
 
 #include <iostream>
-#include <functional>
+#include <algorithm>
 
 #include "Async.hpp"
 #include "Os/Linux.hpp"
@@ -194,46 +194,60 @@ SequenceId Engine::currentSequenceId() {
 	return p_currentSequenceId;
 }
 
-void Engine::transaction(Async::Callback<void(Error, TransactionId)> callback) {
-	TransactionId trid = p_nextTransactId++;
+TransactionId Engine::transaction() {
+	TransactionId transaction_id = p_nextTransactId++;
 
 	Transaction *transaction = Transaction::allocate();
-	p_openTransactions.insert(std::make_pair(trid, transaction));
-	callback(Error(true), trid);
+	p_openTransactions.insert(std::make_pair(transaction_id, transaction));
+	return transaction_id;
 }
-void Engine::updateMutation(TransactionId trid, Mutation &mutation,
-		Async::Callback<void(Error)> callback) {
-	auto transact_it = p_openTransactions.find(trid);
+void Engine::updateMutation(TransactionId transaction_id, Mutation &mutation) {
+	auto transact_it = p_openTransactions.find(transaction_id);
 	if(transact_it == p_openTransactions.end())
 		throw std::runtime_error("Illegal transaction");	
 	Transaction *transaction = transact_it->second;
 	
 	if(mutation.type == Mutation::kTypeInsert) {
 		StorageDriver *driver = p_storage[mutation.storageIndex];
-		
 		mutation.documentId = driver->allocate();
 	}
-	transaction->mutations.push_back(std::move(mutation));
 
-	callback(Error(true));
+	transaction->mutations.push_back(std::move(mutation));
 }
-void Engine::submit(TransactionId trid,
-		Async::Callback<void(Error)> callback) {
-	Queued queued;
-	queued.type = Queued::kTypeSubmit;
-	queued.trid = trid;
-	queued.callback = callback;
+void Engine::updateConstraint(TransactionId transaction_id, Constraint &constraint) {
+	auto transact_it = p_openTransactions.find(transaction_id);
+	if(transact_it == p_openTransactions.end())
+		throw std::runtime_error("Illegal transaction");	
+	Transaction *transaction = transact_it->second;
+	
+	transaction->constraints.push_back(std::move(constraint));
+}
+void Engine::submit(TransactionId transaction_id,
+		Async::Callback<void(SubmitError)> callback) {
+	QueueItem queued;
+	queued.type = QueueItem::kTypeSubmit;
+	queued.trid = transaction_id;
+	queued.submitCallback = callback;
 	p_submitQueue.push_back(queued);
 	p_eventFd->increment();
 }
-void Engine::commit(TransactionId trid,
+void Engine::commit(TransactionId transaction_id,
 		Async::Callback<void(SequenceId)> callback) {
-	Queued queued;
-	queued.type = Queued::kTypeCommit;
-	queued.trid = trid;
+	QueueItem queued;
+	queued.type = QueueItem::kTypeCommit;
+	queued.trid = transaction_id;
 	queued.commitCallback = callback;
 	p_submitQueue.push_back(queued);
 	p_eventFd->increment();
+}
+
+bool Engine::compatible(Mutation &mutation, Constraint &constraint) {
+	if(constraint.type == Constraint::kTypeDocumentState
+			&& constraint.matchSequenceId
+			&& mutation.type == Mutation::kTypeModify
+			&& mutation.documentId == constraint.documentId)
+		return false;
+	return true;
 }
 
 void Engine::process() {
@@ -255,9 +269,9 @@ void Engine::ProcessQueueClosure::processItem() {
 	if(!p_engine->p_submitQueue.empty()) {
 		p_queueItem = p_engine->p_submitQueue.front();
 		p_engine->p_submitQueue.pop_front();
-		if(p_queueItem.type == Queued::kTypeSubmit) {
+		if(p_queueItem.type == QueueItem::kTypeSubmit) {
 			processSubmit();
-		}else if(p_queueItem.type == Queued::kTypeCommit) {
+		}else if(p_queueItem.type == QueueItem::kTypeCommit) {
 			processCommit();
 		}else throw std::logic_error("Queued item has illegal type");
 	}else{
@@ -270,7 +284,81 @@ void Engine::ProcessQueueClosure::processSubmit() {
 	if(transact_it == p_engine->p_openTransactions.end())
 		throw std::runtime_error("Illegal transaction");
 	p_transaction = transact_it->second;
+
+	for(auto other_it = p_engine->p_submittedTransactions.begin();
+			other_it != p_engine->p_submittedTransactions.end(); ++other_it) {
+		Transaction *other = p_engine->p_openTransactions.at(*other_it);
+
+		// check conflicts: other's mutation <-> tranasction's constraint
+		for(auto other_mutation_it = other->mutations.begin();
+				other_mutation_it != other->mutations.end(); ++other_mutation_it) {
+			for(auto constraint_it = p_transaction->constraints.begin();
+					constraint_it != p_transaction->constraints.end(); ++constraint_it) {
+				if(!p_engine->compatible(*other_mutation_it, *constraint_it)) {
+					submitFailure(kSubmitConstraintConflict);
+					return;
+				}
+			}
+		}
+		
+		// check conflicts: other's constraint <-> transaction's mutation
+		for(auto other_constraint_it = other->constraints.begin();
+				other_constraint_it != other->constraints.end(); ++ other_constraint_it) {
+			for(auto mutation_it = p_transaction->mutations.begin();
+					mutation_it != p_transaction->mutations.end(); ++mutation_it) {
+				if(!p_engine->compatible(*mutation_it, *other_constraint_it)) {
+					submitFailure(kSubmitMutationConflict);
+					return;
+				}
+			}
+		}
+	}
+
+	p_index = 0;
+	submitCheckConstraint();
+}
+void Engine::ProcessQueueClosure::submitCheckConstraint() {
+	if(p_index == p_transaction->constraints.size()) {
+		submitLog();
+	}else{
+		p_checkOkay = true;
+
+		Constraint &constraint = p_transaction->constraints[p_index];
+		if(constraint.type == Constraint::kTypeDocumentState) {
+			StorageDriver *driver = p_engine->p_storage[constraint.storageIndex];
+
+			p_fetch.documentId = constraint.documentId;
+			p_fetch.sequenceId = p_engine->p_currentSequenceId;
+
+			driver->fetch(&p_fetch,
+					ASYNC_MEMBER(this, &ProcessQueueClosure::checkStateOnData),
+					ASYNC_MEMBER(this, &ProcessQueueClosure::checkStateOnFetch));
+		}else throw std::logic_error("Illegal constraint type");
+	}
+}
+void Engine::ProcessQueueClosure::checkStateOnData(FetchData &data) {
+	Constraint &constraint = p_transaction->constraints[p_index];
+//	if(data.sequenceId != constraint.sequenceId)
+//		p_checkOkay = false;
+}
+void Engine::ProcessQueueClosure::checkStateOnFetch(FetchError error) {
+	Constraint &constraint = p_transaction->constraints[p_index];
+	if(error == kFetchSuccess) {
+		// everything is okay
+	}else if(error == kFetchDocumentNotFound) {
+		if(constraint.mustExist)
+			p_checkOkay = false;
+	}else throw std::logic_error("Unexpected error during fetch");
+
+	if(!p_checkOkay) {
+		submitFailure(kSubmitConstraintViolation);
+		return;
+	}
 	
+	p_index++;
+	LocalTaskQueue::get()->submit(ASYNC_MEMBER(this, &ProcessQueueClosure::submitCheckConstraint));
+}
+void Engine::ProcessQueueClosure::submitLog() {
 	p_logEntry.set_type(Proto::LogEntry::kTypeSubmit);
 	p_logEntry.set_transaction_id(p_queueItem.trid);
 
@@ -302,10 +390,22 @@ void Engine::ProcessQueueClosure::processSubmit() {
 void Engine::ProcessQueueClosure::onSubmitWriteAhead(Error error) {
 	//TODO: handle failure
 
-	p_queueItem.callback(Error(true));
+	p_engine->p_submittedTransactions.push_back(p_queueItem.trid);
+
+	p_queueItem.submitCallback(kSubmitSuccess);
 
 	p_transaction = nullptr;
 	p_logEntry.Clear();
+	LocalTaskQueue::get()->submit(ASYNC_MEMBER(this, &ProcessQueueClosure::processItem));
+}
+void Engine::ProcessQueueClosure::submitFailure(SubmitError error) {
+	auto iterator = p_engine->p_openTransactions.find(p_queueItem.trid);
+	assert(iterator != p_engine->p_openTransactions.end());
+	p_engine->p_openTransactions.erase(iterator);
+
+	p_transaction->refDecrement();
+
+	p_queueItem.submitCallback(error);
 	LocalTaskQueue::get()->submit(ASYNC_MEMBER(this, &ProcessQueueClosure::processItem));
 }
 
@@ -346,12 +446,17 @@ void Engine::ProcessQueueClosure::onCommitWriteAhead(Error error) {
 	}
 	
 	// commit/rollback always frees the transaction
-	auto transact_it = p_engine->p_openTransactions.find(p_queueItem.trid);
-	if(transact_it == p_engine->p_openTransactions.end())
-		throw std::logic_error("Transaction deleted during commit");
-	p_engine->p_openTransactions.erase(transact_it);
+	auto open_iterator = p_engine->p_openTransactions.find(p_queueItem.trid);
+	assert(open_iterator != p_engine->p_openTransactions.end());
+	p_engine->p_openTransactions.erase(open_iterator);
+
+	auto submit_iterator = std::find(p_engine->p_submittedTransactions.begin(),
+			p_engine->p_submittedTransactions.end(), p_queueItem.trid);
+	assert(submit_iterator != p_engine->p_submittedTransactions.end());
+	p_engine->p_submittedTransactions.erase(submit_iterator);
+
 	p_transaction->refDecrement();
-	
+
 	p_queueItem.commitCallback(p_sequenceId);
 
 	p_transaction = nullptr;
@@ -361,14 +466,14 @@ void Engine::ProcessQueueClosure::onCommitWriteAhead(Error error) {
 
 void Engine::fetch(FetchRequest *fetch,
 		Async::Callback<void(FetchData &)> on_data,
-		Async::Callback<void(Error)> callback) {
+		Async::Callback<void(FetchError)> callback) {
 	StorageDriver *driver = p_storage[fetch->storageIndex];
 	driver->fetch(fetch, on_data, callback);
 }
 
-Error Engine::query(Query *request,
+void Engine::query(QueryRequest *request,
 		Async::Callback<void(QueryData &)> on_data,
-		Async::Callback<void(Error)> callback) {
+		Async::Callback<void(QueryError)> callback) {
 	ViewDriver *driver = p_views[request->viewIndex];
 	driver->query(request, on_data, callback);
 }

@@ -80,7 +80,7 @@ void FlexStorage::processModify(SequenceId sequence_id,
 
 void FlexStorage::processFetch(FetchRequest *fetch,
 		Async::Callback<void(FetchData &)> on_data,
-		Async::Callback<void(Error)> callback) {
+		Async::Callback<void(FetchError)> callback) {
 	auto closure = new FetchClosure(this, fetch->documentId,
 			fetch->sequenceId, on_data, callback);
 	closure->process();
@@ -162,7 +162,7 @@ void FlexStorage::InsertClosure::onIndexInsert() {
 FlexStorage::FetchClosure::FetchClosure(FlexStorage *storage,
 		DocumentId document_id, SequenceId sequence_id,
 		Async::Callback<void(FetchData &)> on_data,
-		Async::Callback<void(Error)> callback)
+		Async::Callback<void(FetchError)> callback)
 	: p_storage(storage), p_documentId(document_id), p_sequenceId(sequence_id),
 		p_onData(on_data), p_callback(callback),
 		p_btreeFind(&storage->p_indexTree),
@@ -191,16 +191,21 @@ void FlexStorage::FetchClosure::compareToFetched(const Index &other,
 	callback(0);
 }
 void FlexStorage::FetchClosure::onIndexFound(Btree<Index>::Ref ref) {
-	//TODO: handle missing documents
-	if(!ref.valid())
-		throw std::runtime_error("Ref not valid!");
+	if(!ref.valid()) {
+		p_callback(kFetchDocumentNotFound);
+		delete this;
+		return;
+	}
+
 	p_btreeIterate.seek(ref, ASYNC_MEMBER(this, &FetchClosure::onSeek));
 }
 void FlexStorage::FetchClosure::onSeek() {
 	Index index = p_btreeIterate.getKey();
-	//TODO: handle missing documents
-	if(index.documentId != p_documentId)
-		throw std::runtime_error("Document not found!");
+	if(index.documentId != p_documentId) {
+		p_callback(kFetchDocumentNotFound);
+		delete this;
+		return;
+	}
 
 	char ref_buffer[Reference::kStructSize];
 	p_btreeIterate.getValue(&ref_buffer);
@@ -218,7 +223,7 @@ void FlexStorage::FetchClosure::onSeek() {
 
 	p_onData(p_fetchData);
 
-	p_callback(Error(true));
+	p_callback(kFetchSuccess);
 	delete this;
 }
 

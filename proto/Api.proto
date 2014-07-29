@@ -4,27 +4,58 @@ import "proto/Config.proto";
 package Api.Proto;
 option optimize_for = LITE_RUNTIME;
 
+enum ErrorCode {
+	kCodeNone = 0;
+	kCodeSuccess = 1;
+	kCodeIllegalRequest = 2;
+	kCodeParseError = 3;
+	kCodeIllegalState = 4;
+
+	kCodeSubmitConstraintViolation = 32;
+	kCodeSubmitConstraintConflict = 33;
+	kCodeSubmitMutationConflict = 34;
+	
+	kCodeIllegalStorage = 128;
+	kCodeIllegalView = 129;
+}
+
+message Mutation {
+	enum Type {
+		kTypeNone = 0;
+		kTypeInsert = 1;
+		kTypeModify = 2;
+	}
+
+	optional Type type = 1;
+	optional int64 document_id = 2;
+	optional string storage_name = 3;
+	optional bytes buffer = 4;
+}
+
+message Constraint {
+	enum Type {
+		kTypeNone = 0;
+		kTypeDocumentState = 1;
+	}
+
+	optional Type type = 1;
+	optional string storage_name = 2;
+	optional int64 document_id = 3;
+	optional int64 sequence_id = 4;
+	optional bool must_exist = 5;
+	optional bool match_sequence_id = 6;
+}
+
 // -----------------------------------------------------------
 // requests send by client
 // -----------------------------------------------------------
 
-enum Actions {
-	kActNone = 0;
-	kActInsert = 1;
-	kActUpdate = 2;
-}
-
-message Update {
-	optional Actions action = 1;
-	optional int64 id = 2;
-	optional int32 storage_idx = 3;
-	optional string storage_name = 4;
-	optional bytes buffer = 17;
-}
-
 enum ClientRequests {
 	kCqQuery = 1;
-	kCqShortTransact = 32;
+	kCqShortTransact = 2;
+	kCqTransaction = 3;
+	kCqUpdate = 4;
+	kCqApply = 5;
 
 	kCqCreateStorage = 256;
 	kCqCreateView = 257;
@@ -45,7 +76,24 @@ message CqQuery {
 }
 
 message CqShortTransact {
-	repeated Update updates = 2;
+	repeated Mutation mutations = 1;
+	repeated Constraint constraints = 2;
+};
+
+message CqTransaction {
+};
+
+message CqUpdate {
+	optional int64 transaction_id = 1;
+	repeated Mutation mutations = 2;
+	repeated Constraint constraints = 3;
+};
+
+message CqApply {
+	optional int64 transaction_id = 1;
+	optional bool do_submit = 2;
+	optional bool do_commit = 3;
+	optional bool do_rollback = 4;
 };
 
 message CqCreateStorage {
@@ -78,21 +126,14 @@ enum ServerResponses {
 	kSrFin = 1;
 	kSrRows = 2;
 	kSrBlob = 3;
-	kSrShortTransact = 4;
 };
 
-enum EnumErrors {
-	kErrNone = 0;
-	kErrIllegalRequest = 1;
-	
-	kErrIllegalStorage = 128;
-	kErrIllegalView = 129;
-}
-
 message SrFin {
-	optional bool success = 1;
-	optional EnumErrors err_code = 2;
-	optional string err_msg = 3;
+	optional ErrorCode error = 1;
+	// transaction id after creating a transaction
+	optional int64 transaction_id = 2;
+	// sequence id after committing a transaction
+	optional int64 sequence_id = 3;
 }
 
 message SrRows {
@@ -101,9 +142,5 @@ message SrRows {
 
 message SrBlob {
 	required bytes buffer = 1;
-}
-
-message SrShortTransact {
-	optional int64 sequence_id = 1;
 }
 

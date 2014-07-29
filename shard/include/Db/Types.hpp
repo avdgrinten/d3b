@@ -16,5 +16,18 @@ struct Mutation {
 	std::string buffer;
 };
 
+struct Constraint {
+	enum Type {
+		kTypeNone, kTypeDocumentState
+	};
+
+	Type type;
+	int storageIndex;
+	DocumentId documentId;
+	SequenceId sequenceId;
+	bool mustExist;
+	bool matchSequenceId;
+};
+
 }
 

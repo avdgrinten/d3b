@@ -5,7 +5,7 @@ var d3bUtil = require('../client-nodejs/d3b-util');
 
 module.exports = {
 
-testModify: function(test) {
+testVersion: function(test) {
 	var instance, client;
 
 	var data = [ ];
@@ -65,7 +65,7 @@ testModify: function(test) {
 					queue.push(JSON.parse(row).id);
 				}, function() {
 					async.each(queue, function(id, callback) {
-						d3bUtil.update(client, { storageName: 'test-storage',
+						d3bUtil.modify(client, { storageName: 'test-storage',
 								id: id, buffer: 'modified-' + id }, function() {
 							callback();
 						});
