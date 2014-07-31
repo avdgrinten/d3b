@@ -42,7 +42,8 @@ DocumentId JsView::readKey(const void *buffer) {
 void JsView::createView() {
 	p_storage = getEngine()->getStorage(p_storageName);
 	
-	p_instances.push(new JsInstance(p_path + "/../../extern/" + p_scriptFile));
+	for(int i = 0; i < 5; i++)
+		p_instances.push(new JsInstance(p_path + "/../../extern/" + p_scriptFile));
 	
 	p_keyStore.setPath(this->getPath());
 	p_keyStore.createStore();
@@ -56,7 +57,8 @@ void JsView::createView() {
 void JsView::loadView() {
 	p_storage = getEngine()->getStorage(p_storageName);
 	
-	p_instances.push(new JsInstance(p_path + "/../../extern/" + p_scriptFile));
+	for(int i = 0; i < 5; i++)
+		p_instances.push(new JsInstance(p_path + "/../../extern/" + p_scriptFile));
 
 	p_keyStore.setPath(this->getPath());
 	//NOTE: to test the durability implementation we always delete the data on load!
