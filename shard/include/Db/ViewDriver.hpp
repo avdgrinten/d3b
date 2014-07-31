@@ -120,6 +120,8 @@ public:
 protected:
 	void processQueue();
 
+	void finishRequest();
+
 	virtual void processInsert(SequenceId sequence_id,
 			Mutation &mutation, Async::Callback<void(Error)> callback) = 0;
 	virtual void processModify(SequenceId sequence_id,
@@ -146,6 +148,9 @@ private:
 	std::queue<SequenceQueueItem> p_sequenceQueue;
 	std::queue<QueryQueueItem> p_queryQueue;
 	std::unique_ptr<Linux::EventFd> p_eventFd;
+	std::mutex p_mutex;
+	int p_activeRequests;
+	bool p_requestPhase;
 	
 	class ProcessClosure {
 	public:
@@ -154,14 +159,14 @@ private:
 		void process();
 	
 	private:
+		void endRequestPhase();
+		void sequencePhase();
 		void processSequence();
 		void onSequenceItem(Error error);
-		void onQueryComplete(QueryError error);
 
 		QueuedViewDriver *p_view;
 
 		SequenceQueueItem p_sequenceItem;
-		QueryQueueItem p_queryItem;
 		int p_index;
 	};
 };

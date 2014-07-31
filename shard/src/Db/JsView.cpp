@@ -465,6 +465,7 @@ void JsView::QueryClosure::complete() {
 		p_onData(p_queryData);
 
 	p_view->releaseInstance(p_instance);
+	p_view->finishRequest();
 	p_onComplete(kQuerySuccess);
 	delete this;
 }
