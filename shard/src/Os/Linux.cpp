@@ -321,8 +321,11 @@ LocalAsyncHost::LocalAsyncHost() {
 void LocalAsyncHost::process() {
 	epoll_event events[16];
 	int n = epoll_wait(p_epollFd, events, 16, -1);
-	if(n == -1)
+	if(n == -1) {
+		if(errno == EINTR)
+			return;
 		throw std::runtime_error("epoll_wait() failed");
+	}
 
 	for(int i = 0; i < n; i++) {
 		auto interface = (Linux::EpollInterface *)events[i].data.ptr;
