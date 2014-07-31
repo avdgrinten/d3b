@@ -193,6 +193,7 @@ void FlexStorage::FetchClosure::compareToFetched(const Index &other,
 void FlexStorage::FetchClosure::onIndexFound(Btree<Index>::Ref ref) {
 	if(!ref.valid()) {
 		p_callback(kFetchDocumentNotFound);
+		p_storage->finishRequest();
 		delete this;
 		return;
 	}
@@ -203,6 +204,7 @@ void FlexStorage::FetchClosure::onSeek() {
 	Index index = p_btreeIterate.getKey();
 	if(index.documentId != p_documentId) {
 		p_callback(kFetchDocumentNotFound);
+		p_storage->finishRequest();
 		delete this;
 		return;
 	}
@@ -224,6 +226,7 @@ void FlexStorage::FetchClosure::onSeek() {
 	p_onData(p_fetchData);
 
 	p_callback(kFetchSuccess);
+	p_storage->finishRequest();
 	delete this;
 }
 
