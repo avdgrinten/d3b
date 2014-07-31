@@ -16,16 +16,18 @@ namespace Db {
 StorageRegistry globStorageRegistry;
 ViewRegistry globViewRegistry;
 
-Engine::Engine(TaskPool *io_pool) : p_nextTransactId(1), p_currentSequenceId(0),
-		p_ioPool(io_pool) {
+Engine::Engine() : p_nextTransactId(1), p_currentSequenceId(0) {
 	p_storage.push_back(nullptr);
 	p_views.push_back(nullptr);
 
 	p_eventFd = osIntf->createEventFd();
 }
 
+TaskPool *Engine::getProcessPool() {
+	return &p_processPool;
+}
 TaskPool *Engine::getIoPool() {
-	return p_ioPool;
+	return &p_ioPool;
 }
 
 void Engine::createConfig() {

@@ -21,7 +21,7 @@ enum SubmitError {
 
 class Engine {
 public:
-	Engine(TaskPool *io_pool);
+	Engine();
 	
 	void createConfig();
 	void loadConfig();
@@ -58,7 +58,8 @@ public:
 	void query(QueryRequest *request,
 			Async::Callback<void(QueryData &)> report,
 			Async::Callback<void(QueryError)> callback);
-
+	
+	TaskPool *getProcessPool();
 	TaskPool *getIoPool();
 
 	void process();
@@ -71,7 +72,8 @@ public:
 	}
 
 private:
-	TaskPool *p_ioPool;
+	TaskPool p_processPool;
+	TaskPool p_ioPool;
 
 	/* ------- request and update queue -------- */
 	struct QueueItem {

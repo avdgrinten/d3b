@@ -106,21 +106,10 @@ void QueuedStorageDriver::ProcessClosure::sequencePhase() {
 
 	if(p_storage->p_sequenceQueue.empty()) {
 		p_storage->p_requestPhase = true;
-
-		while(!p_storage->p_fetchQueue.empty()) {
-			auto fetch_item = p_storage->p_fetchQueue.front();
-			p_storage->p_fetchQueue.pop();
-			
-			p_storage->p_activeRequests++;
-
-			lock.unlock();
-			p_storage->processFetch(fetch_item.fetch, fetch_item.onData,
-					fetch_item.callback);
-			lock.lock();
-		}
 		
-		lock.unlock();
-		process();
+		TaskPool *pool = p_storage->getEngine()->getProcessPool();
+		for(int i = 0; i < p_storage->p_fetchQueue.size() + 1; i++)
+			pool->submit(ASYNC_MEMBER(this, &ProcessClosure::unqueueRequest));
 	}else{
 		p_sequenceItem = p_storage->p_sequenceQueue.front();
 		p_storage->p_sequenceQueue.pop();
@@ -128,6 +117,24 @@ void QueuedStorageDriver::ProcessClosure::sequencePhase() {
 		lock.unlock();
 		p_index = 0;
 		processSequence();
+	}
+}
+
+void QueuedStorageDriver::ProcessClosure::unqueueRequest() {
+	std::unique_lock<std::mutex> lock(p_storage->p_mutex);
+	
+	if(p_storage->p_fetchQueue.empty()) {
+		lock.unlock();
+		process();
+	}else{
+		auto fetch_item = p_storage->p_fetchQueue.front();
+		p_storage->p_fetchQueue.pop();
+		
+		p_storage->p_activeRequests++;
+
+		lock.unlock();
+		p_storage->processFetch(fetch_item.fetch, fetch_item.onData,
+				fetch_item.callback);
 	}
 }
 

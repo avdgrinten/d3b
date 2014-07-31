@@ -161,6 +161,7 @@ private:
 	private:
 		void endRequestPhase();
 		void sequencePhase();
+		void unqueueRequest();
 		void processSequence();
 		void onSequenceItem(Error error);
 

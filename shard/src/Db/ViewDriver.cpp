@@ -107,21 +107,10 @@ void QueuedViewDriver::ProcessClosure::sequencePhase() {
 
 	if(p_view->p_sequenceQueue.empty()) {
 		p_view->p_requestPhase = true;
-
-		while(!p_view->p_queryQueue.empty()) {
-			auto query_item = p_view->p_queryQueue.front();
-			p_view->p_queryQueue.pop();
-
-			p_view->p_activeRequests++;
-			
-			lock.unlock();
-			p_view->processQuery(query_item.query, query_item.onData,
-					query_item.callback);
-			lock.lock();
-		}
 		
-		lock.unlock();
-		process();
+		TaskPool *pool = p_view->getEngine()->getProcessPool();
+		for(int i = 0; i < p_view->p_queryQueue.size() + 1; i++)
+			pool->submit(ASYNC_MEMBER(this, &ProcessClosure::unqueueRequest));
 	}else{
 		p_sequenceItem = p_view->p_sequenceQueue.front();
 		p_view->p_sequenceQueue.pop();
@@ -129,6 +118,23 @@ void QueuedViewDriver::ProcessClosure::sequencePhase() {
 		lock.unlock();
 		p_index = 0;
 		processSequence();
+	}
+}
+
+void QueuedViewDriver::ProcessClosure::unqueueRequest() {
+	std::unique_lock<std::mutex> lock(p_view->p_mutex);
+	
+	if(p_view->p_queryQueue.empty()) {
+		lock.unlock();
+		process();
+	}else{
+		auto query_item = p_view->p_queryQueue.front();
+		p_view->p_queryQueue.pop();
+
+		p_view->p_activeRequests++;
+			
+		lock.unlock();
+		p_view->processQuery(query_item.query, query_item.onData, query_item.callback);
 	}
 }
 

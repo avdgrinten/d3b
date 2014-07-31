@@ -32,10 +32,6 @@ int main(int argc, char **argv) {
 	WorkerThread worker1;
 	WorkerThread worker2;
 
-	TaskPool io_pool;
-	io_pool.addWorker(worker1.getTaskQueue());
-	io_pool.addWorker(worker2.getTaskQueue());
-	
 	Db::globStorageRegistry.addDriver(new Db::FlexStorage::Factory);
 	Db::globViewRegistry.addDriver(new Db::JsView::Factory);
 
@@ -58,8 +54,13 @@ int main(int argc, char **argv) {
 		return EXIT_FAILURE;
 	}
 	
-	Db::Engine engine(&io_pool);
+	Db::Engine engine;
 	engine.setPath(opts["path"].as<std::string>());
+	
+	engine.getIoPool()->addWorker(worker1.getTaskQueue());
+	engine.getIoPool()->addWorker(worker2.getTaskQueue());
+	engine.getProcessPool()->addWorker(worker1.getTaskQueue());
+	engine.getProcessPool()->addWorker(worker2.getTaskQueue());
 	
 	if(opts.count("create")) {
 		engine.createConfig();
