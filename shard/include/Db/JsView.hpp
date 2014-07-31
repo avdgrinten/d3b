@@ -36,6 +36,9 @@ protected:
 			Async::Callback<void(QueryError)> callback);
 
 private:
+	class JsInstance;
+	class JsScope;
+
 	struct Link {
 		enum Fields {
 			kDocumentId = 0,
@@ -48,43 +51,64 @@ private:
 		SequenceId sequenceId;
 	};
 
+	int compare(const DocumentId &key_a, const DocumentId &key_b);
+	void writeKey(void *buffer, const DocumentId &key);
+	DocumentId readKey(const void *buffer);
+
+	JsInstance *grabInstance();
+	void releaseInstance(JsInstance *instance);
+
 	std::string p_scriptFile;
 	std::string p_storageName;
 
 	int p_storage;
 	DataStore p_keyStore;
 	Btree<DocumentId> p_orderTree;
-	v8::Persistent<v8::ObjectTemplate> p_global;
-	v8::Persistent<v8::Context> p_context;
+	std::stack<JsInstance *> p_instances;
 
-	int compare(const DocumentId &key_a, const DocumentId &key_b);
-	void writeKey(void *buffer, const DocumentId &key);
-	DocumentId readKey(const void *buffer);
+	class JsInstance {
+	friend class JsScope;
+	public:
+		JsInstance(const std::string &script_path);
+	
+		v8::Local<v8::Value> extractDoc(DocumentId id,
+				const void *buffer, Linux::size_type length);
+		v8::Local<v8::Value> extractKey(const void *buffer,
+				Linux::size_type length);
+		v8::Local<v8::Value> keyOf(v8::Handle<v8::Value> document);
+		v8::Local<v8::Value> compare(v8::Handle<v8::Value> a,
+				v8::Handle<v8::Value> b);
+		v8::Local<v8::Value> serializeKey(v8::Handle<v8::Value> key);
+		v8::Local<v8::Value> deserializeKey(v8::Handle<v8::Value> buffer);
+		v8::Local<v8::Value> report(v8::Handle<v8::Value> document);
 
-	bool p_enableLog;
-	static v8::Handle<v8::Value> p_jsLog(const v8::Arguments &args);
-	static v8::Handle<v8::Value> p_jsHook(const v8::Arguments &args);
+	private:
+		static v8::Handle<v8::Value> jsLog(const v8::Arguments &args);
+		static v8::Handle<v8::Value> jsHook(const v8::Arguments &args);
+		
+		v8::Isolate *p_isolate;
+		v8::Persistent<v8::Context> p_context;
+		
+		v8::Persistent<v8::Function> p_hookExtractDoc;
+		v8::Persistent<v8::Function> p_hookExtractKey;
+		v8::Persistent<v8::Function> p_hookKeyOf;
+		v8::Persistent<v8::Function> p_hookCompare;
+		v8::Persistent<v8::Function> p_hookSerializeKey;
+		v8::Persistent<v8::Function> p_hookDeserializeKey;
+		v8::Persistent<v8::Function> p_hookReport;
+		bool p_enableLog;
+	};
 
-	v8::Persistent<v8::Function> p_funExtractDoc;
-	v8::Persistent<v8::Function> p_funExtractKey;
-	v8::Persistent<v8::Function> p_funKeyOf;
-	v8::Persistent<v8::Function> p_funCompare;
-	v8::Persistent<v8::Function> p_funSerializeKey;
-	v8::Persistent<v8::Function> p_funDeserializeKey;
-	v8::Persistent<v8::Function> p_funReport;
-
-	void p_setupJs();
-
-	v8::Local<v8::Value> p_extractDoc(DocumentId id,
-			const void *buffer, Linux::size_type length);
-	v8::Local<v8::Value> p_extractKey(const void *buffer,
-			Linux::size_type length);
-	v8::Local<v8::Value> p_keyOf(v8::Handle<v8::Value> document);
-	v8::Local<v8::Value> p_compare(v8::Handle<v8::Value> a,
-			v8::Handle<v8::Value> b);
-	v8::Local<v8::Value> p_serializeKey(v8::Handle<v8::Value> key);
-	v8::Local<v8::Value> p_deserializeKey(v8::Handle<v8::Value> buffer);
-	v8::Local<v8::Value> p_report(v8::Handle<v8::Value> document);
+	class JsScope {
+	public:
+		JsScope(JsInstance &instance);
+	
+	private:
+		v8::Locker p_locker;
+		v8::Isolate::Scope p_isolateScope;
+		v8::Context::Scope p_contextScope;
+		v8::HandleScope p_handleScope;
+	};
 
 	class QueryClosure {
 	public:
@@ -109,6 +133,7 @@ private:
 		Async::Callback<void(QueryData &)> p_onData;
 		Async::Callback<void(QueryError)> p_onComplete;
 
+		JsInstance *p_instance;
 		v8::Persistent<v8::Value> p_beginKey;
 		v8::Persistent<v8::Value> p_endKey;
 		SequenceId p_expectedSequenceId;
@@ -139,6 +164,7 @@ private:
 		std::string p_buffer;
 		Async::Callback<void(Error)> p_callback;
 
+		JsInstance *p_instance;
 		v8::Persistent<v8::Value> p_newKey;
 		char p_linkBuffer[Link::kStructSize];
 		DocumentId p_insertKey;
