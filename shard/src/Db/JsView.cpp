@@ -43,7 +43,7 @@ void JsView::createView() {
 	p_storage = getEngine()->getStorage(p_storageName);
 	
 	for(int i = 0; i < 5; i++)
-		p_instances.push(new JsInstance(p_path + "/../../extern/" + p_scriptFile));
+		p_idleInstances.push(new JsInstance(p_path + "/../../extern/" + p_scriptFile));
 	
 	p_keyStore.setPath(this->getPath());
 	p_keyStore.createStore();
@@ -58,7 +58,7 @@ void JsView::loadView() {
 	p_storage = getEngine()->getStorage(p_storageName);
 	
 	for(int i = 0; i < 5; i++)
-		p_instances.push(new JsInstance(p_path + "/../../extern/" + p_scriptFile));
+		p_idleInstances.push(new JsInstance(p_path + "/../../extern/" + p_scriptFile));
 
 	p_keyStore.setPath(this->getPath());
 	//NOTE: to test the durability implementation we always delete the data on load!
@@ -108,16 +108,32 @@ void JsView::processQuery(QueryRequest *request,
 	closure->process();
 }
 
-JsView::JsInstance *JsView::grabInstance() {
-	if(p_instances.size() == 0) //FIXME
-		throw std::runtime_error("No javascript instance available");
-	JsInstance *instance = p_instances.top();
-	p_instances.pop();
-	return instance;
+void JsView::grabInstance(Async::Callback<void(JsInstance *)> callback) {
+	std::unique_lock<std::mutex> lock(p_mutex);
+
+	if(p_idleInstances.empty()) {
+		p_waitForInstance.push(callback);
+	}else{
+		JsInstance *instance = p_idleInstances.top();
+		p_idleInstances.pop();
+
+		lock.unlock();
+		callback(instance);
+	}
 }
 
 void JsView::releaseInstance(JsInstance *instance) {
-	p_instances.push(instance);
+	std::unique_lock<std::mutex> lock(p_mutex);
+
+	if(p_waitForInstance.empty()) {
+		p_idleInstances.push(instance);
+	}else{
+		Async::Callback<void(JsInstance *)> callback = p_waitForInstance.front();
+		p_waitForInstance.pop();
+
+		lock.unlock();
+		callback(instance);
+	}
 }
 
 // --------------------------------------------------------
@@ -297,10 +313,15 @@ JsView::InsertClosure::InsertClosure(JsView *view, DocumentId document_id,
 	: p_view(view), p_documentId(document_id),
 		p_sequenceId(sequence_id), p_buffer(buffer),
 		p_callback(callback), p_btreeInsert(&view->p_orderTree) {
-	p_instance = p_view->grabInstance();
 }
 
 void JsView::InsertClosure::apply() {
+	p_view->grabInstance(ASYNC_MEMBER(this, &InsertClosure::acquireInstance));
+}
+
+void JsView::InsertClosure::acquireInstance(JsInstance *instance) {
+	p_instance = instance;
+
 	JsScope scope(*p_instance);
 	
 	v8::Local<v8::Value> extracted = p_instance->extractDoc(p_documentId,
@@ -358,10 +379,15 @@ JsView::QueryClosure::QueryClosure(JsView *view, QueryRequest *query,
 	: p_view(view), p_query(query), p_onData(on_data),
 		p_onComplete(on_complete), p_btreeFind(&view->p_orderTree),
 		p_btreeIterate(&view->p_orderTree) {
-	p_instance = p_view->grabInstance();
 }
 
 void JsView::QueryClosure::process() {
+	p_view->grabInstance(ASYNC_MEMBER(this, &QueryClosure::acquireInstance));
+}
+
+void JsView::QueryClosure::acquireInstance(JsInstance *instance) {
+	p_instance = instance;
+
 	JsScope scope(*p_instance);
 
 	if(p_query->useToKey)

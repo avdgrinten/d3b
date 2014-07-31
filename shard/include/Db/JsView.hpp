@@ -55,7 +55,7 @@ private:
 	void writeKey(void *buffer, const DocumentId &key);
 	DocumentId readKey(const void *buffer);
 
-	JsInstance *grabInstance();
+	void grabInstance(Async::Callback<void(JsInstance *)> callback);
 	void releaseInstance(JsInstance *instance);
 
 	std::string p_scriptFile;
@@ -64,7 +64,9 @@ private:
 	int p_storage;
 	DataStore p_keyStore;
 	Btree<DocumentId> p_orderTree;
-	std::stack<JsInstance *> p_instances;
+	std::stack<JsInstance *> p_idleInstances;
+	std::queue<Async::Callback<void(JsInstance *)>> p_waitForInstance;
+	std::mutex p_mutex;
 
 	class JsInstance {
 	friend class JsScope;
@@ -119,6 +121,7 @@ private:
 		void process();
 	
 	private:
+		void acquireInstance(JsInstance *instance);
 		void compareToBegin(const DocumentId &id,
 				Async::Callback<void(int)> callback);
 		void onFindBegin(Btree<DocumentId>::Ref ref);
@@ -154,6 +157,7 @@ private:
 		void apply();
 
 	private:
+		void acquireInstance(JsInstance *instance);
 		void compareToNew(const DocumentId &id,
 				Async::Callback<void(int)> callback);
 		void onComplete();
