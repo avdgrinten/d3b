@@ -70,6 +70,7 @@ private:
 
 		std::queue<SendQueueItem> p_sendQueue;
 		std::unique_ptr<Linux::EventFd> p_eventFd;
+		std::mutex p_mutex;
 	};
 	
 	void p_onConnect(Linux::SockStream *stream);

@@ -44,6 +44,7 @@ void Server::Connection::postResponse(int opcode, int seq_number,
 	if(!response.SerializeToArray(buffer + sizeof(PacketHead), length))
 		throw std::runtime_error("Could not serialize protobuf");
 	
+	std::lock_guard<std::mutex> lock(p_mutex);
 	p_tlsChannel.writeTls(sizeof(PacketHead) + length, buffer);
 	delete[] buffer;
 }
@@ -99,19 +100,27 @@ void Server::Connection::onWriteRaw(int size, const char *input_buffer) {
 
 
 void Server::Connection::processWrite() {
+	std::unique_lock<std::mutex> lock(p_mutex);
+	
 	if(!p_sendQueue.empty()) {
 		SendQueueItem &item = p_sendQueue.front();
+
+		lock.unlock();
 		p_sockStream->write(item.length, item.buffer,
 				ASYNC_MEMBER(this, &Connection::onWriteItem));
 	}else{
+		lock.unlock();
 		p_eventFd->wait(ASYNC_MEMBER(this, &Connection::processWrite));
 	}
 }
 void Server::Connection::onWriteItem() {
+	std::unique_lock<std::mutex> lock(p_mutex);
+
 	SendQueueItem &item = p_sendQueue.front();
 	delete[] item.buffer;
 	p_sendQueue.pop();
-
+	
+	lock.unlock();
 	LocalTaskQueue::get()->submit(ASYNC_MEMBER(this, &Connection::processWrite));
 }
 
