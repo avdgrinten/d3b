@@ -2,6 +2,7 @@
 #include "Async.hpp"
 #include "Os/Linux.hpp"
 
+#include <cassert>
 #include <string.h>
 
 #include <unistd.h>
@@ -147,97 +148,90 @@ void Linux::SockServer::EpollCallback::operator() (epoll_event &event) {
 /* ------------------------------------------------------------------- */
 
 Linux::SockStream::SockStream(int socket_fd)
-		: p_socketFd(socket_fd), p_wantWrite(false),
-		p_epollInstalled(false), p_epollCallback(this) {
+		: p_socketFd(socket_fd), p_readReady(false), p_writeReady(false),
+		p_epollCallback(this) {
 	int fflags = fcntl(p_socketFd, F_GETFL);
 	if(fflags == -1)
 		throw std::runtime_error("fcntl(F_GETFL) failed");
 	if(fcntl(p_socketFd, F_SETFL, fflags | O_NONBLOCK) == -1)
 		throw std::runtime_error("fcntl(F_SETFL) failed");
-	
-	p_epollUpdate();
+
+	epoll_event event;
+	event.data.ptr = &p_epollCallback;
+	event.events = EPOLLET | EPOLLIN | EPOLLOUT | EPOLLRDHUP;
+	if(epoll_ctl(OS::LocalAsyncHost::get()->p_epollFd, EPOLL_CTL_ADD,
+			p_socketFd, &event) == -1)
+		throw std::runtime_error("epoll_ctl(EPOLL_CTL_ADD) failed");
 }
 
-void Linux::SockStream::setReadCallback(Async::Callback<void(int, const char *)> callback) {
+void Linux::SockStream::setReadCallback(Async::Callback<void()> callback) {
 	p_readCallback = callback;
+}
+void Linux::SockStream::setWriteCallback(Async::Callback<void()> callback) {
+	p_writeCallback = callback;
 }
 void Linux::SockStream::setCloseCallback(Async::Callback<void()> callback) {
 	p_closeCallback = callback;
 }
 
-void Linux::SockStream::write(size_type length, const void *buffer,
-		Async::Callback<void()> callback) {
-	if(p_wantWrite)
-		throw std::logic_error("Concurrent write on SockStream");
-	p_wantWrite = true;
-	p_writeLength = length;
-	p_writeBuffer = (const char *)buffer;
-	p_writeOffset = 0;
-	p_writeCallback = callback;
-	p_epollUpdate();
+bool Linux::SockStream::isReadReady() {
+	return p_readReady;
+}
+bool Linux::SockStream::isWriteReady() {
+	return p_writeReady;
 }
 
-void Linux::SockStream::p_epollUpdate() {
-	epoll_event event;
-	event.data.ptr = &p_epollCallback;
-	event.events = EPOLLIN;
-	if(p_wantWrite)
-		event.events |= EPOLLOUT;
-	event.events |= EPOLLRDHUP;
-	
-	if(p_epollInstalled && event.events == 0) {
-		if(epoll_ctl(OS::LocalAsyncHost::get()->p_epollFd, EPOLL_CTL_DEL,
-				p_socketFd, &event) == -1)
-			throw std::runtime_error("epoll_ctl(EPOLL_CTL_DEL) failed");
-		p_epollInstalled = false;
-	}else if(p_epollInstalled) {
-		if(epoll_ctl(OS::LocalAsyncHost::get()->p_epollFd, EPOLL_CTL_MOD,
-				p_socketFd, &event) == -1)
-			throw std::runtime_error("epoll_ctl(EPOLL_CTL_MOD) failed");
-	}else{
-		if(epoll_ctl(OS::LocalAsyncHost::get()->p_epollFd, EPOLL_CTL_ADD,
-				p_socketFd, &event) == -1)
-			throw std::runtime_error("epoll_ctl(EPOLL_CTL_ADD) failed");
-		p_epollInstalled = true;
-	}
-}
-
-void Linux::SockStream::p_epollProcess(epoll_event &event) {
-	if(event.events & EPOLLIN) {
-		ssize_t bytes = ::read(p_socketFd, p_readBuffer, 512);
-		if(bytes == -1)
-			throw std::runtime_error("Read failed");
-		p_readCallback(bytes, p_readBuffer);
-	}
-
-	if(event.events & EPOLLOUT) {
-		if(!p_wantWrite)
-			throw std::logic_error("!p_wantWrite");
-		ssize_t bytes = ::write(p_socketFd, p_writeBuffer + p_writeOffset,
-				p_writeLength - p_writeOffset);
-		if(bytes == -1)
+int Linux::SockStream::tryRead(size_type length, void *buffer) {
+	assert(p_readReady);
+	ssize_t bytes = ::read(p_socketFd, buffer, length);
+	if(bytes == -1) {
+		if(errno == EAGAIN) {
+			p_readReady = false;
+			return 0;
+		}else{
 			throw std::runtime_error("Write failed");
-		
-		p_writeOffset += bytes;
-		if(p_writeOffset == p_writeLength) {
-			p_wantWrite = false;
-			p_epollUpdate();
-			p_writeCallback();
 		}
 	}
-	
-	if(event.events & EPOLLHUP) {
-		p_closeCallback();
-		if(close(p_socketFd) != 0)
-			throw std::runtime_error("close() failed");
+	return bytes;
+}
+
+int Linux::SockStream::tryWrite(size_type length, const void *buffer) {
+	assert(p_writeReady);
+	ssize_t bytes = ::write(p_socketFd, buffer, length);
+	if(bytes == -1) {
+		if(errno == EAGAIN) {
+			p_writeReady = false;
+			return 0;
+		}else{
+			throw std::runtime_error("Write failed");
+		}
 	}
+	return bytes;
 }
 
 Linux::SockStream::EpollCallback::EpollCallback(SockStream *stream)
 	: p_stream(stream) { }
 
 void Linux::SockStream::EpollCallback::operator() (epoll_event &event) {
-	p_stream->p_epollProcess(event);
+	if(event.events & EPOLLIN) {
+		if(!p_stream->p_readReady) {
+			p_stream->p_readReady = true;
+			p_stream->p_readCallback();
+		}
+	}
+
+	if(event.events & EPOLLOUT) {
+		if(!p_stream->p_writeReady) {
+			p_stream->p_writeReady = true;
+			p_stream->p_writeCallback();
+		}
+	}
+	
+	if(event.events & EPOLLHUP) {
+		p_stream->p_closeCallback();
+		if(close(p_stream->p_socketFd) != 0)
+			throw std::runtime_error("close() failed");
+	}
 }
 
 /* ------------------------------------------------------------------- */

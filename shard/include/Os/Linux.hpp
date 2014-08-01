@@ -133,32 +133,27 @@ public:
 	class SockStream {
 	friend class Linux;
 	public:
-		void write(size_type length, const void *buffer,
-				Async::Callback<void()> callback);
-		
-		void setReadCallback(Async::Callback<void(int, const char *)> callback);
+		void setReadCallback(Async::Callback<void()> callback);
+		void setWriteCallback(Async::Callback<void()> callback);
 		void setCloseCallback(Async::Callback<void()> callback);
+
+		bool isReadReady();
+		bool isWriteReady();
+
+		int tryRead(size_type length, void *buffer);
+		int tryWrite(size_type length, const void *buffer);
+	
 	private:
 		SockStream(int socket_fd);
-
-		int p_socketFd;
 		
-		Async::Callback<void(int, const char *)> p_readCallback;
+		Async::Callback<void()> p_readCallback;
+		Async::Callback<void()> p_writeCallback;
 		Async::Callback<void()> p_closeCallback;
 		
-		char p_readBuffer[512];
-		
-		size_t p_writeLength;
-		size_t p_writeOffset;
-		const char *p_writeBuffer;
-		Async::Callback<void()> p_writeCallback;
+		int p_socketFd;
+		bool p_readReady;
+		bool p_writeReady;
 
-		bool p_wantWrite;
-		bool p_epollInstalled;
-
-		void p_epollUpdate();
-		void p_epollProcess(epoll_event &event);
-		
 		class EpollCallback : public EpollInterface {
 		public:
 			virtual void operator() (epoll_event &event);

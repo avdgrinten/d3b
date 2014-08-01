@@ -21,11 +21,12 @@ namespace Api {
 
 Server::Connection::Connection(Server *server, Linux::SockStream *sock_stream)
 		: p_server(server), p_sockStream(sock_stream), p_tlsChannel(&server->p_tlsServer),
-			p_readOffset(0), p_validHead(false) {
+			p_readOffset(0), p_validHead(false), p_sendOffset(0) {
 	p_eventFd = osIntf->createEventFd();
 
+	p_sockStream->setReadCallback(ASYNC_MEMBER(this, &Connection::onReadReady));
+	p_sockStream->setWriteCallback(ASYNC_MEMBER(this, &Connection::onWriteReady));
 	p_sockStream->setCloseCallback(ASYNC_MEMBER(this, &Connection::onClose));
-	p_sockStream->setReadCallback(ASYNC_MEMBER(&p_tlsChannel, &Ll::TlsServer::Channel::readRaw));
 
 	p_tlsChannel.setWriteRawCallback(ASYNC_MEMBER(this, &Connection::onWriteRaw));
 	p_tlsChannel.setReadTlsCallback(ASYNC_MEMBER(this, &Connection::onReadTls));
@@ -88,40 +89,52 @@ void Server::Connection::onReadTls(int size, const char *buffer) {
 	}
 }
 void Server::Connection::onWriteRaw(int size, const char *input_buffer) {
-	char *queued_buffer = new char[size];
-	memcpy(queued_buffer, input_buffer, size);
+	int offset = 0;
+	if(p_sendQueue.empty()) {
+		while(p_sockStream->isWriteReady()) {
+			int written = p_sockStream->tryWrite(size - offset, input_buffer + offset);
+			offset += written;
+			if(offset == size)
+				return;
+		}
+	}
+
+	char *queued_buffer = new char[size - offset];
+	memcpy(queued_buffer, input_buffer + offset, size - offset);
 
 	SendQueueItem item;
-	item.length = size;
+	item.length = size - offset;
 	item.buffer = queued_buffer;
 	p_sendQueue.push(item);
 	p_eventFd->increment();
 }
 
-
-void Server::Connection::processWrite() {
-	std::unique_lock<std::mutex> lock(p_mutex);
-	
-	if(!p_sendQueue.empty()) {
-		SendQueueItem &item = p_sendQueue.front();
-
-		lock.unlock();
-		p_sockStream->write(item.length, item.buffer,
-				ASYNC_MEMBER(this, &Connection::onWriteItem));
-	}else{
-		lock.unlock();
-		p_eventFd->wait(ASYNC_MEMBER(this, &Connection::processWrite));
+void Server::Connection::onReadReady() {
+	while(p_sockStream->isReadReady()) {
+		int read = p_sockStream->tryRead(512, p_rawBuffer);
+		p_tlsChannel.readRaw(read, p_rawBuffer);
 	}
 }
-void Server::Connection::onWriteItem() {
-	std::unique_lock<std::mutex> lock(p_mutex);
 
-	SendQueueItem &item = p_sendQueue.front();
-	delete[] item.buffer;
-	p_sendQueue.pop();
+void Server::Connection::onWriteReady() {
+	std::lock_guard<std::mutex> lock(p_mutex);
 	
-	lock.unlock();
-	LocalTaskQueue::get()->submit(ASYNC_MEMBER(this, &Connection::processWrite));
+	while(!p_sendQueue.empty()) {
+		if(!p_sockStream->isWriteReady())
+			return;
+
+		SendQueueItem &item = p_sendQueue.front();
+		
+		int written = p_sockStream->tryWrite(item.length - p_sendOffset,
+				item.buffer + p_sendOffset);
+		p_sendOffset += written;
+
+		if(p_sendOffset == item.length) {
+			delete[] item.buffer;
+			p_sendQueue.pop();
+			p_sendOffset = 0;
+		}
+	}
 }
 
 void Server::Connection::onClose() {
@@ -326,7 +339,6 @@ void Server::start() {
 
 void Server::p_onConnect(Linux::SockStream *stream) {
 	Connection *connection = new Connection(this, stream);
-	connection->processWrite();
 }
 
 // --------------------------------------------------------

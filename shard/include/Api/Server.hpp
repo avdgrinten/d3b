@@ -22,8 +22,6 @@ private:
 		Connection(Server *server,
 				Linux::SockStream *sock_stream);
 		
-		void processWrite();
-		
 		void postResponse(int opcode, int seq_number,
 				const google::protobuf::MessageLite &reponse);
 
@@ -45,7 +43,8 @@ private:
 			uint32_t seqNumber;
 		};
 		
-		void onWriteItem();
+		void onReadReady();
+		void onWriteReady();
 
 		void onReadTls(int size, const char *buffer);
 		void onWriteRaw(int size, const char *buffer);
@@ -57,6 +56,7 @@ private:
 		Linux::SockStream *p_sockStream;
 		Ll::TlsServer::Channel p_tlsChannel;
 		
+		char p_rawBuffer[512];
 		char p_headBuffer[PacketHead::kStructSize];
 		PacketHead p_curPacket;
 		char *p_bodyBuffer;
@@ -68,9 +68,10 @@ private:
 			char *buffer;
 		};
 
+		std::mutex p_mutex;
 		std::queue<SendQueueItem> p_sendQueue;
 		std::unique_ptr<Linux::EventFd> p_eventFd;
-		std::mutex p_mutex;
+		int p_sendOffset;
 	};
 	
 	void p_onConnect(Linux::SockStream *stream);
