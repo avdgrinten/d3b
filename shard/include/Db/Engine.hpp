@@ -112,6 +112,7 @@ private:
 	SequenceId p_currentSequenceId;
 	std::unordered_map<TransactionId, Transaction *> p_openTransactions;
 	std::vector<TransactionId> p_submittedTransactions;
+	std::mutex p_mutex;
 
 	Ll::WriteAhead p_writeAhead;
 	

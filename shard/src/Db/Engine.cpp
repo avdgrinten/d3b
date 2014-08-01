@@ -76,68 +76,6 @@ void Engine::loadConfig() {
 	closure.replay();
 }
 
-Engine::ReplayClosure::ReplayClosure(Engine *engine)
-	: p_engine(engine) { }
-
-void Engine::ReplayClosure::replay() {
-	p_engine->p_writeAhead.replay(ASYNC_MEMBER(this, &ReplayClosure::onEntry));
-}
-void Engine::ReplayClosure::onEntry(Proto::LogEntry &log_entry) {
-	if(log_entry.type() == Proto::LogEntry::kTypeSubmit) {
-		TransactionId transact_id = log_entry.transaction_id();
-		Transaction *transaction = Transaction::allocate();
-
-		for(int i = 0; i < log_entry.mutations_size(); i++) {
-			const Proto::LogMutation &log_mutation = log_entry.mutations(i);
-
-			Mutation mutation;
-			if(log_mutation.type() == Proto::LogMutation::kTypeInsert) {
-				int storage = p_engine->getStorage(log_mutation.storage_name());
-				mutation.type = Mutation::kTypeInsert;
-				mutation.storageIndex = storage;
-				mutation.documentId = log_mutation.document_id();
-				mutation.buffer = log_mutation.buffer();
-			}else if(log_mutation.type() == Proto::LogMutation::kTypeModify) {
-				int storage = p_engine->getStorage(log_mutation.storage_name());
-				mutation.type = Mutation::kTypeInsert;
-				mutation.storageIndex = storage;
-				mutation.documentId = log_mutation.document_id();
-				mutation.buffer = log_mutation.buffer();
-			}else throw std::logic_error("Illegal log mutation type");
-
-			transaction->mutations.push_back(std::move(mutation));
-		}
-
-		p_transactions.insert(std::make_pair(transact_id, transaction));
-	}else if(log_entry.type() == Proto::LogEntry::kTypeCommit) {
-		TransactionId transact_id = log_entry.transaction_id();
-		auto transact_it = p_transactions.find(transact_id);
-		if(transact_it == p_transactions.end())
-			throw std::runtime_error("Illegal transaction");
-		Transaction *transaction = transact_it->second;
-		
-		for(auto it = p_engine->p_storage.begin(); it != p_engine->p_storage.end(); ++it) {
-			StorageDriver *driver = *it;
-			if(driver == nullptr)
-				continue;
-			transaction->refIncrement();
-			driver->sequence(log_entry.sequence_id(), transaction->mutations,
-					ASYNC_MEMBER(transaction, &Transaction::refDecrement));
-		}
-		for(auto it = p_engine->p_views.begin(); it != p_engine->p_views.end(); ++it) {
-			ViewDriver *driver = *it;
-			if(driver == nullptr)
-				continue;
-			transaction->refIncrement();
-			driver->sequence(log_entry.sequence_id(), transaction->mutations,
-					ASYNC_MEMBER(transaction, &Transaction::refDecrement));
-		}
-		
-		p_transactions.erase(transact_it);
-		transaction->refDecrement();
-	}else throw std::logic_error("Illegal log entry type");
-}
-
 void Engine::createStorage(const Proto::StorageConfig &config) {
 	if(getStorage(config.identifier()) != -1)
 		throw std::runtime_error("Storage exists already!");
@@ -193,10 +131,14 @@ void Engine::unlinkView(int view) {
 }
 
 SequenceId Engine::currentSequenceId() {
+	std::lock_guard<std::mutex> lock(p_mutex);
+
 	return p_currentSequenceId;
 }
 
 TransactionId Engine::transaction() {
+	std::lock_guard<std::mutex> lock(p_mutex);
+
 	TransactionId transaction_id = p_nextTransactId++;
 
 	Transaction *transaction = Transaction::allocate();
@@ -204,6 +146,8 @@ TransactionId Engine::transaction() {
 	return transaction_id;
 }
 void Engine::updateMutation(TransactionId transaction_id, Mutation &mutation) {
+	std::lock_guard<std::mutex> lock(p_mutex);
+
 	auto transact_it = p_openTransactions.find(transaction_id);
 	if(transact_it == p_openTransactions.end())
 		throw std::runtime_error("Illegal transaction");	
@@ -217,6 +161,8 @@ void Engine::updateMutation(TransactionId transaction_id, Mutation &mutation) {
 	transaction->mutations.push_back(std::move(mutation));
 }
 void Engine::updateConstraint(TransactionId transaction_id, Constraint &constraint) {
+	std::lock_guard<std::mutex> lock(p_mutex);
+	
 	auto transact_it = p_openTransactions.find(transaction_id);
 	if(transact_it == p_openTransactions.end())
 		throw std::runtime_error("Illegal transaction");	
@@ -226,20 +172,28 @@ void Engine::updateConstraint(TransactionId transaction_id, Constraint &constrai
 }
 void Engine::submit(TransactionId transaction_id,
 		Async::Callback<void(SubmitError)> callback) {
+	std::unique_lock<std::mutex> lock(p_mutex);
+
 	QueueItem queued;
 	queued.type = QueueItem::kTypeSubmit;
 	queued.trid = transaction_id;
 	queued.submitCallback = callback;
 	p_submitQueue.push_back(queued);
+
+	lock.unlock();
 	p_eventFd->increment();
 }
 void Engine::commit(TransactionId transaction_id,
 		Async::Callback<void(SequenceId)> callback) {
+	std::unique_lock<std::mutex> lock(p_mutex);
+
 	QueueItem queued;
 	queued.type = QueueItem::kTypeCommit;
 	queued.trid = transaction_id;
 	queued.commitCallback = callback;
 	p_submitQueue.push_back(queued);
+
+	lock.unlock();
 	p_eventFd->increment();
 }
 
@@ -257,213 +211,6 @@ void Engine::process() {
 	auto op = new ProcessQueueClosure(this,
 			Async::Callback<void()>(nullptr, finish));
 	op->processLoop();
-}
-
-Engine::ProcessQueueClosure::ProcessQueueClosure(Engine *engine,
-		Async::Callback<void()> callback)
-	: p_engine(engine), p_callback(callback) { }
-
-void Engine::ProcessQueueClosure::processLoop() {
-	p_engine->p_eventFd->wait(ASYNC_MEMBER(this, &ProcessQueueClosure::processItem));
-}
-
-void Engine::ProcessQueueClosure::processItem() {
-	if(!p_engine->p_submitQueue.empty()) {
-		p_queueItem = p_engine->p_submitQueue.front();
-		p_engine->p_submitQueue.pop_front();
-		if(p_queueItem.type == QueueItem::kTypeSubmit) {
-			processSubmit();
-		}else if(p_queueItem.type == QueueItem::kTypeCommit) {
-			processCommit();
-		}else throw std::logic_error("Queued item has illegal type");
-	}else{
-		LocalTaskQueue::get()->submit(ASYNC_MEMBER(this, &ProcessQueueClosure::processLoop));
-	}
-}
-	
-void Engine::ProcessQueueClosure::processSubmit() {
-	auto transact_it = p_engine->p_openTransactions.find(p_queueItem.trid);
-	if(transact_it == p_engine->p_openTransactions.end())
-		throw std::runtime_error("Illegal transaction");
-	p_transaction = transact_it->second;
-
-	for(auto other_it = p_engine->p_submittedTransactions.begin();
-			other_it != p_engine->p_submittedTransactions.end(); ++other_it) {
-		Transaction *other = p_engine->p_openTransactions.at(*other_it);
-
-		// check conflicts: other's mutation <-> tranasction's constraint
-		for(auto other_mutation_it = other->mutations.begin();
-				other_mutation_it != other->mutations.end(); ++other_mutation_it) {
-			for(auto constraint_it = p_transaction->constraints.begin();
-					constraint_it != p_transaction->constraints.end(); ++constraint_it) {
-				if(!p_engine->compatible(*other_mutation_it, *constraint_it)) {
-					submitFailure(kSubmitConstraintConflict);
-					return;
-				}
-			}
-		}
-		
-		// check conflicts: other's constraint <-> transaction's mutation
-		for(auto other_constraint_it = other->constraints.begin();
-				other_constraint_it != other->constraints.end(); ++ other_constraint_it) {
-			for(auto mutation_it = p_transaction->mutations.begin();
-					mutation_it != p_transaction->mutations.end(); ++mutation_it) {
-				if(!p_engine->compatible(*mutation_it, *other_constraint_it)) {
-					submitFailure(kSubmitMutationConflict);
-					return;
-				}
-			}
-		}
-	}
-
-	p_index = 0;
-	submitCheckConstraint();
-}
-void Engine::ProcessQueueClosure::submitCheckConstraint() {
-	if(p_index == p_transaction->constraints.size()) {
-		submitLog();
-	}else{
-		p_checkOkay = true;
-
-		Constraint &constraint = p_transaction->constraints[p_index];
-		if(constraint.type == Constraint::kTypeDocumentState) {
-			StorageDriver *driver = p_engine->p_storage[constraint.storageIndex];
-
-			p_fetch.documentId = constraint.documentId;
-			p_fetch.sequenceId = p_engine->p_currentSequenceId;
-
-			driver->fetch(&p_fetch,
-					ASYNC_MEMBER(this, &ProcessQueueClosure::checkStateOnData),
-					ASYNC_MEMBER(this, &ProcessQueueClosure::checkStateOnFetch));
-		}else throw std::logic_error("Illegal constraint type");
-	}
-}
-void Engine::ProcessQueueClosure::checkStateOnData(FetchData &data) {
-	Constraint &constraint = p_transaction->constraints[p_index];
-//	if(data.sequenceId != constraint.sequenceId)
-//		p_checkOkay = false;
-}
-void Engine::ProcessQueueClosure::checkStateOnFetch(FetchError error) {
-	Constraint &constraint = p_transaction->constraints[p_index];
-	if(error == kFetchSuccess) {
-		// everything is okay
-	}else if(error == kFetchDocumentNotFound) {
-		if(constraint.mustExist)
-			p_checkOkay = false;
-	}else throw std::logic_error("Unexpected error during fetch");
-
-	if(!p_checkOkay) {
-		submitFailure(kSubmitConstraintViolation);
-		return;
-	}
-	
-	p_index++;
-	LocalTaskQueue::get()->submit(ASYNC_MEMBER(this, &ProcessQueueClosure::submitCheckConstraint));
-}
-void Engine::ProcessQueueClosure::submitLog() {
-	p_logEntry.set_type(Proto::LogEntry::kTypeSubmit);
-	p_logEntry.set_transaction_id(p_queueItem.trid);
-
-	for(auto it = p_transaction->mutations.begin();
-			it != p_transaction->mutations.end(); ++it) {
-		Mutation &mutation = *it;
-
-		Proto::LogMutation *log_mutation = p_logEntry.add_mutations();
-		if(mutation.type == Mutation::kTypeInsert) {
-			StorageDriver *driver = p_engine->p_storage[mutation.storageIndex];
-			
-			log_mutation->set_type(Proto::LogMutation::kTypeInsert);
-			log_mutation->set_storage_name(driver->getIdentifier());
-			log_mutation->set_document_id(mutation.documentId);
-			log_mutation->set_buffer(mutation.buffer);
-		}else if(mutation.type == Mutation::kTypeModify) {
-			StorageDriver *driver = p_engine->p_storage[mutation.storageIndex];
-			
-			log_mutation->set_type(Proto::LogMutation::kTypeModify);
-			log_mutation->set_storage_name(driver->getIdentifier());
-			log_mutation->set_document_id(mutation.documentId);
-			log_mutation->set_buffer(mutation.buffer);
-		}else throw std::logic_error("Illegal mutation type");
-	}
-
-	p_engine->p_writeAhead.log(p_logEntry,
-			ASYNC_MEMBER(this, &ProcessQueueClosure::onSubmitWriteAhead));
-}
-void Engine::ProcessQueueClosure::onSubmitWriteAhead(Error error) {
-	//TODO: handle failure
-
-	p_engine->p_submittedTransactions.push_back(p_queueItem.trid);
-
-	p_queueItem.submitCallback(kSubmitSuccess);
-
-	p_transaction = nullptr;
-	p_logEntry.Clear();
-	LocalTaskQueue::get()->submit(ASYNC_MEMBER(this, &ProcessQueueClosure::processItem));
-}
-void Engine::ProcessQueueClosure::submitFailure(SubmitError error) {
-	auto iterator = p_engine->p_openTransactions.find(p_queueItem.trid);
-	assert(iterator != p_engine->p_openTransactions.end());
-	p_engine->p_openTransactions.erase(iterator);
-
-	p_transaction->refDecrement();
-
-	p_queueItem.submitCallback(error);
-	LocalTaskQueue::get()->submit(ASYNC_MEMBER(this, &ProcessQueueClosure::processItem));
-}
-
-void Engine::ProcessQueueClosure::processCommit() {
-	auto transact_it = p_engine->p_openTransactions.find(p_queueItem.trid);
-	if(transact_it == p_engine->p_openTransactions.end())
-		throw std::runtime_error("Illegal transaction");
-	p_transaction = transact_it->second;
-
-	p_engine->p_currentSequenceId++;
-	p_sequenceId = p_engine->p_currentSequenceId;
-	
-	p_logEntry.set_type(Proto::LogEntry::kTypeCommit);
-	p_logEntry.set_transaction_id(p_queueItem.trid);
-	p_logEntry.set_sequence_id(p_sequenceId);
-
-	p_engine->p_writeAhead.log(p_logEntry,
-			ASYNC_MEMBER(this, &ProcessQueueClosure::onCommitWriteAhead));
-}
-void Engine::ProcessQueueClosure::onCommitWriteAhead(Error error) {
-	//TODO: handle failure
-
-	for(auto it = p_engine->p_storage.begin(); it != p_engine->p_storage.end(); ++it) {
-		StorageDriver *driver = *it;
-		if(driver == nullptr)
-			continue;
-		p_transaction->refIncrement();
-		driver->sequence(p_sequenceId, p_transaction->mutations,
-				ASYNC_MEMBER(p_transaction, &Transaction::refDecrement));
-	}
-	for(auto it = p_engine->p_views.begin(); it != p_engine->p_views.end(); ++it) {
-		ViewDriver *driver = *it;
-		if(driver == nullptr)
-			continue;
-		p_transaction->refIncrement();
-		driver->sequence(p_sequenceId, p_transaction->mutations,
-				ASYNC_MEMBER(p_transaction, &Transaction::refDecrement));
-	}
-	
-	// commit/rollback always frees the transaction
-	auto open_iterator = p_engine->p_openTransactions.find(p_queueItem.trid);
-	assert(open_iterator != p_engine->p_openTransactions.end());
-	p_engine->p_openTransactions.erase(open_iterator);
-
-	auto submit_iterator = std::find(p_engine->p_submittedTransactions.begin(),
-			p_engine->p_submittedTransactions.end(), p_queueItem.trid);
-	assert(submit_iterator != p_engine->p_submittedTransactions.end());
-	p_engine->p_submittedTransactions.erase(submit_iterator);
-
-	p_transaction->refDecrement();
-
-	p_queueItem.commitCallback(p_sequenceId);
-
-	p_transaction = nullptr;
-	p_logEntry.Clear();
-	LocalTaskQueue::get()->submit(ASYNC_MEMBER(this, &ProcessQueueClosure::processItem));
 }
 
 void Engine::fetch(FetchRequest *fetch,
@@ -534,6 +281,10 @@ void Engine::p_writeConfig() {
 	file->closeSync();
 }
 
+// --------------------------------------------------------
+// Engine::Transaction
+// --------------------------------------------------------
+
 Engine::Transaction *Engine::Transaction::allocate() {
 	return new Transaction;
 }
@@ -545,6 +296,307 @@ void Engine::Transaction::refDecrement() {
 	p_refCount--;
 	if(p_refCount == 0)
 		delete this;
+}
+
+// --------------------------------------------------------
+// Engine::ReplayClosure
+// --------------------------------------------------------
+
+Engine::ReplayClosure::ReplayClosure(Engine *engine)
+	: p_engine(engine) { }
+
+void Engine::ReplayClosure::replay() {
+	p_engine->p_writeAhead.replay(ASYNC_MEMBER(this, &ReplayClosure::onEntry));
+}
+void Engine::ReplayClosure::onEntry(Proto::LogEntry &log_entry) {
+	if(log_entry.type() == Proto::LogEntry::kTypeSubmit) {
+		TransactionId transact_id = log_entry.transaction_id();
+		Transaction *transaction = Transaction::allocate();
+
+		for(int i = 0; i < log_entry.mutations_size(); i++) {
+			const Proto::LogMutation &log_mutation = log_entry.mutations(i);
+
+			Mutation mutation;
+			if(log_mutation.type() == Proto::LogMutation::kTypeInsert) {
+				int storage = p_engine->getStorage(log_mutation.storage_name());
+				mutation.type = Mutation::kTypeInsert;
+				mutation.storageIndex = storage;
+				mutation.documentId = log_mutation.document_id();
+				mutation.buffer = log_mutation.buffer();
+			}else if(log_mutation.type() == Proto::LogMutation::kTypeModify) {
+				int storage = p_engine->getStorage(log_mutation.storage_name());
+				mutation.type = Mutation::kTypeInsert;
+				mutation.storageIndex = storage;
+				mutation.documentId = log_mutation.document_id();
+				mutation.buffer = log_mutation.buffer();
+			}else throw std::logic_error("Illegal log mutation type");
+
+			transaction->mutations.push_back(std::move(mutation));
+		}
+
+		p_transactions.insert(std::make_pair(transact_id, transaction));
+	}else if(log_entry.type() == Proto::LogEntry::kTypeCommit) {
+		TransactionId transact_id = log_entry.transaction_id();
+		auto transact_it = p_transactions.find(transact_id);
+		if(transact_it == p_transactions.end())
+			throw std::runtime_error("Illegal transaction");
+		Transaction *transaction = transact_it->second;
+		
+		for(auto it = p_engine->p_storage.begin(); it != p_engine->p_storage.end(); ++it) {
+			StorageDriver *driver = *it;
+			if(driver == nullptr)
+				continue;
+			transaction->refIncrement();
+			driver->sequence(log_entry.sequence_id(), transaction->mutations,
+					ASYNC_MEMBER(transaction, &Transaction::refDecrement));
+		}
+		for(auto it = p_engine->p_views.begin(); it != p_engine->p_views.end(); ++it) {
+			ViewDriver *driver = *it;
+			if(driver == nullptr)
+				continue;
+			transaction->refIncrement();
+			driver->sequence(log_entry.sequence_id(), transaction->mutations,
+					ASYNC_MEMBER(transaction, &Transaction::refDecrement));
+		}
+		
+		p_transactions.erase(transact_it);
+		transaction->refDecrement();
+	}else throw std::logic_error("Illegal log entry type");
+}
+
+
+// --------------------------------------------------------
+// Engine::ProcessQueueClosure
+// --------------------------------------------------------
+
+Engine::ProcessQueueClosure::ProcessQueueClosure(Engine *engine,
+		Async::Callback<void()> callback)
+	: p_engine(engine), p_callback(callback) { }
+
+void Engine::ProcessQueueClosure::processLoop() {
+	p_engine->p_eventFd->wait(ASYNC_MEMBER(this, &ProcessQueueClosure::processItem));
+}
+
+void Engine::ProcessQueueClosure::processItem() {
+	std::unique_lock<std::mutex> lock(p_engine->p_mutex);
+
+	if(!p_engine->p_submitQueue.empty()) {
+		p_queueItem = p_engine->p_submitQueue.front();
+		p_engine->p_submitQueue.pop_front();
+		
+		lock.unlock();
+		if(p_queueItem.type == QueueItem::kTypeSubmit) {
+			processSubmit();
+		}else if(p_queueItem.type == QueueItem::kTypeCommit) {
+			processCommit();
+		}else throw std::logic_error("Queued item has illegal type");
+	}else{
+		lock.unlock();
+		LocalTaskQueue::get()->submit(ASYNC_MEMBER(this, &ProcessQueueClosure::processLoop));
+	}
+}
+	
+void Engine::ProcessQueueClosure::processSubmit() {
+	std::unique_lock<std::mutex> lock(p_engine->p_mutex);
+
+	auto transact_it = p_engine->p_openTransactions.find(p_queueItem.trid);
+	if(transact_it == p_engine->p_openTransactions.end())
+		throw std::runtime_error("Illegal transaction");
+	p_transaction = transact_it->second;
+
+	lock.unlock();
+
+	for(auto other_it = p_engine->p_submittedTransactions.begin();
+			other_it != p_engine->p_submittedTransactions.end(); ++other_it) {
+		Transaction *other = p_engine->p_openTransactions.at(*other_it);
+
+		// check conflicts: other's mutation <-> tranasction's constraint
+		for(auto other_mutation_it = other->mutations.begin();
+				other_mutation_it != other->mutations.end(); ++other_mutation_it) {
+			for(auto constraint_it = p_transaction->constraints.begin();
+					constraint_it != p_transaction->constraints.end(); ++constraint_it) {
+				if(!p_engine->compatible(*other_mutation_it, *constraint_it)) {
+					submitFailure(kSubmitConstraintConflict);
+					return;
+				}
+			}
+		}
+		
+		// check conflicts: other's constraint <-> transaction's mutation
+		for(auto other_constraint_it = other->constraints.begin();
+				other_constraint_it != other->constraints.end(); ++ other_constraint_it) {
+			for(auto mutation_it = p_transaction->mutations.begin();
+					mutation_it != p_transaction->mutations.end(); ++mutation_it) {
+				if(!p_engine->compatible(*mutation_it, *other_constraint_it)) {
+					submitFailure(kSubmitMutationConflict);
+					return;
+				}
+			}
+		}
+	}
+
+	p_index = 0;
+	submitCheckConstraint();
+}
+void Engine::ProcessQueueClosure::submitCheckConstraint() {
+	if(p_index == p_transaction->constraints.size()) {
+		submitLog();
+	}else{
+		p_checkOkay = true;
+
+		Constraint &constraint = p_transaction->constraints[p_index];
+		if(constraint.type == Constraint::kTypeDocumentState) {
+			StorageDriver *driver = p_engine->p_storage[constraint.storageIndex];
+
+			p_fetch.documentId = constraint.documentId;
+			p_fetch.sequenceId = p_engine->p_currentSequenceId;
+
+			driver->fetch(&p_fetch,
+					ASYNC_MEMBER(this, &ProcessQueueClosure::checkStateOnData),
+					ASYNC_MEMBER(this, &ProcessQueueClosure::checkStateOnFetch));
+		}else throw std::logic_error("Illegal constraint type");
+	}
+}
+void Engine::ProcessQueueClosure::checkStateOnData(FetchData &data) {
+	Constraint &constraint = p_transaction->constraints[p_index];
+//FIXME:
+//	if(data.sequenceId != constraint.sequenceId)
+//		p_checkOkay = false;
+}
+void Engine::ProcessQueueClosure::checkStateOnFetch(FetchError error) {
+	Constraint &constraint = p_transaction->constraints[p_index];
+	if(error == kFetchSuccess) {
+		// everything is okay
+	}else if(error == kFetchDocumentNotFound) {
+		if(constraint.mustExist)
+			p_checkOkay = false;
+	}else throw std::logic_error("Unexpected error during fetch");
+
+	if(!p_checkOkay) {
+		submitFailure(kSubmitConstraintViolation);
+		return;
+	}
+	
+	p_index++;
+	LocalTaskQueue::get()->submit(ASYNC_MEMBER(this, &ProcessQueueClosure::submitCheckConstraint));
+}
+void Engine::ProcessQueueClosure::submitLog() {
+	p_logEntry.set_type(Proto::LogEntry::kTypeSubmit);
+	p_logEntry.set_transaction_id(p_queueItem.trid);
+
+	for(auto it = p_transaction->mutations.begin();
+			it != p_transaction->mutations.end(); ++it) {
+		Mutation &mutation = *it;
+
+		Proto::LogMutation *log_mutation = p_logEntry.add_mutations();
+		if(mutation.type == Mutation::kTypeInsert) {
+			StorageDriver *driver = p_engine->p_storage[mutation.storageIndex];
+			
+			log_mutation->set_type(Proto::LogMutation::kTypeInsert);
+			log_mutation->set_storage_name(driver->getIdentifier());
+			log_mutation->set_document_id(mutation.documentId);
+			log_mutation->set_buffer(mutation.buffer);
+		}else if(mutation.type == Mutation::kTypeModify) {
+			StorageDriver *driver = p_engine->p_storage[mutation.storageIndex];
+			
+			log_mutation->set_type(Proto::LogMutation::kTypeModify);
+			log_mutation->set_storage_name(driver->getIdentifier());
+			log_mutation->set_document_id(mutation.documentId);
+			log_mutation->set_buffer(mutation.buffer);
+		}else throw std::logic_error("Illegal mutation type");
+	}
+
+	p_engine->p_writeAhead.log(p_logEntry,
+			ASYNC_MEMBER(this, &ProcessQueueClosure::onSubmitWriteAhead));
+}
+void Engine::ProcessQueueClosure::onSubmitWriteAhead(Error error) {
+	//TODO: handle failure
+	std::unique_lock<std::mutex> lock(p_engine->p_mutex);
+
+	p_engine->p_submittedTransactions.push_back(p_queueItem.trid);
+
+	p_transaction = nullptr;
+	p_logEntry.Clear();
+
+	lock.unlock();
+	p_queueItem.submitCallback(kSubmitSuccess);
+	LocalTaskQueue::get()->submit(ASYNC_MEMBER(this, &ProcessQueueClosure::processItem));
+}
+void Engine::ProcessQueueClosure::submitFailure(SubmitError error) {
+	std::unique_lock<std::mutex> lock(p_engine->p_mutex);
+
+	auto iterator = p_engine->p_openTransactions.find(p_queueItem.trid);
+	assert(iterator != p_engine->p_openTransactions.end());
+	p_engine->p_openTransactions.erase(iterator);
+
+	p_transaction->refDecrement();
+
+	lock.unlock();
+	p_queueItem.submitCallback(error);
+	LocalTaskQueue::get()->submit(ASYNC_MEMBER(this, &ProcessQueueClosure::processItem));
+}
+
+void Engine::ProcessQueueClosure::processCommit() {
+	std::unique_lock<std::mutex> lock(p_engine->p_mutex);
+
+	auto transact_it = p_engine->p_openTransactions.find(p_queueItem.trid);
+	if(transact_it == p_engine->p_openTransactions.end())
+		throw std::runtime_error("Illegal transaction");
+	p_transaction = transact_it->second;
+
+	p_engine->p_currentSequenceId++;
+	p_sequenceId = p_engine->p_currentSequenceId;
+
+	lock.unlock();
+	
+	p_logEntry.set_type(Proto::LogEntry::kTypeCommit);
+	p_logEntry.set_transaction_id(p_queueItem.trid);
+	p_logEntry.set_sequence_id(p_sequenceId);
+
+	p_engine->p_writeAhead.log(p_logEntry,
+			ASYNC_MEMBER(this, &ProcessQueueClosure::onCommitWriteAhead));
+}
+void Engine::ProcessQueueClosure::onCommitWriteAhead(Error error) {
+	//TODO: handle failure
+
+	for(auto it = p_engine->p_storage.begin(); it != p_engine->p_storage.end(); ++it) {
+		StorageDriver *driver = *it;
+		if(driver == nullptr)
+			continue;
+		p_transaction->refIncrement();
+		driver->sequence(p_sequenceId, p_transaction->mutations,
+				ASYNC_MEMBER(p_transaction, &Transaction::refDecrement));
+	}
+	for(auto it = p_engine->p_views.begin(); it != p_engine->p_views.end(); ++it) {
+		ViewDriver *driver = *it;
+		if(driver == nullptr)
+			continue;
+		p_transaction->refIncrement();
+		driver->sequence(p_sequenceId, p_transaction->mutations,
+				ASYNC_MEMBER(p_transaction, &Transaction::refDecrement));
+	}
+	
+	std::unique_lock<std::mutex> lock(p_engine->p_mutex);
+	
+	// commit/rollback always frees the transaction
+	auto open_iterator = p_engine->p_openTransactions.find(p_queueItem.trid);
+	assert(open_iterator != p_engine->p_openTransactions.end());
+	p_engine->p_openTransactions.erase(open_iterator);
+
+	auto submit_iterator = std::find(p_engine->p_submittedTransactions.begin(),
+			p_engine->p_submittedTransactions.end(), p_queueItem.trid);
+	assert(submit_iterator != p_engine->p_submittedTransactions.end());
+	p_engine->p_submittedTransactions.erase(submit_iterator);
+
+	p_transaction->refDecrement();
+
+	p_queueItem.commitCallback(p_sequenceId);
+
+	p_transaction = nullptr;
+	p_logEntry.Clear();
+
+	lock.unlock();
+	LocalTaskQueue::get()->submit(ASYNC_MEMBER(this, &ProcessQueueClosure::processItem));
 }
 
 };
