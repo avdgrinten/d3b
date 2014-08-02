@@ -46,6 +46,7 @@ class CqUnlinkStorage;
 class CqUnlinkView;
 class CqUploadExtern;
 class CqDownloadExtern;
+class CqShutdown;
 class SrFin;
 class SrRows;
 class SrBlob;
@@ -97,11 +98,12 @@ enum ClientRequests {
   kCqUnlinkStorage = 258,
   kCqUnlinkView = 259,
   kCqUploadExtern = 260,
-  kCqDownloadExtern = 261
+  kCqDownloadExtern = 261,
+  kCqShutdown = 262
 };
 bool ClientRequests_IsValid(int value);
 const ClientRequests ClientRequests_MIN = kCqQuery;
-const ClientRequests ClientRequests_MAX = kCqDownloadExtern;
+const ClientRequests ClientRequests_MAX = kCqShutdown;
 const int ClientRequests_ARRAYSIZE = ClientRequests_MAX + 1;
 
 enum ServerResponses {
@@ -1292,6 +1294,65 @@ class CqDownloadExtern : public ::google::protobuf::MessageLite {
   
   void InitAsDefaultInstance();
   static CqDownloadExtern* default_instance_;
+};
+// -------------------------------------------------------------------
+
+class CqShutdown : public ::google::protobuf::MessageLite {
+ public:
+  CqShutdown();
+  virtual ~CqShutdown();
+  
+  CqShutdown(const CqShutdown& from);
+  
+  inline CqShutdown& operator=(const CqShutdown& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  
+  static const CqShutdown& default_instance();
+  
+  void Swap(CqShutdown* other);
+  
+  // implements Message ----------------------------------------------
+  
+  CqShutdown* New() const;
+  void CheckTypeAndMergeFrom(const ::google::protobuf::MessageLite& from);
+  void CopyFrom(const CqShutdown& from);
+  void MergeFrom(const CqShutdown& from);
+  void Clear();
+  bool IsInitialized() const;
+  
+  int ByteSize() const;
+  bool MergePartialFromCodedStream(
+      ::google::protobuf::io::CodedInputStream* input);
+  void SerializeWithCachedSizes(
+      ::google::protobuf::io::CodedOutputStream* output) const;
+  int GetCachedSize() const { return _cached_size_; }
+  private:
+  void SharedCtor();
+  void SharedDtor();
+  void SetCachedSize(int size) const;
+  public:
+  
+  ::std::string GetTypeName() const;
+  
+  // nested types ----------------------------------------------------
+  
+  // accessors -------------------------------------------------------
+  
+  // @@protoc_insertion_point(class_scope:Api.Proto.CqShutdown)
+ private:
+  
+  
+  mutable int _cached_size_;
+  ::google::protobuf::uint32 _has_bits_[1];
+  
+  friend void  protobuf_AddDesc_proto_2fApi_2eproto();
+  friend void protobuf_AssignDesc_proto_2fApi_2eproto();
+  friend void protobuf_ShutdownFile_proto_2fApi_2eproto();
+  
+  void InitAsDefaultInstance();
+  static CqShutdown* default_instance_;
 };
 // -------------------------------------------------------------------
 
@@ -2735,6 +2796,10 @@ inline ::std::string* CqDownloadExtern::release_file_name() {
     return temp;
   }
 }
+
+// -------------------------------------------------------------------
+
+// CqShutdown
 
 // -------------------------------------------------------------------
 

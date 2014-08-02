@@ -1,5 +1,6 @@
 
 var async = require('async');
+var fs = require('fs');
 var net = require('net');
 var d3b = require('./d3b');
 
@@ -24,7 +25,7 @@ if(process.argv.length != 4)
 
 console.log("[info] Connecting...");
 var client = new d3b.Client();
-client.useSocket(net.connect(7963, 'localhost'));
+client.connect(7963, 'localhost', fs.readFileSync('server.crt'));
 client.on('connect', function() {
 	console.log("[info] Connected!");
 	var opcode = d3b.ClientRequests[process.argv[2]];

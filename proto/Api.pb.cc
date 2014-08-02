@@ -27,6 +27,7 @@ void protobuf_ShutdownFile_proto_2fApi_2eproto() {
   delete CqUnlinkView::default_instance_;
   delete CqUploadExtern::default_instance_;
   delete CqDownloadExtern::default_instance_;
+  delete CqShutdown::default_instance_;
   delete SrFin::default_instance_;
   delete SrRows::default_instance_;
   delete SrBlob::default_instance_;
@@ -52,6 +53,7 @@ void protobuf_AddDesc_proto_2fApi_2eproto() {
   CqUnlinkView::default_instance_ = new CqUnlinkView();
   CqUploadExtern::default_instance_ = new CqUploadExtern();
   CqDownloadExtern::default_instance_ = new CqDownloadExtern();
+  CqShutdown::default_instance_ = new CqShutdown();
   SrFin::default_instance_ = new SrFin();
   SrRows::default_instance_ = new SrRows();
   SrBlob::default_instance_ = new SrBlob();
@@ -68,6 +70,7 @@ void protobuf_AddDesc_proto_2fApi_2eproto() {
   CqUnlinkView::default_instance_->InitAsDefaultInstance();
   CqUploadExtern::default_instance_->InitAsDefaultInstance();
   CqDownloadExtern::default_instance_->InitAsDefaultInstance();
+  CqShutdown::default_instance_->InitAsDefaultInstance();
   SrFin::default_instance_->InitAsDefaultInstance();
   SrRows::default_instance_->InitAsDefaultInstance();
   SrBlob::default_instance_->InitAsDefaultInstance();
@@ -112,6 +115,7 @@ bool ClientRequests_IsValid(int value) {
     case 259:
     case 260:
     case 261:
+    case 262:
       return true;
     default:
       return false;
@@ -2934,6 +2938,117 @@ void CqDownloadExtern::Swap(CqDownloadExtern* other) {
 
 ::std::string CqDownloadExtern::GetTypeName() const {
   return "Api.Proto.CqDownloadExtern";
+}
+
+
+// ===================================================================
+
+#ifndef _MSC_VER
+#endif  // !_MSC_VER
+
+CqShutdown::CqShutdown()
+  : ::google::protobuf::MessageLite() {
+  SharedCtor();
+}
+
+void CqShutdown::InitAsDefaultInstance() {
+}
+
+CqShutdown::CqShutdown(const CqShutdown& from)
+  : ::google::protobuf::MessageLite() {
+  SharedCtor();
+  MergeFrom(from);
+}
+
+void CqShutdown::SharedCtor() {
+  _cached_size_ = 0;
+  ::memset(_has_bits_, 0, sizeof(_has_bits_));
+}
+
+CqShutdown::~CqShutdown() {
+  SharedDtor();
+}
+
+void CqShutdown::SharedDtor() {
+  if (this != default_instance_) {
+  }
+}
+
+void CqShutdown::SetCachedSize(int size) const {
+  GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
+  _cached_size_ = size;
+  GOOGLE_SAFE_CONCURRENT_WRITES_END();
+}
+const CqShutdown& CqShutdown::default_instance() {
+  if (default_instance_ == NULL) protobuf_AddDesc_proto_2fApi_2eproto();  return *default_instance_;
+}
+
+CqShutdown* CqShutdown::default_instance_ = NULL;
+
+CqShutdown* CqShutdown::New() const {
+  return new CqShutdown;
+}
+
+void CqShutdown::Clear() {
+  ::memset(_has_bits_, 0, sizeof(_has_bits_));
+}
+
+bool CqShutdown::MergePartialFromCodedStream(
+    ::google::protobuf::io::CodedInputStream* input) {
+#define DO_(EXPRESSION) if (!(EXPRESSION)) return false
+  ::google::protobuf::uint32 tag;
+  while ((tag = input->ReadTag()) != 0) {
+    if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+        ::google::protobuf::internal::WireFormatLite::WIRETYPE_END_GROUP) {
+      return true;
+    }
+    DO_(::google::protobuf::internal::WireFormatLite::SkipField(input, tag));
+  }
+  return true;
+#undef DO_
+}
+
+void CqShutdown::SerializeWithCachedSizes(
+    ::google::protobuf::io::CodedOutputStream* output) const {
+}
+
+int CqShutdown::ByteSize() const {
+  int total_size = 0;
+  
+  GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
+  _cached_size_ = total_size;
+  GOOGLE_SAFE_CONCURRENT_WRITES_END();
+  return total_size;
+}
+
+void CqShutdown::CheckTypeAndMergeFrom(
+    const ::google::protobuf::MessageLite& from) {
+  MergeFrom(*::google::protobuf::down_cast<const CqShutdown*>(&from));
+}
+
+void CqShutdown::MergeFrom(const CqShutdown& from) {
+  GOOGLE_CHECK_NE(&from, this);
+}
+
+void CqShutdown::CopyFrom(const CqShutdown& from) {
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+bool CqShutdown::IsInitialized() const {
+  
+  return true;
+}
+
+void CqShutdown::Swap(CqShutdown* other) {
+  if (other != this) {
+    std::swap(_cached_size_, other->_cached_size_);
+  }
+}
+
+::std::string CqShutdown::GetTypeName() const {
+  return "Api.Proto.CqShutdown";
 }
 
 

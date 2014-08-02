@@ -22,7 +22,8 @@ var ClientRequests = {
 	kCqUnlinkStorage: 258,
 	kCqUnlinkView: 259,
 	kCqUploadExtern: 260,
-	kCqDownloadExtern: 261
+	kCqDownloadExtern: 261,
+	kCqShutdown: 262
 };
 var ServerResponses = {
 	kSrFin: 1,
@@ -114,6 +115,8 @@ Client.prototype.p_send = function(opcode, seq_number, request) {
 		msg = schema['Api.Proto.CqUploadExtern']; break;
 	case ClientRequests.kCqDownloadExtern:
 		msg = schema['Api.Proto.CqDownloadExtern']; break;
+	case ClientRequests.kCqShutdown:
+		msg = schema['Api.Proto.CqShutdown']; break;
 	default: throw new Error("p_send(): Illegal opcode");
 	}
 	

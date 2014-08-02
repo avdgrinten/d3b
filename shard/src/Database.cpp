@@ -24,6 +24,12 @@ namespace po = boost::program_options;
 
 Botan::LibraryInitializer botanInit;
 
+volatile bool running = true;
+
+void shutdown() {
+	running = false;
+}
+
 int main(int argc, char **argv) {
 	OS::LocalAsyncHost::set(new OS::LocalAsyncHost());
 	LocalTaskQueue::set(new LocalTaskQueue(OS::LocalAsyncHost::get()));
@@ -76,10 +82,11 @@ int main(int argc, char **argv) {
 
 	if(!opts.count("create")) {
 		Api::Server server(&engine);
+		server.setShutdownCallback(Async::Callback<void()>::make<&shutdown>());
 		server.start();
 
 		std::cout << "Server is running!" << std::endl;
-		while(true)
+		while(running)
 			OS::LocalAsyncHost::get()->process();
 	}
 

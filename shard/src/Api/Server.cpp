@@ -294,6 +294,8 @@ void Server::Connection::processMessage() {
 		
 		Proto::SrFin fin_resp;
 		postResponse(Proto::kSrFin, seq_number, fin_resp);
+	}else if(p_curPacket.opcode == Proto::kCqShutdown) {
+		p_server->p_shutdownCallback();
 	}else{
 		Proto::SrFin response;
 		response.set_error(Proto::kCodeIllegalRequest);
@@ -335,6 +337,10 @@ void Server::start() {
 	
 	p_sockServer->onConnect(ASYNC_MEMBER(this, &Server::p_onConnect));
 	p_sockServer->listen(7963);
+}
+
+void Server::setShutdownCallback(Async::Callback<void()> callback) {
+	p_shutdownCallback = callback;
 }
 
 void Server::p_onConnect(Linux::SockStream *stream) {

@@ -163,6 +163,11 @@ function apply(client, opts, callback) {
 	req.send(d3b.ClientRequests.kCqApply, message);
 }
 
+function shutdown(client) {
+	var req = client.request();
+	req.send(d3b.ClientRequests.kCqShutdown, { });
+}
+
 module.exports.createStorage = createStorage;
 module.exports.createView = createView;
 module.exports.unlinkStorage = unlinkStorage;
@@ -175,4 +180,5 @@ module.exports.query = query;
 module.exports.transaction = transaction;
 module.exports.update = update;
 module.exports.apply = apply;
+module.exports.shutdown = shutdown;
 

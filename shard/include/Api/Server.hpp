@@ -10,6 +10,8 @@ public:
 	
 	void start();
 
+	void setShutdownCallback(Async::Callback<void()> callback);
+
 	inline Db::Engine *getEngine() {
 		return p_engine;
 	}
@@ -79,6 +81,8 @@ private:
 	Db::Engine *p_engine;
 	std::unique_ptr<Linux::SockServer> p_sockServer;
 	Ll::TlsServer p_tlsServer;
+
+	Async::Callback<void()> p_shutdownCallback;
 
 	class QueryClosure {
 	public:
