@@ -17,3 +17,7 @@ debug:
 
 opt:
 	g++ -o shard -O3 -std=c++0x $(INCLUDE_DIRS) -pthread $(CPP_FILES) $(LIBS)
+
+profile:
+	g++ -o shard -O3 -g -pg -std=c++0x $(INCLUDE_DIRS) -pthread $(CPP_FILES) $(LIBS)
+
