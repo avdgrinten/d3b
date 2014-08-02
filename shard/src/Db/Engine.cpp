@@ -183,6 +183,19 @@ void Engine::submit(TransactionId transaction_id,
 	lock.unlock();
 	p_eventFd->increment();
 }
+void Engine::submitCommit(TransactionId transaction_id,
+		Async::Callback<void(std::pair<SubmitError, SequenceId>)> callback) {
+	std::unique_lock<std::mutex> lock(p_mutex);
+
+	QueueItem queued;
+	queued.type = QueueItem::kTypeSubmitCommit;
+	queued.trid = transaction_id;
+	queued.submitCommitCallback = callback;
+	p_submitQueue.push_back(queued);
+
+	lock.unlock();
+	p_eventFd->increment();
+}
 void Engine::commit(TransactionId transaction_id,
 		Async::Callback<void(SequenceId)> callback) {
 	std::unique_lock<std::mutex> lock(p_mutex);
@@ -210,7 +223,7 @@ void Engine::process() {
 	void (*finish)(void *) = [](void *) { std::cout << "fin" << std::endl; };
 	auto op = new ProcessQueueClosure(this,
 			Async::Callback<void()>(nullptr, finish));
-	op->processLoop();
+	op->process();
 }
 
 void Engine::fetch(FetchRequest *fetch,
@@ -373,11 +386,7 @@ Engine::ProcessQueueClosure::ProcessQueueClosure(Engine *engine,
 		Async::Callback<void()> callback)
 	: p_engine(engine), p_callback(callback) { }
 
-void Engine::ProcessQueueClosure::processLoop() {
-	p_engine->p_eventFd->wait(ASYNC_MEMBER(this, &ProcessQueueClosure::processItem));
-}
-
-void Engine::ProcessQueueClosure::processItem() {
+void Engine::ProcessQueueClosure::process() {
 	std::unique_lock<std::mutex> lock(p_engine->p_mutex);
 
 	if(!p_engine->p_submitQueue.empty()) {
@@ -385,14 +394,15 @@ void Engine::ProcessQueueClosure::processItem() {
 		p_engine->p_submitQueue.pop_front();
 		
 		lock.unlock();
-		if(p_queueItem.type == QueueItem::kTypeSubmit) {
+		if(p_queueItem.type == QueueItem::kTypeSubmit
+				|| p_queueItem.type == QueueItem::kTypeSubmitCommit) {
 			processSubmit();
 		}else if(p_queueItem.type == QueueItem::kTypeCommit) {
 			processCommit();
 		}else throw std::logic_error("Queued item has illegal type");
 	}else{
 		lock.unlock();
-		LocalTaskQueue::get()->submit(ASYNC_MEMBER(this, &ProcessQueueClosure::processLoop));
+		p_engine->p_eventFd->wait(ASYNC_MEMBER(this, &ProcessQueueClosure::process));
 	}
 }
 	
@@ -440,7 +450,13 @@ void Engine::ProcessQueueClosure::processSubmit() {
 }
 void Engine::ProcessQueueClosure::submitCheckConstraint() {
 	if(p_index == p_transaction->constraints.size()) {
-		submitLog();
+		// NOTE: this is one of two places where the sequence id is advanced
+		std::unique_lock<std::mutex> lock(p_engine->p_mutex);
+		p_engine->p_currentSequenceId++;
+		p_sequenceId = p_engine->p_currentSequenceId;
+		lock.unlock();
+
+		writeAhead();
 	}else{
 		p_checkOkay = true;
 
@@ -480,47 +496,17 @@ void Engine::ProcessQueueClosure::checkStateOnFetch(FetchError error) {
 	p_index++;
 	LocalTaskQueue::get()->submit(ASYNC_MEMBER(this, &ProcessQueueClosure::submitCheckConstraint));
 }
-void Engine::ProcessQueueClosure::submitLog() {
-	p_logEntry.set_type(Proto::LogEntry::kTypeSubmit);
-	p_logEntry.set_transaction_id(p_queueItem.trid);
-
-	for(auto it = p_transaction->mutations.begin();
-			it != p_transaction->mutations.end(); ++it) {
-		Mutation &mutation = *it;
-
-		Proto::LogMutation *log_mutation = p_logEntry.add_mutations();
-		if(mutation.type == Mutation::kTypeInsert) {
-			StorageDriver *driver = p_engine->p_storage[mutation.storageIndex];
-			
-			log_mutation->set_type(Proto::LogMutation::kTypeInsert);
-			log_mutation->set_storage_name(driver->getIdentifier());
-			log_mutation->set_document_id(mutation.documentId);
-			log_mutation->set_buffer(mutation.buffer);
-		}else if(mutation.type == Mutation::kTypeModify) {
-			StorageDriver *driver = p_engine->p_storage[mutation.storageIndex];
-			
-			log_mutation->set_type(Proto::LogMutation::kTypeModify);
-			log_mutation->set_storage_name(driver->getIdentifier());
-			log_mutation->set_document_id(mutation.documentId);
-			log_mutation->set_buffer(mutation.buffer);
-		}else throw std::logic_error("Illegal mutation type");
-	}
-
-	p_engine->p_writeAhead.log(p_logEntry,
-			ASYNC_MEMBER(this, &ProcessQueueClosure::onSubmitWriteAhead));
-}
-void Engine::ProcessQueueClosure::onSubmitWriteAhead(Error error) {
-	//TODO: handle failure
+void Engine::ProcessQueueClosure::submitComplete() {
 	std::unique_lock<std::mutex> lock(p_engine->p_mutex);
-
 	p_engine->p_submittedTransactions.push_back(p_queueItem.trid);
-
-	p_transaction = nullptr;
-	p_logEntry.Clear();
-
 	lock.unlock();
-	p_queueItem.submitCallback(kSubmitSuccess);
-	LocalTaskQueue::get()->submit(ASYNC_MEMBER(this, &ProcessQueueClosure::processItem));
+
+	if(p_queueItem.type == QueueItem::kTypeSubmit) {
+		p_queueItem.submitCallback(kSubmitSuccess);
+		LocalTaskQueue::get()->submit(ASYNC_MEMBER(this, &ProcessQueueClosure::process));
+	}else if(p_queueItem.type == QueueItem::kTypeSubmitCommit) {
+		commitComplete();
+	}else throw std::logic_error("Illegal queue item");
 }
 void Engine::ProcessQueueClosure::submitFailure(SubmitError error) {
 	std::unique_lock<std::mutex> lock(p_engine->p_mutex);
@@ -530,12 +516,18 @@ void Engine::ProcessQueueClosure::submitFailure(SubmitError error) {
 	p_engine->p_openTransactions.erase(iterator);
 
 	p_transaction->refDecrement();
-
-	lock.unlock();
-	p_queueItem.submitCallback(error);
-	LocalTaskQueue::get()->submit(ASYNC_MEMBER(this, &ProcessQueueClosure::processItem));
+	
+	if(p_queueItem.type == QueueItem::kTypeSubmit) {
+		lock.unlock();
+		p_queueItem.submitCallback(error);
+	}else if(p_queueItem.type == QueueItem::kTypeSubmitCommit) {
+		lock.unlock();
+		p_queueItem.submitCommitCallback(std::make_pair(error, -1));
+	}else throw std::logic_error("Illegal queue item");
+	LocalTaskQueue::get()->submit(ASYNC_MEMBER(this, &ProcessQueueClosure::process));
 }
 
+// NOTE: this function is NOT called when kTypeSubmitCommit is handled
 void Engine::ProcessQueueClosure::processCommit() {
 	std::unique_lock<std::mutex> lock(p_engine->p_mutex);
 
@@ -543,22 +535,17 @@ void Engine::ProcessQueueClosure::processCommit() {
 	if(transact_it == p_engine->p_openTransactions.end())
 		throw std::runtime_error("Illegal transaction");
 	p_transaction = transact_it->second;
-
+	
+	// NOTE: this is one of two places where the sequence id is advanced
 	p_engine->p_currentSequenceId++;
 	p_sequenceId = p_engine->p_currentSequenceId;
 
 	lock.unlock();
 	
-	p_logEntry.set_type(Proto::LogEntry::kTypeCommit);
-	p_logEntry.set_transaction_id(p_queueItem.trid);
-	p_logEntry.set_sequence_id(p_sequenceId);
-
-	p_engine->p_writeAhead.log(p_logEntry,
-			ASYNC_MEMBER(this, &ProcessQueueClosure::onCommitWriteAhead));
+	writeAhead();
 }
-void Engine::ProcessQueueClosure::onCommitWriteAhead(Error error) {
-	//TODO: handle failure
-
+// NOTE: this function is called when kTypeSubmitCommit is handled
+void Engine::ProcessQueueClosure::commitComplete() {
 	for(auto it = p_engine->p_storage.begin(); it != p_engine->p_storage.end(); ++it) {
 		StorageDriver *driver = *it;
 		if(driver == nullptr)
@@ -575,7 +562,7 @@ void Engine::ProcessQueueClosure::onCommitWriteAhead(Error error) {
 		driver->sequence(p_sequenceId, p_transaction->mutations,
 				ASYNC_MEMBER(p_transaction, &Transaction::refDecrement));
 	}
-	
+
 	std::unique_lock<std::mutex> lock(p_engine->p_mutex);
 	
 	// commit/rollback always frees the transaction
@@ -590,13 +577,69 @@ void Engine::ProcessQueueClosure::onCommitWriteAhead(Error error) {
 
 	p_transaction->refDecrement();
 
-	p_queueItem.commitCallback(p_sequenceId);
+	if(p_queueItem.type == QueueItem::kTypeCommit) {
+		lock.unlock();
+		p_queueItem.commitCallback(p_sequenceId);
+	}else if(p_queueItem.type == QueueItem::kTypeSubmitCommit) {
+		lock.unlock();
+		p_queueItem.submitCommitCallback(std::make_pair(kSubmitSuccess, p_sequenceId));
+	}else throw std::logic_error("Illegal queue item");
+	LocalTaskQueue::get()->submit(ASYNC_MEMBER(this, &ProcessQueueClosure::process));
+}
 
-	p_transaction = nullptr;
+void Engine::ProcessQueueClosure::writeAhead() {
+	if(p_queueItem.type == QueueItem::kTypeSubmit) {
+		p_logEntry.set_type(Proto::LogEntry::kTypeSubmit);
+		p_logEntry.set_transaction_id(p_queueItem.trid);
+	}else if(p_queueItem.type == QueueItem::kTypeSubmitCommit) {
+		p_logEntry.set_type(Proto::LogEntry::kTypeSubmitCommit);
+		p_logEntry.set_transaction_id(p_queueItem.trid);
+		p_logEntry.set_sequence_id(p_engine->p_currentSequenceId);
+	}else if(p_queueItem.type == QueueItem::kTypeCommit) {
+		p_logEntry.set_type(Proto::LogEntry::kTypeCommit);
+		p_logEntry.set_transaction_id(p_queueItem.trid);
+		p_logEntry.set_sequence_id(p_engine->p_currentSequenceId);
+	}else throw std::logic_error("Illegal queue item");
+
+	if(p_queueItem.type == QueueItem::kTypeSubmit
+			|| p_queueItem.type == QueueItem::kTypeSubmitCommit) {
+		for(auto it = p_transaction->mutations.begin();
+				it != p_transaction->mutations.end(); ++it) {
+			Mutation &mutation = *it;
+
+			Proto::LogMutation *log_mutation = p_logEntry.add_mutations();
+			if(mutation.type == Mutation::kTypeInsert) {
+				StorageDriver *driver = p_engine->p_storage[mutation.storageIndex];
+				
+				log_mutation->set_type(Proto::LogMutation::kTypeInsert);
+				log_mutation->set_storage_name(driver->getIdentifier());
+				log_mutation->set_document_id(mutation.documentId);
+				log_mutation->set_buffer(mutation.buffer);
+			}else if(mutation.type == Mutation::kTypeModify) {
+				StorageDriver *driver = p_engine->p_storage[mutation.storageIndex];
+				
+				log_mutation->set_type(Proto::LogMutation::kTypeModify);
+				log_mutation->set_storage_name(driver->getIdentifier());
+				log_mutation->set_document_id(mutation.documentId);
+				log_mutation->set_buffer(mutation.buffer);
+			}else throw std::logic_error("Illegal mutation type");
+		}
+	}
+
+	p_engine->p_writeAhead.log(p_logEntry,
+			ASYNC_MEMBER(this, &ProcessQueueClosure::afterWriteAhead));
+}
+void Engine::ProcessQueueClosure::afterWriteAhead(Error error) {
+	//TODO: handle failure
+	
 	p_logEntry.Clear();
 
-	lock.unlock();
-	LocalTaskQueue::get()->submit(ASYNC_MEMBER(this, &ProcessQueueClosure::processItem));
+	if(p_queueItem.type == QueueItem::kTypeSubmit
+			|| p_queueItem.type == QueueItem::kTypeSubmitCommit) {
+		submitComplete();
+	}else if(p_queueItem.type == QueueItem::kTypeCommit) {
+		commitComplete();
+	}else throw std::logic_error("Illegal queue item");
 }
 
 };

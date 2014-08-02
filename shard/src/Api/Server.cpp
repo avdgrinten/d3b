@@ -439,28 +439,24 @@ void Server::ShortTransactClosure::execute(size_t packet_size, const void *packe
 		p_engine->updateConstraint(p_transactionId, constraint);
 	}
 
-	p_engine->submit(p_transactionId,
-			ASYNC_MEMBER(this, &ShortTransactClosure::onSubmit));
+	p_engine->submitCommit(p_transactionId,
+			ASYNC_MEMBER(this, &ShortTransactClosure::onSubmitCommit));
 };
-void Server::ShortTransactClosure::onSubmit(Db::SubmitError result) {
-	if(result == Db::kSubmitSuccess) {
-		p_engine->commit(p_transactionId,
-				ASYNC_MEMBER(this, &ShortTransactClosure::onCommit));
-	}else if(result == Db::kSubmitConstraintViolation) {
+void Server::ShortTransactClosure::onSubmitCommit(std::pair<Db::SubmitError, Db::SequenceId> result) {
+	if(result.first == Db::kSubmitSuccess) {
+		Proto::SrFin response;
+		response.set_error(Proto::kCodeSuccess);
+		response.set_sequence_id(result.second);
+		p_connection->postResponse(Proto::kSrFin, p_responseId, response);
+		
+		delete this;
+	}else if(result.first == Db::kSubmitConstraintViolation) {
 		Proto::SrFin response;
 		response.set_error(Proto::kCodeSubmitConstraintViolation);
 		p_connection->postResponse(Proto::kSrFin, p_responseId, response);
 
 		delete this;
 	}else throw std::logic_error("Unexpected error during submit");
-}
-void Server::ShortTransactClosure::onCommit(Db::SequenceId sequence_id) {
-	Proto::SrFin response;
-	response.set_sequence_id(sequence_id);
-	response.set_error(Proto::kCodeSuccess);
-	p_connection->postResponse(Proto::kSrFin, p_responseId, response);
-	
-	delete this;
 }
 
 // --------------------------------------------------------

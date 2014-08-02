@@ -110,8 +110,7 @@ private:
 		void execute(size_t packet_size, const void *packet_buffer);
 	
 	private:
-		void onSubmit(Db::SubmitError);
-		void onCommit(Db::SequenceId sequence_id);
+		void onSubmitCommit(std::pair<Db::SubmitError, Db::SequenceId> result);
 
 		Db::Engine *p_engine;
 		Connection *p_connection;

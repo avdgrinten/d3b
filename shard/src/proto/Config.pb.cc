@@ -1037,6 +1037,7 @@ bool LogEntry_Type_IsValid(int value) {
     case 1:
     case 2:
     case 3:
+    case 4:
       return true;
     default:
       return false;
@@ -1046,6 +1047,7 @@ bool LogEntry_Type_IsValid(int value) {
 #ifndef _MSC_VER
 const LogEntry_Type LogEntry::kTypeNone;
 const LogEntry_Type LogEntry::kTypeSubmit;
+const LogEntry_Type LogEntry::kTypeSubmitCommit;
 const LogEntry_Type LogEntry::kTypeCommit;
 const LogEntry_Type LogEntry::kTypeRollback;
 const LogEntry_Type LogEntry::Type_MIN;

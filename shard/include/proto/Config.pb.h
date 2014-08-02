@@ -51,8 +51,9 @@ const int LogMutation_Type_Type_ARRAYSIZE = LogMutation_Type_Type_MAX + 1;
 enum LogEntry_Type {
   LogEntry_Type_kTypeNone = 0,
   LogEntry_Type_kTypeSubmit = 1,
-  LogEntry_Type_kTypeCommit = 2,
-  LogEntry_Type_kTypeRollback = 3
+  LogEntry_Type_kTypeSubmitCommit = 2,
+  LogEntry_Type_kTypeCommit = 3,
+  LogEntry_Type_kTypeRollback = 4
 };
 bool LogEntry_Type_IsValid(int value);
 const LogEntry_Type LogEntry_Type_Type_MIN = LogEntry_Type_kTypeNone;
@@ -513,6 +514,7 @@ class LogEntry : public ::google::protobuf::MessageLite {
   typedef LogEntry_Type Type;
   static const Type kTypeNone = LogEntry_Type_kTypeNone;
   static const Type kTypeSubmit = LogEntry_Type_kTypeSubmit;
+  static const Type kTypeSubmitCommit = LogEntry_Type_kTypeSubmitCommit;
   static const Type kTypeCommit = LogEntry_Type_kTypeCommit;
   static const Type kTypeRollback = LogEntry_Type_kTypeRollback;
   static inline bool Type_IsValid(int value) {

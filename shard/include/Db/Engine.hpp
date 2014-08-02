@@ -46,6 +46,8 @@ public:
 	// after submit() return success commit() is guaranteed to succeed
 	void submit(TransactionId trid,
 			Async::Callback<void(SubmitError)> callback);
+	void submitCommit(TransactionId trid,
+			Async::Callback<void(std::pair<SubmitError, SequenceId>)> callback);
 	void commit(TransactionId trid,
 			Async::Callback<void(SequenceId)> callback);
 	void rollback(TransactionId trid,
@@ -78,13 +80,14 @@ private:
 	/* ------- request and update queue -------- */
 	struct QueueItem {
 		enum Type {
-			kTypeNone, kTypeSubmit, kTypeCommit, kTypeRollback
+			kTypeNone, kTypeSubmit, kTypeSubmitCommit, kTypeCommit, kTypeRollback
 		};
 		
 		Type type;
 		TransactionId trid;
 		Async::Callback<void(Error)> callback;
 		Async::Callback<void(SubmitError)> submitCallback;
+		Async::Callback<void(std::pair<SubmitError, SequenceId>)> submitCommitCallback;
 		Async::Callback<void(SequenceId)> commitCallback;
 	};
 	
@@ -131,19 +134,19 @@ private:
 	public:
 		ProcessQueueClosure(Engine *engine, Async::Callback<void()> callback);
 
-		void processLoop();
+		void process();
 
 	private:
-		void processItem();
 		void processSubmit();
 		void submitCheckConstraint();
 		void checkStateOnData(FetchData &data);
 		void checkStateOnFetch(FetchError error);
-		void submitLog();
-		void onSubmitWriteAhead(Error error);
+		void submitComplete();
 		void submitFailure(SubmitError error);
 		void processCommit();
-		void onCommitWriteAhead(Error error);
+		void commitComplete();
+		void writeAhead();
+		void afterWriteAhead(Error error);
 
 		Engine *p_engine;
 		

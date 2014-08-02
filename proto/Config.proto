@@ -37,8 +37,9 @@ message LogEntry {
 	enum Type {
 		kTypeNone = 0;
 		kTypeSubmit = 1;
-		kTypeCommit = 2;
-		kTypeRollback = 3;
+		kTypeSubmitCommit = 2;
+		kTypeCommit = 3;
+		kTypeRollback = 4;
 	}
 	
 	optional Type type = 1;
