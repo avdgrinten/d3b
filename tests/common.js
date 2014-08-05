@@ -28,14 +28,12 @@ function cleanPath(path, callback) {
 }
 
 function D3bInstance() {
-
+	this.$path = 'testdb';
 }
 D3bInstance.prototype.setup = function(callback) {
 	if(useRunningServer)
 		return callback();
 	
-	this.$path = 'testdb';
-
 	var self = this;
 	async.series([
 		function(callback) {
@@ -43,7 +41,32 @@ D3bInstance.prototype.setup = function(callback) {
 		},
 		function(callback) {
 			setupPath(self.$path, callback);
-		},
+		}
+	], function() {
+		self.start(callback);
+	});
+};
+D3bInstance.prototype.shutdown = function(callback) {
+	if(useRunningServer)
+		return callback();
+
+	var self = this;
+	setTimeout(function() {
+		if(self.$exited) {
+			cleanPath(self.$path, callback);
+		}else{
+			self.$process.on('exit', function() {
+				cleanPath(self.$path, callback);
+			});
+			self.$process.kill();
+		}
+	}, 100);
+};
+D3bInstance.prototype.start = function(callback) {
+	this.$exited = false;
+
+	var self = this;
+	async.series([
 		function(callback) {
 			self.$process = child_process.spawn('shard/shard',
 				[ '--create', '--path', self.$path ]);
@@ -67,21 +90,10 @@ D3bInstance.prototype.setup = function(callback) {
 		}
 	], callback);
 };
-D3bInstance.prototype.shutdown = function(callback) {
-	if(useRunningServer)
-		return callback();
-
-	var self = this;
-	setTimeout(function() {
-		if(self.$exited) {
-			cleanPath(self.$path, callback);
-		}else{
-			self.$process.on('exit', function() {
-				cleanPath(self.$path, callback);
-			});
-			self.$process.kill();
-		}
-	}, 100);
+D3bInstance.prototype.wait = function(callback) {
+	this.$process.on('exit', function() {
+		callback();
+	});
 };
 D3bInstance.prototype.connect = function(callback) {
 	var client = new d3b.Client();

@@ -39,7 +39,15 @@ DocumentId JsView::readKey(const void *buffer) {
 	return OS::fromLe(*(DocumentId*)buffer);
 }
 
-void JsView::createView() {
+void JsView::createView(const Proto::ViewConfig &config) {
+	if(!config.has_base_storage()
+			|| !config.has_script_file())
+		throw std::runtime_error("Illegal configuration for JsView");
+	p_storageName = config.base_storage();
+	p_scriptFile = config.script_file();
+
+	OS::writeFileSync(getPath() + "/config", config.SerializeAsString());
+
 	p_storage = getEngine()->getStorage(p_storageName);
 	
 	for(int i = 0; i < 5; i++)
@@ -55,6 +63,15 @@ void JsView::createView() {
 }
 
 void JsView::loadView() {
+	Proto::ViewConfig config;
+	config.ParseFromString(OS::readFileSync(getPath() + "/config"));
+
+	if(!config.has_base_storage()
+			|| !config.has_script_file())
+		throw std::runtime_error("Illegal configuration for JsView");
+	p_storageName = config.base_storage();
+	p_scriptFile = config.script_file();
+
 	p_storage = getEngine()->getStorage(p_storageName);
 	
 	for(int i = 0; i < 5; i++)
@@ -69,22 +86,6 @@ void JsView::loadView() {
 	p_orderTree.createTree();
 
 	processQueue();
-}
-
-Proto::ViewConfig JsView::writeConfig() {
-	Proto::ViewConfig config;
-	config.set_driver("JsView");
-	config.set_identifier(getIdentifier());
-	config.set_base_storage(p_storageName);
-	config.set_script_file(p_scriptFile);
-	return config;
-}
-void JsView::readConfig(const Proto::ViewConfig &config) {
-	if(!config.has_base_storage()
-			|| !config.has_script_file())
-		throw std::runtime_error("Illegal configuration for JsView");
-	p_storageName = config.base_storage();
-	p_scriptFile = config.script_file();
 }
 
 void JsView::processInsert(SequenceId sequence_id,

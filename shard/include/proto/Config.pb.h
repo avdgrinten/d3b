@@ -33,6 +33,8 @@ void protobuf_AssignDesc_proto_2fConfig_2eproto();
 void protobuf_ShutdownFile_proto_2fConfig_2eproto();
 
 class Config;
+class StorageDescriptor;
+class ViewDescriptor;
 class StorageConfig;
 class ViewConfig;
 class LogMutation;
@@ -105,35 +107,43 @@ class Config : public ::google::protobuf::MessageLite {
   
   // accessors -------------------------------------------------------
   
-  // repeated .Db.Proto.StorageConfig storage = 1;
-  inline int storage_size() const;
-  inline void clear_storage();
-  static const int kStorageFieldNumber = 1;
-  inline const ::Db::Proto::StorageConfig& storage(int index) const;
-  inline ::Db::Proto::StorageConfig* mutable_storage(int index);
-  inline ::Db::Proto::StorageConfig* add_storage();
-  inline const ::google::protobuf::RepeatedPtrField< ::Db::Proto::StorageConfig >&
-      storage() const;
-  inline ::google::protobuf::RepeatedPtrField< ::Db::Proto::StorageConfig >*
-      mutable_storage();
+  // repeated string storages = 1;
+  inline int storages_size() const;
+  inline void clear_storages();
+  static const int kStoragesFieldNumber = 1;
+  inline const ::std::string& storages(int index) const;
+  inline ::std::string* mutable_storages(int index);
+  inline void set_storages(int index, const ::std::string& value);
+  inline void set_storages(int index, const char* value);
+  inline void set_storages(int index, const char* value, size_t size);
+  inline ::std::string* add_storages();
+  inline void add_storages(const ::std::string& value);
+  inline void add_storages(const char* value);
+  inline void add_storages(const char* value, size_t size);
+  inline const ::google::protobuf::RepeatedPtrField< ::std::string>& storages() const;
+  inline ::google::protobuf::RepeatedPtrField< ::std::string>* mutable_storages();
   
-  // repeated .Db.Proto.ViewConfig views = 2;
+  // repeated string views = 2;
   inline int views_size() const;
   inline void clear_views();
   static const int kViewsFieldNumber = 2;
-  inline const ::Db::Proto::ViewConfig& views(int index) const;
-  inline ::Db::Proto::ViewConfig* mutable_views(int index);
-  inline ::Db::Proto::ViewConfig* add_views();
-  inline const ::google::protobuf::RepeatedPtrField< ::Db::Proto::ViewConfig >&
-      views() const;
-  inline ::google::protobuf::RepeatedPtrField< ::Db::Proto::ViewConfig >*
-      mutable_views();
+  inline const ::std::string& views(int index) const;
+  inline ::std::string* mutable_views(int index);
+  inline void set_views(int index, const ::std::string& value);
+  inline void set_views(int index, const char* value);
+  inline void set_views(int index, const char* value, size_t size);
+  inline ::std::string* add_views();
+  inline void add_views(const ::std::string& value);
+  inline void add_views(const char* value);
+  inline void add_views(const char* value, size_t size);
+  inline const ::google::protobuf::RepeatedPtrField< ::std::string>& views() const;
+  inline ::google::protobuf::RepeatedPtrField< ::std::string>* mutable_views();
   
   // @@protoc_insertion_point(class_scope:Db.Proto.Config)
  private:
   
-  ::google::protobuf::RepeatedPtrField< ::Db::Proto::StorageConfig > storage_;
-  ::google::protobuf::RepeatedPtrField< ::Db::Proto::ViewConfig > views_;
+  ::google::protobuf::RepeatedPtrField< ::std::string> storages_;
+  ::google::protobuf::RepeatedPtrField< ::std::string> views_;
   
   mutable int _cached_size_;
   ::google::protobuf::uint32 _has_bits_[(2 + 31) / 32];
@@ -144,6 +154,152 @@ class Config : public ::google::protobuf::MessageLite {
   
   void InitAsDefaultInstance();
   static Config* default_instance_;
+};
+// -------------------------------------------------------------------
+
+class StorageDescriptor : public ::google::protobuf::MessageLite {
+ public:
+  StorageDescriptor();
+  virtual ~StorageDescriptor();
+  
+  StorageDescriptor(const StorageDescriptor& from);
+  
+  inline StorageDescriptor& operator=(const StorageDescriptor& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  
+  static const StorageDescriptor& default_instance();
+  
+  void Swap(StorageDescriptor* other);
+  
+  // implements Message ----------------------------------------------
+  
+  StorageDescriptor* New() const;
+  void CheckTypeAndMergeFrom(const ::google::protobuf::MessageLite& from);
+  void CopyFrom(const StorageDescriptor& from);
+  void MergeFrom(const StorageDescriptor& from);
+  void Clear();
+  bool IsInitialized() const;
+  
+  int ByteSize() const;
+  bool MergePartialFromCodedStream(
+      ::google::protobuf::io::CodedInputStream* input);
+  void SerializeWithCachedSizes(
+      ::google::protobuf::io::CodedOutputStream* output) const;
+  int GetCachedSize() const { return _cached_size_; }
+  private:
+  void SharedCtor();
+  void SharedDtor();
+  void SetCachedSize(int size) const;
+  public:
+  
+  ::std::string GetTypeName() const;
+  
+  // nested types ----------------------------------------------------
+  
+  // accessors -------------------------------------------------------
+  
+  // required string driver = 1;
+  inline bool has_driver() const;
+  inline void clear_driver();
+  static const int kDriverFieldNumber = 1;
+  inline const ::std::string& driver() const;
+  inline void set_driver(const ::std::string& value);
+  inline void set_driver(const char* value);
+  inline void set_driver(const char* value, size_t size);
+  inline ::std::string* mutable_driver();
+  inline ::std::string* release_driver();
+  
+  // @@protoc_insertion_point(class_scope:Db.Proto.StorageDescriptor)
+ private:
+  inline void set_has_driver();
+  inline void clear_has_driver();
+  
+  ::std::string* driver_;
+  
+  mutable int _cached_size_;
+  ::google::protobuf::uint32 _has_bits_[(1 + 31) / 32];
+  
+  friend void  protobuf_AddDesc_proto_2fConfig_2eproto();
+  friend void protobuf_AssignDesc_proto_2fConfig_2eproto();
+  friend void protobuf_ShutdownFile_proto_2fConfig_2eproto();
+  
+  void InitAsDefaultInstance();
+  static StorageDescriptor* default_instance_;
+};
+// -------------------------------------------------------------------
+
+class ViewDescriptor : public ::google::protobuf::MessageLite {
+ public:
+  ViewDescriptor();
+  virtual ~ViewDescriptor();
+  
+  ViewDescriptor(const ViewDescriptor& from);
+  
+  inline ViewDescriptor& operator=(const ViewDescriptor& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  
+  static const ViewDescriptor& default_instance();
+  
+  void Swap(ViewDescriptor* other);
+  
+  // implements Message ----------------------------------------------
+  
+  ViewDescriptor* New() const;
+  void CheckTypeAndMergeFrom(const ::google::protobuf::MessageLite& from);
+  void CopyFrom(const ViewDescriptor& from);
+  void MergeFrom(const ViewDescriptor& from);
+  void Clear();
+  bool IsInitialized() const;
+  
+  int ByteSize() const;
+  bool MergePartialFromCodedStream(
+      ::google::protobuf::io::CodedInputStream* input);
+  void SerializeWithCachedSizes(
+      ::google::protobuf::io::CodedOutputStream* output) const;
+  int GetCachedSize() const { return _cached_size_; }
+  private:
+  void SharedCtor();
+  void SharedDtor();
+  void SetCachedSize(int size) const;
+  public:
+  
+  ::std::string GetTypeName() const;
+  
+  // nested types ----------------------------------------------------
+  
+  // accessors -------------------------------------------------------
+  
+  // required string driver = 1;
+  inline bool has_driver() const;
+  inline void clear_driver();
+  static const int kDriverFieldNumber = 1;
+  inline const ::std::string& driver() const;
+  inline void set_driver(const ::std::string& value);
+  inline void set_driver(const char* value);
+  inline void set_driver(const char* value, size_t size);
+  inline ::std::string* mutable_driver();
+  inline ::std::string* release_driver();
+  
+  // @@protoc_insertion_point(class_scope:Db.Proto.ViewDescriptor)
+ private:
+  inline void set_has_driver();
+  inline void clear_has_driver();
+  
+  ::std::string* driver_;
+  
+  mutable int _cached_size_;
+  ::google::protobuf::uint32 _has_bits_[(1 + 31) / 32];
+  
+  friend void  protobuf_AddDesc_proto_2fConfig_2eproto();
+  friend void protobuf_AssignDesc_proto_2fConfig_2eproto();
+  friend void protobuf_ShutdownFile_proto_2fConfig_2eproto();
+  
+  void InitAsDefaultInstance();
+  static ViewDescriptor* default_instance_;
 };
 // -------------------------------------------------------------------
 
@@ -190,40 +346,12 @@ class StorageConfig : public ::google::protobuf::MessageLite {
   
   // accessors -------------------------------------------------------
   
-  // required string driver = 1;
-  inline bool has_driver() const;
-  inline void clear_driver();
-  static const int kDriverFieldNumber = 1;
-  inline const ::std::string& driver() const;
-  inline void set_driver(const ::std::string& value);
-  inline void set_driver(const char* value);
-  inline void set_driver(const char* value, size_t size);
-  inline ::std::string* mutable_driver();
-  inline ::std::string* release_driver();
-  
-  // required string identifier = 2;
-  inline bool has_identifier() const;
-  inline void clear_identifier();
-  static const int kIdentifierFieldNumber = 2;
-  inline const ::std::string& identifier() const;
-  inline void set_identifier(const ::std::string& value);
-  inline void set_identifier(const char* value);
-  inline void set_identifier(const char* value, size_t size);
-  inline ::std::string* mutable_identifier();
-  inline ::std::string* release_identifier();
-  
   // @@protoc_insertion_point(class_scope:Db.Proto.StorageConfig)
  private:
-  inline void set_has_driver();
-  inline void clear_has_driver();
-  inline void set_has_identifier();
-  inline void clear_has_identifier();
   
-  ::std::string* driver_;
-  ::std::string* identifier_;
   
   mutable int _cached_size_;
-  ::google::protobuf::uint32 _has_bits_[(2 + 31) / 32];
+  ::google::protobuf::uint32 _has_bits_[1];
   
   friend void  protobuf_AddDesc_proto_2fConfig_2eproto();
   friend void protobuf_AssignDesc_proto_2fConfig_2eproto();
@@ -277,28 +405,6 @@ class ViewConfig : public ::google::protobuf::MessageLite {
   
   // accessors -------------------------------------------------------
   
-  // required string driver = 1;
-  inline bool has_driver() const;
-  inline void clear_driver();
-  static const int kDriverFieldNumber = 1;
-  inline const ::std::string& driver() const;
-  inline void set_driver(const ::std::string& value);
-  inline void set_driver(const char* value);
-  inline void set_driver(const char* value, size_t size);
-  inline ::std::string* mutable_driver();
-  inline ::std::string* release_driver();
-  
-  // required string identifier = 2;
-  inline bool has_identifier() const;
-  inline void clear_identifier();
-  static const int kIdentifierFieldNumber = 2;
-  inline const ::std::string& identifier() const;
-  inline void set_identifier(const ::std::string& value);
-  inline void set_identifier(const char* value);
-  inline void set_identifier(const char* value, size_t size);
-  inline ::std::string* mutable_identifier();
-  inline ::std::string* release_identifier();
-  
   // optional string base_storage = 128;
   inline bool has_base_storage() const;
   inline void clear_base_storage();
@@ -323,22 +429,16 @@ class ViewConfig : public ::google::protobuf::MessageLite {
   
   // @@protoc_insertion_point(class_scope:Db.Proto.ViewConfig)
  private:
-  inline void set_has_driver();
-  inline void clear_has_driver();
-  inline void set_has_identifier();
-  inline void clear_has_identifier();
   inline void set_has_base_storage();
   inline void clear_has_base_storage();
   inline void set_has_script_file();
   inline void clear_has_script_file();
   
-  ::std::string* driver_;
-  ::std::string* identifier_;
   ::std::string* base_storage_;
   ::std::string* script_file_;
   
   mutable int _cached_size_;
-  ::google::protobuf::uint32 _has_bits_[(4 + 31) / 32];
+  ::google::protobuf::uint32 _has_bits_[(2 + 31) / 32];
   
   friend void  protobuf_AddDesc_proto_2fConfig_2eproto();
   friend void protobuf_AssignDesc_proto_2fConfig_2eproto();
@@ -593,228 +693,208 @@ class LogEntry : public ::google::protobuf::MessageLite {
 
 // Config
 
-// repeated .Db.Proto.StorageConfig storage = 1;
-inline int Config::storage_size() const {
-  return storage_.size();
+// repeated string storages = 1;
+inline int Config::storages_size() const {
+  return storages_.size();
 }
-inline void Config::clear_storage() {
-  storage_.Clear();
+inline void Config::clear_storages() {
+  storages_.Clear();
 }
-inline const ::Db::Proto::StorageConfig& Config::storage(int index) const {
-  return storage_.Get(index);
+inline const ::std::string& Config::storages(int index) const {
+  return storages_.Get(index);
 }
-inline ::Db::Proto::StorageConfig* Config::mutable_storage(int index) {
-  return storage_.Mutable(index);
+inline ::std::string* Config::mutable_storages(int index) {
+  return storages_.Mutable(index);
 }
-inline ::Db::Proto::StorageConfig* Config::add_storage() {
-  return storage_.Add();
+inline void Config::set_storages(int index, const ::std::string& value) {
+  storages_.Mutable(index)->assign(value);
 }
-inline const ::google::protobuf::RepeatedPtrField< ::Db::Proto::StorageConfig >&
-Config::storage() const {
-  return storage_;
+inline void Config::set_storages(int index, const char* value) {
+  storages_.Mutable(index)->assign(value);
 }
-inline ::google::protobuf::RepeatedPtrField< ::Db::Proto::StorageConfig >*
-Config::mutable_storage() {
-  return &storage_;
+inline void Config::set_storages(int index, const char* value, size_t size) {
+  storages_.Mutable(index)->assign(
+    reinterpret_cast<const char*>(value), size);
+}
+inline ::std::string* Config::add_storages() {
+  return storages_.Add();
+}
+inline void Config::add_storages(const ::std::string& value) {
+  storages_.Add()->assign(value);
+}
+inline void Config::add_storages(const char* value) {
+  storages_.Add()->assign(value);
+}
+inline void Config::add_storages(const char* value, size_t size) {
+  storages_.Add()->assign(reinterpret_cast<const char*>(value), size);
+}
+inline const ::google::protobuf::RepeatedPtrField< ::std::string>&
+Config::storages() const {
+  return storages_;
+}
+inline ::google::protobuf::RepeatedPtrField< ::std::string>*
+Config::mutable_storages() {
+  return &storages_;
 }
 
-// repeated .Db.Proto.ViewConfig views = 2;
+// repeated string views = 2;
 inline int Config::views_size() const {
   return views_.size();
 }
 inline void Config::clear_views() {
   views_.Clear();
 }
-inline const ::Db::Proto::ViewConfig& Config::views(int index) const {
+inline const ::std::string& Config::views(int index) const {
   return views_.Get(index);
 }
-inline ::Db::Proto::ViewConfig* Config::mutable_views(int index) {
+inline ::std::string* Config::mutable_views(int index) {
   return views_.Mutable(index);
 }
-inline ::Db::Proto::ViewConfig* Config::add_views() {
+inline void Config::set_views(int index, const ::std::string& value) {
+  views_.Mutable(index)->assign(value);
+}
+inline void Config::set_views(int index, const char* value) {
+  views_.Mutable(index)->assign(value);
+}
+inline void Config::set_views(int index, const char* value, size_t size) {
+  views_.Mutable(index)->assign(
+    reinterpret_cast<const char*>(value), size);
+}
+inline ::std::string* Config::add_views() {
   return views_.Add();
 }
-inline const ::google::protobuf::RepeatedPtrField< ::Db::Proto::ViewConfig >&
+inline void Config::add_views(const ::std::string& value) {
+  views_.Add()->assign(value);
+}
+inline void Config::add_views(const char* value) {
+  views_.Add()->assign(value);
+}
+inline void Config::add_views(const char* value, size_t size) {
+  views_.Add()->assign(reinterpret_cast<const char*>(value), size);
+}
+inline const ::google::protobuf::RepeatedPtrField< ::std::string>&
 Config::views() const {
   return views_;
 }
-inline ::google::protobuf::RepeatedPtrField< ::Db::Proto::ViewConfig >*
+inline ::google::protobuf::RepeatedPtrField< ::std::string>*
 Config::mutable_views() {
   return &views_;
 }
 
 // -------------------------------------------------------------------
 
-// StorageConfig
+// StorageDescriptor
 
 // required string driver = 1;
-inline bool StorageConfig::has_driver() const {
+inline bool StorageDescriptor::has_driver() const {
   return (_has_bits_[0] & 0x00000001u) != 0;
 }
-inline void StorageConfig::set_has_driver() {
+inline void StorageDescriptor::set_has_driver() {
   _has_bits_[0] |= 0x00000001u;
 }
-inline void StorageConfig::clear_has_driver() {
+inline void StorageDescriptor::clear_has_driver() {
   _has_bits_[0] &= ~0x00000001u;
 }
-inline void StorageConfig::clear_driver() {
+inline void StorageDescriptor::clear_driver() {
   if (driver_ != &::google::protobuf::internal::kEmptyString) {
     driver_->clear();
   }
   clear_has_driver();
 }
-inline const ::std::string& StorageConfig::driver() const {
+inline const ::std::string& StorageDescriptor::driver() const {
   return *driver_;
 }
-inline void StorageConfig::set_driver(const ::std::string& value) {
+inline void StorageDescriptor::set_driver(const ::std::string& value) {
   set_has_driver();
   if (driver_ == &::google::protobuf::internal::kEmptyString) {
     driver_ = new ::std::string;
   }
   driver_->assign(value);
 }
-inline void StorageConfig::set_driver(const char* value) {
+inline void StorageDescriptor::set_driver(const char* value) {
   set_has_driver();
   if (driver_ == &::google::protobuf::internal::kEmptyString) {
     driver_ = new ::std::string;
   }
   driver_->assign(value);
 }
-inline void StorageConfig::set_driver(const char* value, size_t size) {
+inline void StorageDescriptor::set_driver(const char* value, size_t size) {
   set_has_driver();
   if (driver_ == &::google::protobuf::internal::kEmptyString) {
     driver_ = new ::std::string;
   }
   driver_->assign(reinterpret_cast<const char*>(value), size);
 }
-inline ::std::string* StorageConfig::mutable_driver() {
+inline ::std::string* StorageDescriptor::mutable_driver() {
   set_has_driver();
   if (driver_ == &::google::protobuf::internal::kEmptyString) {
     driver_ = new ::std::string;
   }
   return driver_;
 }
-inline ::std::string* StorageConfig::release_driver() {
+inline ::std::string* StorageDescriptor::release_driver() {
   clear_has_driver();
   if (driver_ == &::google::protobuf::internal::kEmptyString) {
     return NULL;
   } else {
     ::std::string* temp = driver_;
     driver_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
-    return temp;
-  }
-}
-
-// required string identifier = 2;
-inline bool StorageConfig::has_identifier() const {
-  return (_has_bits_[0] & 0x00000002u) != 0;
-}
-inline void StorageConfig::set_has_identifier() {
-  _has_bits_[0] |= 0x00000002u;
-}
-inline void StorageConfig::clear_has_identifier() {
-  _has_bits_[0] &= ~0x00000002u;
-}
-inline void StorageConfig::clear_identifier() {
-  if (identifier_ != &::google::protobuf::internal::kEmptyString) {
-    identifier_->clear();
-  }
-  clear_has_identifier();
-}
-inline const ::std::string& StorageConfig::identifier() const {
-  return *identifier_;
-}
-inline void StorageConfig::set_identifier(const ::std::string& value) {
-  set_has_identifier();
-  if (identifier_ == &::google::protobuf::internal::kEmptyString) {
-    identifier_ = new ::std::string;
-  }
-  identifier_->assign(value);
-}
-inline void StorageConfig::set_identifier(const char* value) {
-  set_has_identifier();
-  if (identifier_ == &::google::protobuf::internal::kEmptyString) {
-    identifier_ = new ::std::string;
-  }
-  identifier_->assign(value);
-}
-inline void StorageConfig::set_identifier(const char* value, size_t size) {
-  set_has_identifier();
-  if (identifier_ == &::google::protobuf::internal::kEmptyString) {
-    identifier_ = new ::std::string;
-  }
-  identifier_->assign(reinterpret_cast<const char*>(value), size);
-}
-inline ::std::string* StorageConfig::mutable_identifier() {
-  set_has_identifier();
-  if (identifier_ == &::google::protobuf::internal::kEmptyString) {
-    identifier_ = new ::std::string;
-  }
-  return identifier_;
-}
-inline ::std::string* StorageConfig::release_identifier() {
-  clear_has_identifier();
-  if (identifier_ == &::google::protobuf::internal::kEmptyString) {
-    return NULL;
-  } else {
-    ::std::string* temp = identifier_;
-    identifier_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
     return temp;
   }
 }
 
 // -------------------------------------------------------------------
 
-// ViewConfig
+// ViewDescriptor
 
 // required string driver = 1;
-inline bool ViewConfig::has_driver() const {
+inline bool ViewDescriptor::has_driver() const {
   return (_has_bits_[0] & 0x00000001u) != 0;
 }
-inline void ViewConfig::set_has_driver() {
+inline void ViewDescriptor::set_has_driver() {
   _has_bits_[0] |= 0x00000001u;
 }
-inline void ViewConfig::clear_has_driver() {
+inline void ViewDescriptor::clear_has_driver() {
   _has_bits_[0] &= ~0x00000001u;
 }
-inline void ViewConfig::clear_driver() {
+inline void ViewDescriptor::clear_driver() {
   if (driver_ != &::google::protobuf::internal::kEmptyString) {
     driver_->clear();
   }
   clear_has_driver();
 }
-inline const ::std::string& ViewConfig::driver() const {
+inline const ::std::string& ViewDescriptor::driver() const {
   return *driver_;
 }
-inline void ViewConfig::set_driver(const ::std::string& value) {
+inline void ViewDescriptor::set_driver(const ::std::string& value) {
   set_has_driver();
   if (driver_ == &::google::protobuf::internal::kEmptyString) {
     driver_ = new ::std::string;
   }
   driver_->assign(value);
 }
-inline void ViewConfig::set_driver(const char* value) {
+inline void ViewDescriptor::set_driver(const char* value) {
   set_has_driver();
   if (driver_ == &::google::protobuf::internal::kEmptyString) {
     driver_ = new ::std::string;
   }
   driver_->assign(value);
 }
-inline void ViewConfig::set_driver(const char* value, size_t size) {
+inline void ViewDescriptor::set_driver(const char* value, size_t size) {
   set_has_driver();
   if (driver_ == &::google::protobuf::internal::kEmptyString) {
     driver_ = new ::std::string;
   }
   driver_->assign(reinterpret_cast<const char*>(value), size);
 }
-inline ::std::string* ViewConfig::mutable_driver() {
+inline ::std::string* ViewDescriptor::mutable_driver() {
   set_has_driver();
   if (driver_ == &::google::protobuf::internal::kEmptyString) {
     driver_ = new ::std::string;
   }
   return driver_;
 }
-inline ::std::string* ViewConfig::release_driver() {
+inline ::std::string* ViewDescriptor::release_driver() {
   clear_has_driver();
   if (driver_ == &::google::protobuf::internal::kEmptyString) {
     return NULL;
@@ -825,73 +905,23 @@ inline ::std::string* ViewConfig::release_driver() {
   }
 }
 
-// required string identifier = 2;
-inline bool ViewConfig::has_identifier() const {
-  return (_has_bits_[0] & 0x00000002u) != 0;
-}
-inline void ViewConfig::set_has_identifier() {
-  _has_bits_[0] |= 0x00000002u;
-}
-inline void ViewConfig::clear_has_identifier() {
-  _has_bits_[0] &= ~0x00000002u;
-}
-inline void ViewConfig::clear_identifier() {
-  if (identifier_ != &::google::protobuf::internal::kEmptyString) {
-    identifier_->clear();
-  }
-  clear_has_identifier();
-}
-inline const ::std::string& ViewConfig::identifier() const {
-  return *identifier_;
-}
-inline void ViewConfig::set_identifier(const ::std::string& value) {
-  set_has_identifier();
-  if (identifier_ == &::google::protobuf::internal::kEmptyString) {
-    identifier_ = new ::std::string;
-  }
-  identifier_->assign(value);
-}
-inline void ViewConfig::set_identifier(const char* value) {
-  set_has_identifier();
-  if (identifier_ == &::google::protobuf::internal::kEmptyString) {
-    identifier_ = new ::std::string;
-  }
-  identifier_->assign(value);
-}
-inline void ViewConfig::set_identifier(const char* value, size_t size) {
-  set_has_identifier();
-  if (identifier_ == &::google::protobuf::internal::kEmptyString) {
-    identifier_ = new ::std::string;
-  }
-  identifier_->assign(reinterpret_cast<const char*>(value), size);
-}
-inline ::std::string* ViewConfig::mutable_identifier() {
-  set_has_identifier();
-  if (identifier_ == &::google::protobuf::internal::kEmptyString) {
-    identifier_ = new ::std::string;
-  }
-  return identifier_;
-}
-inline ::std::string* ViewConfig::release_identifier() {
-  clear_has_identifier();
-  if (identifier_ == &::google::protobuf::internal::kEmptyString) {
-    return NULL;
-  } else {
-    ::std::string* temp = identifier_;
-    identifier_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
-    return temp;
-  }
-}
+// -------------------------------------------------------------------
+
+// StorageConfig
+
+// -------------------------------------------------------------------
+
+// ViewConfig
 
 // optional string base_storage = 128;
 inline bool ViewConfig::has_base_storage() const {
-  return (_has_bits_[0] & 0x00000004u) != 0;
+  return (_has_bits_[0] & 0x00000001u) != 0;
 }
 inline void ViewConfig::set_has_base_storage() {
-  _has_bits_[0] |= 0x00000004u;
+  _has_bits_[0] |= 0x00000001u;
 }
 inline void ViewConfig::clear_has_base_storage() {
-  _has_bits_[0] &= ~0x00000004u;
+  _has_bits_[0] &= ~0x00000001u;
 }
 inline void ViewConfig::clear_base_storage() {
   if (base_storage_ != &::google::protobuf::internal::kEmptyString) {
@@ -943,13 +973,13 @@ inline ::std::string* ViewConfig::release_base_storage() {
 
 // optional string script_file = 129;
 inline bool ViewConfig::has_script_file() const {
-  return (_has_bits_[0] & 0x00000008u) != 0;
+  return (_has_bits_[0] & 0x00000002u) != 0;
 }
 inline void ViewConfig::set_has_script_file() {
-  _has_bits_[0] |= 0x00000008u;
+  _has_bits_[0] |= 0x00000002u;
 }
 inline void ViewConfig::clear_has_script_file() {
-  _has_bits_[0] &= ~0x00000008u;
+  _has_bits_[0] &= ~0x00000002u;
 }
 inline void ViewConfig::clear_script_file() {
   if (script_file_ != &::google::protobuf::internal::kEmptyString) {

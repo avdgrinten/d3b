@@ -288,12 +288,28 @@ void Linux::mkDir(const std::string &path) {
 		throw std::runtime_error("mkdir() failed");
 }
 
+namespace OS {
+
+std::string readFileSync(const std::string &path) {
+	std::unique_ptr<Linux::File> file = osIntf->createFile();
+	file->openSync(path, Linux::FileMode::read);
+	Linux::size_type length = file->lengthSync();
+	char *buffer = new char[length];
+	file->preadSync(0, length, buffer);
+	file->closeSync();
+	return std::string(buffer, length);
+}
+void writeFileSync(const std::string &path, const std::string buffer) {
+	std::unique_ptr<Linux::File> file = osIntf->createFile();
+	file->openSync(path, Linux::kFileWrite | Linux::kFileCreate | Linux::kFileTrunc);
+	file->pwriteSync(0, buffer.size(), buffer.data());
+	file->closeSync();
+}
 
 // --------------------------------------------------------
 // LocalAsyncHost
 // --------------------------------------------------------
 
-namespace OS {
 
 __thread LocalAsyncHost *localHostPointer = nullptr;
 

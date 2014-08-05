@@ -207,7 +207,7 @@ void Server::Connection::processMessage() {
 			return;
 		}
 
-		engine->createStorage(request.config());
+		engine->createStorage(request.driver(), request.identifier(), request.config());
 		
 		Proto::SrFin response;
 		postResponse(Proto::kSrFin, seq_number, response);
@@ -220,7 +220,7 @@ void Server::Connection::processMessage() {
 			return;
 		}
 
-		engine->createView(request.config());
+		engine->createView(request.driver(), request.identifier(), request.config());
 		
 		Proto::SrFin response;
 		postResponse(Proto::kSrFin, seq_number, response);

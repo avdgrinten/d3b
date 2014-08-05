@@ -98,10 +98,14 @@ message CqApply {
 }
 
 message CqCreateStorage {
-	required Db.Proto.StorageConfig config = 1;
+	optional string driver = 1;
+	optional string identifier = 2;
+	optional Db.Proto.StorageConfig config = 3;
 }
 message CqCreateView {
-	required Db.Proto.ViewConfig config = 1;
+	optional string driver = 1;
+	optional string identifier = 2;
+	optional Db.Proto.ViewConfig config = 3;
 }
 
 message CqUnlinkStorage {

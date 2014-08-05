@@ -894,23 +894,51 @@ class CqCreateStorage : public ::google::protobuf::MessageLite {
   
   // accessors -------------------------------------------------------
   
-  // required .Db.Proto.StorageConfig config = 1;
+  // optional string driver = 1;
+  inline bool has_driver() const;
+  inline void clear_driver();
+  static const int kDriverFieldNumber = 1;
+  inline const ::std::string& driver() const;
+  inline void set_driver(const ::std::string& value);
+  inline void set_driver(const char* value);
+  inline void set_driver(const char* value, size_t size);
+  inline ::std::string* mutable_driver();
+  inline ::std::string* release_driver();
+  
+  // optional string identifier = 2;
+  inline bool has_identifier() const;
+  inline void clear_identifier();
+  static const int kIdentifierFieldNumber = 2;
+  inline const ::std::string& identifier() const;
+  inline void set_identifier(const ::std::string& value);
+  inline void set_identifier(const char* value);
+  inline void set_identifier(const char* value, size_t size);
+  inline ::std::string* mutable_identifier();
+  inline ::std::string* release_identifier();
+  
+  // optional .Db.Proto.StorageConfig config = 3;
   inline bool has_config() const;
   inline void clear_config();
-  static const int kConfigFieldNumber = 1;
+  static const int kConfigFieldNumber = 3;
   inline const ::Db::Proto::StorageConfig& config() const;
   inline ::Db::Proto::StorageConfig* mutable_config();
   inline ::Db::Proto::StorageConfig* release_config();
   
   // @@protoc_insertion_point(class_scope:Api.Proto.CqCreateStorage)
  private:
+  inline void set_has_driver();
+  inline void clear_has_driver();
+  inline void set_has_identifier();
+  inline void clear_has_identifier();
   inline void set_has_config();
   inline void clear_has_config();
   
+  ::std::string* driver_;
+  ::std::string* identifier_;
   ::Db::Proto::StorageConfig* config_;
   
   mutable int _cached_size_;
-  ::google::protobuf::uint32 _has_bits_[(1 + 31) / 32];
+  ::google::protobuf::uint32 _has_bits_[(3 + 31) / 32];
   
   friend void  protobuf_AddDesc_proto_2fApi_2eproto();
   friend void protobuf_AssignDesc_proto_2fApi_2eproto();
@@ -964,23 +992,51 @@ class CqCreateView : public ::google::protobuf::MessageLite {
   
   // accessors -------------------------------------------------------
   
-  // required .Db.Proto.ViewConfig config = 1;
+  // optional string driver = 1;
+  inline bool has_driver() const;
+  inline void clear_driver();
+  static const int kDriverFieldNumber = 1;
+  inline const ::std::string& driver() const;
+  inline void set_driver(const ::std::string& value);
+  inline void set_driver(const char* value);
+  inline void set_driver(const char* value, size_t size);
+  inline ::std::string* mutable_driver();
+  inline ::std::string* release_driver();
+  
+  // optional string identifier = 2;
+  inline bool has_identifier() const;
+  inline void clear_identifier();
+  static const int kIdentifierFieldNumber = 2;
+  inline const ::std::string& identifier() const;
+  inline void set_identifier(const ::std::string& value);
+  inline void set_identifier(const char* value);
+  inline void set_identifier(const char* value, size_t size);
+  inline ::std::string* mutable_identifier();
+  inline ::std::string* release_identifier();
+  
+  // optional .Db.Proto.ViewConfig config = 3;
   inline bool has_config() const;
   inline void clear_config();
-  static const int kConfigFieldNumber = 1;
+  static const int kConfigFieldNumber = 3;
   inline const ::Db::Proto::ViewConfig& config() const;
   inline ::Db::Proto::ViewConfig* mutable_config();
   inline ::Db::Proto::ViewConfig* release_config();
   
   // @@protoc_insertion_point(class_scope:Api.Proto.CqCreateView)
  private:
+  inline void set_has_driver();
+  inline void clear_has_driver();
+  inline void set_has_identifier();
+  inline void clear_has_identifier();
   inline void set_has_config();
   inline void clear_has_config();
   
+  ::std::string* driver_;
+  ::std::string* identifier_;
   ::Db::Proto::ViewConfig* config_;
   
   mutable int _cached_size_;
-  ::google::protobuf::uint32 _has_bits_[(1 + 31) / 32];
+  ::google::protobuf::uint32 _has_bits_[(3 + 31) / 32];
   
   friend void  protobuf_AddDesc_proto_2fApi_2eproto();
   friend void protobuf_AssignDesc_proto_2fApi_2eproto();
@@ -2429,15 +2485,131 @@ inline void CqApply::set_do_rollback(bool value) {
 
 // CqCreateStorage
 
-// required .Db.Proto.StorageConfig config = 1;
-inline bool CqCreateStorage::has_config() const {
+// optional string driver = 1;
+inline bool CqCreateStorage::has_driver() const {
   return (_has_bits_[0] & 0x00000001u) != 0;
 }
-inline void CqCreateStorage::set_has_config() {
+inline void CqCreateStorage::set_has_driver() {
   _has_bits_[0] |= 0x00000001u;
 }
-inline void CqCreateStorage::clear_has_config() {
+inline void CqCreateStorage::clear_has_driver() {
   _has_bits_[0] &= ~0x00000001u;
+}
+inline void CqCreateStorage::clear_driver() {
+  if (driver_ != &::google::protobuf::internal::kEmptyString) {
+    driver_->clear();
+  }
+  clear_has_driver();
+}
+inline const ::std::string& CqCreateStorage::driver() const {
+  return *driver_;
+}
+inline void CqCreateStorage::set_driver(const ::std::string& value) {
+  set_has_driver();
+  if (driver_ == &::google::protobuf::internal::kEmptyString) {
+    driver_ = new ::std::string;
+  }
+  driver_->assign(value);
+}
+inline void CqCreateStorage::set_driver(const char* value) {
+  set_has_driver();
+  if (driver_ == &::google::protobuf::internal::kEmptyString) {
+    driver_ = new ::std::string;
+  }
+  driver_->assign(value);
+}
+inline void CqCreateStorage::set_driver(const char* value, size_t size) {
+  set_has_driver();
+  if (driver_ == &::google::protobuf::internal::kEmptyString) {
+    driver_ = new ::std::string;
+  }
+  driver_->assign(reinterpret_cast<const char*>(value), size);
+}
+inline ::std::string* CqCreateStorage::mutable_driver() {
+  set_has_driver();
+  if (driver_ == &::google::protobuf::internal::kEmptyString) {
+    driver_ = new ::std::string;
+  }
+  return driver_;
+}
+inline ::std::string* CqCreateStorage::release_driver() {
+  clear_has_driver();
+  if (driver_ == &::google::protobuf::internal::kEmptyString) {
+    return NULL;
+  } else {
+    ::std::string* temp = driver_;
+    driver_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
+    return temp;
+  }
+}
+
+// optional string identifier = 2;
+inline bool CqCreateStorage::has_identifier() const {
+  return (_has_bits_[0] & 0x00000002u) != 0;
+}
+inline void CqCreateStorage::set_has_identifier() {
+  _has_bits_[0] |= 0x00000002u;
+}
+inline void CqCreateStorage::clear_has_identifier() {
+  _has_bits_[0] &= ~0x00000002u;
+}
+inline void CqCreateStorage::clear_identifier() {
+  if (identifier_ != &::google::protobuf::internal::kEmptyString) {
+    identifier_->clear();
+  }
+  clear_has_identifier();
+}
+inline const ::std::string& CqCreateStorage::identifier() const {
+  return *identifier_;
+}
+inline void CqCreateStorage::set_identifier(const ::std::string& value) {
+  set_has_identifier();
+  if (identifier_ == &::google::protobuf::internal::kEmptyString) {
+    identifier_ = new ::std::string;
+  }
+  identifier_->assign(value);
+}
+inline void CqCreateStorage::set_identifier(const char* value) {
+  set_has_identifier();
+  if (identifier_ == &::google::protobuf::internal::kEmptyString) {
+    identifier_ = new ::std::string;
+  }
+  identifier_->assign(value);
+}
+inline void CqCreateStorage::set_identifier(const char* value, size_t size) {
+  set_has_identifier();
+  if (identifier_ == &::google::protobuf::internal::kEmptyString) {
+    identifier_ = new ::std::string;
+  }
+  identifier_->assign(reinterpret_cast<const char*>(value), size);
+}
+inline ::std::string* CqCreateStorage::mutable_identifier() {
+  set_has_identifier();
+  if (identifier_ == &::google::protobuf::internal::kEmptyString) {
+    identifier_ = new ::std::string;
+  }
+  return identifier_;
+}
+inline ::std::string* CqCreateStorage::release_identifier() {
+  clear_has_identifier();
+  if (identifier_ == &::google::protobuf::internal::kEmptyString) {
+    return NULL;
+  } else {
+    ::std::string* temp = identifier_;
+    identifier_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
+    return temp;
+  }
+}
+
+// optional .Db.Proto.StorageConfig config = 3;
+inline bool CqCreateStorage::has_config() const {
+  return (_has_bits_[0] & 0x00000004u) != 0;
+}
+inline void CqCreateStorage::set_has_config() {
+  _has_bits_[0] |= 0x00000004u;
+}
+inline void CqCreateStorage::clear_has_config() {
+  _has_bits_[0] &= ~0x00000004u;
 }
 inline void CqCreateStorage::clear_config() {
   if (config_ != NULL) config_->::Db::Proto::StorageConfig::Clear();
@@ -2462,15 +2634,131 @@ inline ::Db::Proto::StorageConfig* CqCreateStorage::release_config() {
 
 // CqCreateView
 
-// required .Db.Proto.ViewConfig config = 1;
-inline bool CqCreateView::has_config() const {
+// optional string driver = 1;
+inline bool CqCreateView::has_driver() const {
   return (_has_bits_[0] & 0x00000001u) != 0;
 }
-inline void CqCreateView::set_has_config() {
+inline void CqCreateView::set_has_driver() {
   _has_bits_[0] |= 0x00000001u;
 }
-inline void CqCreateView::clear_has_config() {
+inline void CqCreateView::clear_has_driver() {
   _has_bits_[0] &= ~0x00000001u;
+}
+inline void CqCreateView::clear_driver() {
+  if (driver_ != &::google::protobuf::internal::kEmptyString) {
+    driver_->clear();
+  }
+  clear_has_driver();
+}
+inline const ::std::string& CqCreateView::driver() const {
+  return *driver_;
+}
+inline void CqCreateView::set_driver(const ::std::string& value) {
+  set_has_driver();
+  if (driver_ == &::google::protobuf::internal::kEmptyString) {
+    driver_ = new ::std::string;
+  }
+  driver_->assign(value);
+}
+inline void CqCreateView::set_driver(const char* value) {
+  set_has_driver();
+  if (driver_ == &::google::protobuf::internal::kEmptyString) {
+    driver_ = new ::std::string;
+  }
+  driver_->assign(value);
+}
+inline void CqCreateView::set_driver(const char* value, size_t size) {
+  set_has_driver();
+  if (driver_ == &::google::protobuf::internal::kEmptyString) {
+    driver_ = new ::std::string;
+  }
+  driver_->assign(reinterpret_cast<const char*>(value), size);
+}
+inline ::std::string* CqCreateView::mutable_driver() {
+  set_has_driver();
+  if (driver_ == &::google::protobuf::internal::kEmptyString) {
+    driver_ = new ::std::string;
+  }
+  return driver_;
+}
+inline ::std::string* CqCreateView::release_driver() {
+  clear_has_driver();
+  if (driver_ == &::google::protobuf::internal::kEmptyString) {
+    return NULL;
+  } else {
+    ::std::string* temp = driver_;
+    driver_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
+    return temp;
+  }
+}
+
+// optional string identifier = 2;
+inline bool CqCreateView::has_identifier() const {
+  return (_has_bits_[0] & 0x00000002u) != 0;
+}
+inline void CqCreateView::set_has_identifier() {
+  _has_bits_[0] |= 0x00000002u;
+}
+inline void CqCreateView::clear_has_identifier() {
+  _has_bits_[0] &= ~0x00000002u;
+}
+inline void CqCreateView::clear_identifier() {
+  if (identifier_ != &::google::protobuf::internal::kEmptyString) {
+    identifier_->clear();
+  }
+  clear_has_identifier();
+}
+inline const ::std::string& CqCreateView::identifier() const {
+  return *identifier_;
+}
+inline void CqCreateView::set_identifier(const ::std::string& value) {
+  set_has_identifier();
+  if (identifier_ == &::google::protobuf::internal::kEmptyString) {
+    identifier_ = new ::std::string;
+  }
+  identifier_->assign(value);
+}
+inline void CqCreateView::set_identifier(const char* value) {
+  set_has_identifier();
+  if (identifier_ == &::google::protobuf::internal::kEmptyString) {
+    identifier_ = new ::std::string;
+  }
+  identifier_->assign(value);
+}
+inline void CqCreateView::set_identifier(const char* value, size_t size) {
+  set_has_identifier();
+  if (identifier_ == &::google::protobuf::internal::kEmptyString) {
+    identifier_ = new ::std::string;
+  }
+  identifier_->assign(reinterpret_cast<const char*>(value), size);
+}
+inline ::std::string* CqCreateView::mutable_identifier() {
+  set_has_identifier();
+  if (identifier_ == &::google::protobuf::internal::kEmptyString) {
+    identifier_ = new ::std::string;
+  }
+  return identifier_;
+}
+inline ::std::string* CqCreateView::release_identifier() {
+  clear_has_identifier();
+  if (identifier_ == &::google::protobuf::internal::kEmptyString) {
+    return NULL;
+  } else {
+    ::std::string* temp = identifier_;
+    identifier_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
+    return temp;
+  }
+}
+
+// optional .Db.Proto.ViewConfig config = 3;
+inline bool CqCreateView::has_config() const {
+  return (_has_bits_[0] & 0x00000004u) != 0;
+}
+inline void CqCreateView::set_has_config() {
+  _has_bits_[0] |= 0x00000004u;
+}
+inline void CqCreateView::clear_has_config() {
+  _has_bits_[0] &= ~0x00000004u;
 }
 inline void CqCreateView::clear_config() {
   if (config_ != NULL) config_->::Db::Proto::ViewConfig::Clear();

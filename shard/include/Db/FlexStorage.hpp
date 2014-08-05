@@ -16,9 +16,6 @@ public:
 
 	virtual void createStorage();
 	virtual void loadStorage();
-	
-	virtual Proto::StorageConfig writeConfig();
-	virtual void readConfig(const Proto::StorageConfig &config);
 
 	virtual DocumentId allocate();
 	

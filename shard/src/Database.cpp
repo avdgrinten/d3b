@@ -94,5 +94,7 @@ int main(int argc, char **argv) {
 	worker2.shutdown();
 	worker1.getThread().join();
 	worker2.getThread().join();
+
+	std::cout << "Exited gracefully" << std::endl;
 }
 

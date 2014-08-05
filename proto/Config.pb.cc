@@ -15,6 +15,8 @@ namespace Proto {
 
 void protobuf_ShutdownFile_proto_2fConfig_2eproto() {
   delete Config::default_instance_;
+  delete StorageDescriptor::default_instance_;
+  delete ViewDescriptor::default_instance_;
   delete StorageConfig::default_instance_;
   delete ViewConfig::default_instance_;
   delete LogMutation::default_instance_;
@@ -28,11 +30,15 @@ void protobuf_AddDesc_proto_2fConfig_2eproto() {
   GOOGLE_PROTOBUF_VERIFY_VERSION;
 
   Config::default_instance_ = new Config();
+  StorageDescriptor::default_instance_ = new StorageDescriptor();
+  ViewDescriptor::default_instance_ = new ViewDescriptor();
   StorageConfig::default_instance_ = new StorageConfig();
   ViewConfig::default_instance_ = new ViewConfig();
   LogMutation::default_instance_ = new LogMutation();
   LogEntry::default_instance_ = new LogEntry();
   Config::default_instance_->InitAsDefaultInstance();
+  StorageDescriptor::default_instance_->InitAsDefaultInstance();
+  ViewDescriptor::default_instance_->InitAsDefaultInstance();
   StorageConfig::default_instance_->InitAsDefaultInstance();
   ViewConfig::default_instance_->InitAsDefaultInstance();
   LogMutation::default_instance_->InitAsDefaultInstance();
@@ -51,7 +57,7 @@ struct StaticDescriptorInitializer_proto_2fConfig_2eproto {
 // ===================================================================
 
 #ifndef _MSC_VER
-const int Config::kStorageFieldNumber;
+const int Config::kStoragesFieldNumber;
 const int Config::kViewsFieldNumber;
 #endif  // !_MSC_VER
 
@@ -99,7 +105,7 @@ Config* Config::New() const {
 }
 
 void Config::Clear() {
-  storage_.Clear();
+  storages_.Clear();
   views_.Clear();
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
 }
@@ -110,28 +116,28 @@ bool Config::MergePartialFromCodedStream(
   ::google::protobuf::uint32 tag;
   while ((tag = input->ReadTag()) != 0) {
     switch (::google::protobuf::internal::WireFormatLite::GetTagFieldNumber(tag)) {
-      // repeated .Db.Proto.StorageConfig storage = 1;
+      // repeated string storages = 1;
       case 1: {
         if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
             ::google::protobuf::internal::WireFormatLite::WIRETYPE_LENGTH_DELIMITED) {
-         parse_storage:
-          DO_(::google::protobuf::internal::WireFormatLite::ReadMessageNoVirtual(
-                input, add_storage()));
+         parse_storages:
+          DO_(::google::protobuf::internal::WireFormatLite::ReadString(
+                input, this->add_storages()));
         } else {
           goto handle_uninterpreted;
         }
-        if (input->ExpectTag(10)) goto parse_storage;
+        if (input->ExpectTag(10)) goto parse_storages;
         if (input->ExpectTag(18)) goto parse_views;
         break;
       }
       
-      // repeated .Db.Proto.ViewConfig views = 2;
+      // repeated string views = 2;
       case 2: {
         if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
             ::google::protobuf::internal::WireFormatLite::WIRETYPE_LENGTH_DELIMITED) {
          parse_views:
-          DO_(::google::protobuf::internal::WireFormatLite::ReadMessageNoVirtual(
-                input, add_views()));
+          DO_(::google::protobuf::internal::WireFormatLite::ReadString(
+                input, this->add_views()));
         } else {
           goto handle_uninterpreted;
         }
@@ -157,15 +163,15 @@ bool Config::MergePartialFromCodedStream(
 
 void Config::SerializeWithCachedSizes(
     ::google::protobuf::io::CodedOutputStream* output) const {
-  // repeated .Db.Proto.StorageConfig storage = 1;
-  for (int i = 0; i < this->storage_size(); i++) {
-    ::google::protobuf::internal::WireFormatLite::WriteMessage(
-      1, this->storage(i), output);
+  // repeated string storages = 1;
+  for (int i = 0; i < this->storages_size(); i++) {
+    ::google::protobuf::internal::WireFormatLite::WriteString(
+      1, this->storages(i), output);
   }
   
-  // repeated .Db.Proto.ViewConfig views = 2;
+  // repeated string views = 2;
   for (int i = 0; i < this->views_size(); i++) {
-    ::google::protobuf::internal::WireFormatLite::WriteMessage(
+    ::google::protobuf::internal::WireFormatLite::WriteString(
       2, this->views(i), output);
   }
   
@@ -174,20 +180,18 @@ void Config::SerializeWithCachedSizes(
 int Config::ByteSize() const {
   int total_size = 0;
   
-  // repeated .Db.Proto.StorageConfig storage = 1;
-  total_size += 1 * this->storage_size();
-  for (int i = 0; i < this->storage_size(); i++) {
-    total_size +=
-      ::google::protobuf::internal::WireFormatLite::MessageSizeNoVirtual(
-        this->storage(i));
+  // repeated string storages = 1;
+  total_size += 1 * this->storages_size();
+  for (int i = 0; i < this->storages_size(); i++) {
+    total_size += ::google::protobuf::internal::WireFormatLite::StringSize(
+      this->storages(i));
   }
   
-  // repeated .Db.Proto.ViewConfig views = 2;
+  // repeated string views = 2;
   total_size += 1 * this->views_size();
   for (int i = 0; i < this->views_size(); i++) {
-    total_size +=
-      ::google::protobuf::internal::WireFormatLite::MessageSizeNoVirtual(
-        this->views(i));
+    total_size += ::google::protobuf::internal::WireFormatLite::StringSize(
+      this->views(i));
   }
   
   GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
@@ -203,7 +207,7 @@ void Config::CheckTypeAndMergeFrom(
 
 void Config::MergeFrom(const Config& from) {
   GOOGLE_CHECK_NE(&from, this);
-  storage_.MergeFrom(from.storage_);
+  storages_.MergeFrom(from.storages_);
   views_.MergeFrom(from.views_);
 }
 
@@ -215,18 +219,12 @@ void Config::CopyFrom(const Config& from) {
 
 bool Config::IsInitialized() const {
   
-  for (int i = 0; i < storage_size(); i++) {
-    if (!this->storage(i).IsInitialized()) return false;
-  }
-  for (int i = 0; i < views_size(); i++) {
-    if (!this->views(i).IsInitialized()) return false;
-  }
   return true;
 }
 
 void Config::Swap(Config* other) {
   if (other != this) {
-    storage_.Swap(&other->storage_);
+    storages_.Swap(&other->storages_);
     views_.Swap(&other->views_);
     std::swap(_has_bits_[0], other->_has_bits_[0]);
     std::swap(_cached_size_, other->_cached_size_);
@@ -241,78 +239,68 @@ void Config::Swap(Config* other) {
 // ===================================================================
 
 #ifndef _MSC_VER
-const int StorageConfig::kDriverFieldNumber;
-const int StorageConfig::kIdentifierFieldNumber;
+const int StorageDescriptor::kDriverFieldNumber;
 #endif  // !_MSC_VER
 
-StorageConfig::StorageConfig()
+StorageDescriptor::StorageDescriptor()
   : ::google::protobuf::MessageLite() {
   SharedCtor();
 }
 
-void StorageConfig::InitAsDefaultInstance() {
+void StorageDescriptor::InitAsDefaultInstance() {
 }
 
-StorageConfig::StorageConfig(const StorageConfig& from)
+StorageDescriptor::StorageDescriptor(const StorageDescriptor& from)
   : ::google::protobuf::MessageLite() {
   SharedCtor();
   MergeFrom(from);
 }
 
-void StorageConfig::SharedCtor() {
+void StorageDescriptor::SharedCtor() {
   _cached_size_ = 0;
   driver_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
-  identifier_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
 }
 
-StorageConfig::~StorageConfig() {
+StorageDescriptor::~StorageDescriptor() {
   SharedDtor();
 }
 
-void StorageConfig::SharedDtor() {
+void StorageDescriptor::SharedDtor() {
   if (driver_ != &::google::protobuf::internal::kEmptyString) {
     delete driver_;
-  }
-  if (identifier_ != &::google::protobuf::internal::kEmptyString) {
-    delete identifier_;
   }
   if (this != default_instance_) {
   }
 }
 
-void StorageConfig::SetCachedSize(int size) const {
+void StorageDescriptor::SetCachedSize(int size) const {
   GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
   _cached_size_ = size;
   GOOGLE_SAFE_CONCURRENT_WRITES_END();
 }
-const StorageConfig& StorageConfig::default_instance() {
+const StorageDescriptor& StorageDescriptor::default_instance() {
   if (default_instance_ == NULL) protobuf_AddDesc_proto_2fConfig_2eproto();  return *default_instance_;
 }
 
-StorageConfig* StorageConfig::default_instance_ = NULL;
+StorageDescriptor* StorageDescriptor::default_instance_ = NULL;
 
-StorageConfig* StorageConfig::New() const {
-  return new StorageConfig;
+StorageDescriptor* StorageDescriptor::New() const {
+  return new StorageDescriptor;
 }
 
-void StorageConfig::Clear() {
+void StorageDescriptor::Clear() {
   if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
     if (has_driver()) {
       if (driver_ != &::google::protobuf::internal::kEmptyString) {
         driver_->clear();
       }
     }
-    if (has_identifier()) {
-      if (identifier_ != &::google::protobuf::internal::kEmptyString) {
-        identifier_->clear();
-      }
-    }
   }
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
 }
 
-bool StorageConfig::MergePartialFromCodedStream(
+bool StorageDescriptor::MergePartialFromCodedStream(
     ::google::protobuf::io::CodedInputStream* input) {
 #define DO_(EXPRESSION) if (!(EXPRESSION)) return false
   ::google::protobuf::uint32 tag;
@@ -324,20 +312,6 @@ bool StorageConfig::MergePartialFromCodedStream(
             ::google::protobuf::internal::WireFormatLite::WIRETYPE_LENGTH_DELIMITED) {
           DO_(::google::protobuf::internal::WireFormatLite::ReadString(
                 input, this->mutable_driver()));
-        } else {
-          goto handle_uninterpreted;
-        }
-        if (input->ExpectTag(18)) goto parse_identifier;
-        break;
-      }
-      
-      // required string identifier = 2;
-      case 2: {
-        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
-            ::google::protobuf::internal::WireFormatLite::WIRETYPE_LENGTH_DELIMITED) {
-         parse_identifier:
-          DO_(::google::protobuf::internal::WireFormatLite::ReadString(
-                input, this->mutable_identifier()));
         } else {
           goto handle_uninterpreted;
         }
@@ -360,7 +334,7 @@ bool StorageConfig::MergePartialFromCodedStream(
 #undef DO_
 }
 
-void StorageConfig::SerializeWithCachedSizes(
+void StorageDescriptor::SerializeWithCachedSizes(
     ::google::protobuf::io::CodedOutputStream* output) const {
   // required string driver = 1;
   if (has_driver()) {
@@ -368,15 +342,9 @@ void StorageConfig::SerializeWithCachedSizes(
       1, this->driver(), output);
   }
   
-  // required string identifier = 2;
-  if (has_identifier()) {
-    ::google::protobuf::internal::WireFormatLite::WriteString(
-      2, this->identifier(), output);
-  }
-  
 }
 
-int StorageConfig::ByteSize() const {
+int StorageDescriptor::ByteSize() const {
   int total_size = 0;
   
   if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
@@ -387,14 +355,291 @@ int StorageConfig::ByteSize() const {
           this->driver());
     }
     
-    // required string identifier = 2;
-    if (has_identifier()) {
+  }
+  GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
+  _cached_size_ = total_size;
+  GOOGLE_SAFE_CONCURRENT_WRITES_END();
+  return total_size;
+}
+
+void StorageDescriptor::CheckTypeAndMergeFrom(
+    const ::google::protobuf::MessageLite& from) {
+  MergeFrom(*::google::protobuf::down_cast<const StorageDescriptor*>(&from));
+}
+
+void StorageDescriptor::MergeFrom(const StorageDescriptor& from) {
+  GOOGLE_CHECK_NE(&from, this);
+  if (from._has_bits_[0 / 32] & (0xffu << (0 % 32))) {
+    if (from.has_driver()) {
+      set_driver(from.driver());
+    }
+  }
+}
+
+void StorageDescriptor::CopyFrom(const StorageDescriptor& from) {
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+bool StorageDescriptor::IsInitialized() const {
+  if ((_has_bits_[0] & 0x00000001) != 0x00000001) return false;
+  
+  return true;
+}
+
+void StorageDescriptor::Swap(StorageDescriptor* other) {
+  if (other != this) {
+    std::swap(driver_, other->driver_);
+    std::swap(_has_bits_[0], other->_has_bits_[0]);
+    std::swap(_cached_size_, other->_cached_size_);
+  }
+}
+
+::std::string StorageDescriptor::GetTypeName() const {
+  return "Db.Proto.StorageDescriptor";
+}
+
+
+// ===================================================================
+
+#ifndef _MSC_VER
+const int ViewDescriptor::kDriverFieldNumber;
+#endif  // !_MSC_VER
+
+ViewDescriptor::ViewDescriptor()
+  : ::google::protobuf::MessageLite() {
+  SharedCtor();
+}
+
+void ViewDescriptor::InitAsDefaultInstance() {
+}
+
+ViewDescriptor::ViewDescriptor(const ViewDescriptor& from)
+  : ::google::protobuf::MessageLite() {
+  SharedCtor();
+  MergeFrom(from);
+}
+
+void ViewDescriptor::SharedCtor() {
+  _cached_size_ = 0;
+  driver_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
+  ::memset(_has_bits_, 0, sizeof(_has_bits_));
+}
+
+ViewDescriptor::~ViewDescriptor() {
+  SharedDtor();
+}
+
+void ViewDescriptor::SharedDtor() {
+  if (driver_ != &::google::protobuf::internal::kEmptyString) {
+    delete driver_;
+  }
+  if (this != default_instance_) {
+  }
+}
+
+void ViewDescriptor::SetCachedSize(int size) const {
+  GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
+  _cached_size_ = size;
+  GOOGLE_SAFE_CONCURRENT_WRITES_END();
+}
+const ViewDescriptor& ViewDescriptor::default_instance() {
+  if (default_instance_ == NULL) protobuf_AddDesc_proto_2fConfig_2eproto();  return *default_instance_;
+}
+
+ViewDescriptor* ViewDescriptor::default_instance_ = NULL;
+
+ViewDescriptor* ViewDescriptor::New() const {
+  return new ViewDescriptor;
+}
+
+void ViewDescriptor::Clear() {
+  if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
+    if (has_driver()) {
+      if (driver_ != &::google::protobuf::internal::kEmptyString) {
+        driver_->clear();
+      }
+    }
+  }
+  ::memset(_has_bits_, 0, sizeof(_has_bits_));
+}
+
+bool ViewDescriptor::MergePartialFromCodedStream(
+    ::google::protobuf::io::CodedInputStream* input) {
+#define DO_(EXPRESSION) if (!(EXPRESSION)) return false
+  ::google::protobuf::uint32 tag;
+  while ((tag = input->ReadTag()) != 0) {
+    switch (::google::protobuf::internal::WireFormatLite::GetTagFieldNumber(tag)) {
+      // required string driver = 1;
+      case 1: {
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_LENGTH_DELIMITED) {
+          DO_(::google::protobuf::internal::WireFormatLite::ReadString(
+                input, this->mutable_driver()));
+        } else {
+          goto handle_uninterpreted;
+        }
+        if (input->ExpectAtEnd()) return true;
+        break;
+      }
+      
+      default: {
+      handle_uninterpreted:
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_END_GROUP) {
+          return true;
+        }
+        DO_(::google::protobuf::internal::WireFormatLite::SkipField(input, tag));
+        break;
+      }
+    }
+  }
+  return true;
+#undef DO_
+}
+
+void ViewDescriptor::SerializeWithCachedSizes(
+    ::google::protobuf::io::CodedOutputStream* output) const {
+  // required string driver = 1;
+  if (has_driver()) {
+    ::google::protobuf::internal::WireFormatLite::WriteString(
+      1, this->driver(), output);
+  }
+  
+}
+
+int ViewDescriptor::ByteSize() const {
+  int total_size = 0;
+  
+  if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
+    // required string driver = 1;
+    if (has_driver()) {
       total_size += 1 +
         ::google::protobuf::internal::WireFormatLite::StringSize(
-          this->identifier());
+          this->driver());
     }
     
   }
+  GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
+  _cached_size_ = total_size;
+  GOOGLE_SAFE_CONCURRENT_WRITES_END();
+  return total_size;
+}
+
+void ViewDescriptor::CheckTypeAndMergeFrom(
+    const ::google::protobuf::MessageLite& from) {
+  MergeFrom(*::google::protobuf::down_cast<const ViewDescriptor*>(&from));
+}
+
+void ViewDescriptor::MergeFrom(const ViewDescriptor& from) {
+  GOOGLE_CHECK_NE(&from, this);
+  if (from._has_bits_[0 / 32] & (0xffu << (0 % 32))) {
+    if (from.has_driver()) {
+      set_driver(from.driver());
+    }
+  }
+}
+
+void ViewDescriptor::CopyFrom(const ViewDescriptor& from) {
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+bool ViewDescriptor::IsInitialized() const {
+  if ((_has_bits_[0] & 0x00000001) != 0x00000001) return false;
+  
+  return true;
+}
+
+void ViewDescriptor::Swap(ViewDescriptor* other) {
+  if (other != this) {
+    std::swap(driver_, other->driver_);
+    std::swap(_has_bits_[0], other->_has_bits_[0]);
+    std::swap(_cached_size_, other->_cached_size_);
+  }
+}
+
+::std::string ViewDescriptor::GetTypeName() const {
+  return "Db.Proto.ViewDescriptor";
+}
+
+
+// ===================================================================
+
+#ifndef _MSC_VER
+#endif  // !_MSC_VER
+
+StorageConfig::StorageConfig()
+  : ::google::protobuf::MessageLite() {
+  SharedCtor();
+}
+
+void StorageConfig::InitAsDefaultInstance() {
+}
+
+StorageConfig::StorageConfig(const StorageConfig& from)
+  : ::google::protobuf::MessageLite() {
+  SharedCtor();
+  MergeFrom(from);
+}
+
+void StorageConfig::SharedCtor() {
+  _cached_size_ = 0;
+  ::memset(_has_bits_, 0, sizeof(_has_bits_));
+}
+
+StorageConfig::~StorageConfig() {
+  SharedDtor();
+}
+
+void StorageConfig::SharedDtor() {
+  if (this != default_instance_) {
+  }
+}
+
+void StorageConfig::SetCachedSize(int size) const {
+  GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
+  _cached_size_ = size;
+  GOOGLE_SAFE_CONCURRENT_WRITES_END();
+}
+const StorageConfig& StorageConfig::default_instance() {
+  if (default_instance_ == NULL) protobuf_AddDesc_proto_2fConfig_2eproto();  return *default_instance_;
+}
+
+StorageConfig* StorageConfig::default_instance_ = NULL;
+
+StorageConfig* StorageConfig::New() const {
+  return new StorageConfig;
+}
+
+void StorageConfig::Clear() {
+  ::memset(_has_bits_, 0, sizeof(_has_bits_));
+}
+
+bool StorageConfig::MergePartialFromCodedStream(
+    ::google::protobuf::io::CodedInputStream* input) {
+#define DO_(EXPRESSION) if (!(EXPRESSION)) return false
+  ::google::protobuf::uint32 tag;
+  while ((tag = input->ReadTag()) != 0) {
+    if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+        ::google::protobuf::internal::WireFormatLite::WIRETYPE_END_GROUP) {
+      return true;
+    }
+    DO_(::google::protobuf::internal::WireFormatLite::SkipField(input, tag));
+  }
+  return true;
+#undef DO_
+}
+
+void StorageConfig::SerializeWithCachedSizes(
+    ::google::protobuf::io::CodedOutputStream* output) const {
+}
+
+int StorageConfig::ByteSize() const {
+  int total_size = 0;
+  
   GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
   _cached_size_ = total_size;
   GOOGLE_SAFE_CONCURRENT_WRITES_END();
@@ -408,14 +653,6 @@ void StorageConfig::CheckTypeAndMergeFrom(
 
 void StorageConfig::MergeFrom(const StorageConfig& from) {
   GOOGLE_CHECK_NE(&from, this);
-  if (from._has_bits_[0 / 32] & (0xffu << (0 % 32))) {
-    if (from.has_driver()) {
-      set_driver(from.driver());
-    }
-    if (from.has_identifier()) {
-      set_identifier(from.identifier());
-    }
-  }
 }
 
 void StorageConfig::CopyFrom(const StorageConfig& from) {
@@ -425,16 +662,12 @@ void StorageConfig::CopyFrom(const StorageConfig& from) {
 }
 
 bool StorageConfig::IsInitialized() const {
-  if ((_has_bits_[0] & 0x00000003) != 0x00000003) return false;
   
   return true;
 }
 
 void StorageConfig::Swap(StorageConfig* other) {
   if (other != this) {
-    std::swap(driver_, other->driver_);
-    std::swap(identifier_, other->identifier_);
-    std::swap(_has_bits_[0], other->_has_bits_[0]);
     std::swap(_cached_size_, other->_cached_size_);
   }
 }
@@ -447,8 +680,6 @@ void StorageConfig::Swap(StorageConfig* other) {
 // ===================================================================
 
 #ifndef _MSC_VER
-const int ViewConfig::kDriverFieldNumber;
-const int ViewConfig::kIdentifierFieldNumber;
 const int ViewConfig::kBaseStorageFieldNumber;
 const int ViewConfig::kScriptFileFieldNumber;
 #endif  // !_MSC_VER
@@ -469,8 +700,6 @@ ViewConfig::ViewConfig(const ViewConfig& from)
 
 void ViewConfig::SharedCtor() {
   _cached_size_ = 0;
-  driver_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
-  identifier_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
   base_storage_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
   script_file_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
@@ -481,12 +710,6 @@ ViewConfig::~ViewConfig() {
 }
 
 void ViewConfig::SharedDtor() {
-  if (driver_ != &::google::protobuf::internal::kEmptyString) {
-    delete driver_;
-  }
-  if (identifier_ != &::google::protobuf::internal::kEmptyString) {
-    delete identifier_;
-  }
   if (base_storage_ != &::google::protobuf::internal::kEmptyString) {
     delete base_storage_;
   }
@@ -514,16 +737,6 @@ ViewConfig* ViewConfig::New() const {
 
 void ViewConfig::Clear() {
   if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
-    if (has_driver()) {
-      if (driver_ != &::google::protobuf::internal::kEmptyString) {
-        driver_->clear();
-      }
-    }
-    if (has_identifier()) {
-      if (identifier_ != &::google::protobuf::internal::kEmptyString) {
-        identifier_->clear();
-      }
-    }
     if (has_base_storage()) {
       if (base_storage_ != &::google::protobuf::internal::kEmptyString) {
         base_storage_->clear();
@@ -544,38 +757,10 @@ bool ViewConfig::MergePartialFromCodedStream(
   ::google::protobuf::uint32 tag;
   while ((tag = input->ReadTag()) != 0) {
     switch (::google::protobuf::internal::WireFormatLite::GetTagFieldNumber(tag)) {
-      // required string driver = 1;
-      case 1: {
-        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
-            ::google::protobuf::internal::WireFormatLite::WIRETYPE_LENGTH_DELIMITED) {
-          DO_(::google::protobuf::internal::WireFormatLite::ReadString(
-                input, this->mutable_driver()));
-        } else {
-          goto handle_uninterpreted;
-        }
-        if (input->ExpectTag(18)) goto parse_identifier;
-        break;
-      }
-      
-      // required string identifier = 2;
-      case 2: {
-        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
-            ::google::protobuf::internal::WireFormatLite::WIRETYPE_LENGTH_DELIMITED) {
-         parse_identifier:
-          DO_(::google::protobuf::internal::WireFormatLite::ReadString(
-                input, this->mutable_identifier()));
-        } else {
-          goto handle_uninterpreted;
-        }
-        if (input->ExpectTag(1026)) goto parse_base_storage;
-        break;
-      }
-      
       // optional string base_storage = 128;
       case 128: {
         if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
             ::google::protobuf::internal::WireFormatLite::WIRETYPE_LENGTH_DELIMITED) {
-         parse_base_storage:
           DO_(::google::protobuf::internal::WireFormatLite::ReadString(
                 input, this->mutable_base_storage()));
         } else {
@@ -616,18 +801,6 @@ bool ViewConfig::MergePartialFromCodedStream(
 
 void ViewConfig::SerializeWithCachedSizes(
     ::google::protobuf::io::CodedOutputStream* output) const {
-  // required string driver = 1;
-  if (has_driver()) {
-    ::google::protobuf::internal::WireFormatLite::WriteString(
-      1, this->driver(), output);
-  }
-  
-  // required string identifier = 2;
-  if (has_identifier()) {
-    ::google::protobuf::internal::WireFormatLite::WriteString(
-      2, this->identifier(), output);
-  }
-  
   // optional string base_storage = 128;
   if (has_base_storage()) {
     ::google::protobuf::internal::WireFormatLite::WriteString(
@@ -646,20 +819,6 @@ int ViewConfig::ByteSize() const {
   int total_size = 0;
   
   if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
-    // required string driver = 1;
-    if (has_driver()) {
-      total_size += 1 +
-        ::google::protobuf::internal::WireFormatLite::StringSize(
-          this->driver());
-    }
-    
-    // required string identifier = 2;
-    if (has_identifier()) {
-      total_size += 1 +
-        ::google::protobuf::internal::WireFormatLite::StringSize(
-          this->identifier());
-    }
-    
     // optional string base_storage = 128;
     if (has_base_storage()) {
       total_size += 2 +
@@ -689,12 +848,6 @@ void ViewConfig::CheckTypeAndMergeFrom(
 void ViewConfig::MergeFrom(const ViewConfig& from) {
   GOOGLE_CHECK_NE(&from, this);
   if (from._has_bits_[0 / 32] & (0xffu << (0 % 32))) {
-    if (from.has_driver()) {
-      set_driver(from.driver());
-    }
-    if (from.has_identifier()) {
-      set_identifier(from.identifier());
-    }
     if (from.has_base_storage()) {
       set_base_storage(from.base_storage());
     }
@@ -711,15 +864,12 @@ void ViewConfig::CopyFrom(const ViewConfig& from) {
 }
 
 bool ViewConfig::IsInitialized() const {
-  if ((_has_bits_[0] & 0x00000003) != 0x00000003) return false;
   
   return true;
 }
 
 void ViewConfig::Swap(ViewConfig* other) {
   if (other != this) {
-    std::swap(driver_, other->driver_);
-    std::swap(identifier_, other->identifier_);
     std::swap(base_storage_, other->base_storage_);
     std::swap(script_file_, other->script_file_);
     std::swap(_has_bits_[0], other->_has_bits_[0]);

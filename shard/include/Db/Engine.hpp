@@ -26,11 +26,15 @@ public:
 	void createConfig();
 	void loadConfig();
 
-	void createStorage(const Proto::StorageConfig &config);
+	void createStorage(const std::string &driver,
+			const std::string &identifier,
+			const Proto::StorageConfig &config);
 	int getStorage(const std::string &identifier);
 	void unlinkStorage(int storage);
 
-	void createView(const Proto::ViewConfig &config);
+	void createView(const std::string &driver,
+			const std::string &identifier,
+			const Proto::ViewConfig &config);
 	int getView(const std::string &view);
 	void unlinkView(int view);
 
@@ -123,10 +127,12 @@ private:
 	std::vector<StorageDriver*> p_storage;
 	std::vector<ViewDriver*> p_views;
 
-	StorageDriver *p_setupStorage(const Proto::StorageConfig &config);
-	ViewDriver *p_setupView(const Proto::ViewConfig &config);
+	StorageDriver *setupStorage(const std::string &driver,
+			const std::string &identifier);
+	ViewDriver *setupView(const std::string &driver,
+			const std::string &identifier);
 	
-	void p_writeConfig();
+	void writeConfig();
 
 	bool compatible(Mutation &mutation, Constraint &constraint);
 

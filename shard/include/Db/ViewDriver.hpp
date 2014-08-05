@@ -49,11 +49,8 @@ public:
 			: p_engine(engine) {
 	}
 
-	virtual void createView() = 0;
+	virtual void createView(const Proto::ViewConfig &config) = 0;
 	virtual void loadView() = 0;
-
-	virtual Proto::ViewConfig writeConfig() = 0;
-	virtual void readConfig(const Proto::ViewConfig &config) = 0;
 
 	virtual void sequence(SequenceId sequence_id,
 			std::vector<Mutation> &mutations,

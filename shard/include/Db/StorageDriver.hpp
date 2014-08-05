@@ -46,9 +46,6 @@ public:
 
 	virtual void createStorage() = 0;
 	virtual void loadStorage() = 0;
-
-	virtual Proto::StorageConfig writeConfig() = 0;
-	virtual void readConfig(const Proto::StorageConfig &config) = 0;
 	
 	// returns an unused and unique document id.
 	// must never return the same value more than once

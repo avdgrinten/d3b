@@ -226,6 +226,9 @@ public:
 
 namespace OS {
 
+std::string readFileSync(const std::string &path);
+void writeFileSync(const std::string &path, const std::string buffer);
+
 class LocalAsyncHost {
 friend class Linux::SockServer;
 friend class Linux::SockStream;

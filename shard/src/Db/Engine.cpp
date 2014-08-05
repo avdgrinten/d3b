@@ -41,30 +41,32 @@ void Engine::createConfig() {
 	p_writeAhead.setIdentifier("transact");
 	p_writeAhead.createLog();
 	
-	p_writeConfig();
+	writeConfig();
 }
 
 void Engine::loadConfig() {
-	std::unique_ptr<Linux::File> file = osIntf->createFile();
-	file->openSync(p_path + "/config", Linux::FileMode::read);
-	Linux::size_type length = file->lengthSync();
-	char *buffer = new char[length];
-	file->preadSync(0, length, buffer);
-	file->closeSync();
-	
 	Proto::Config config;
-	config.ParseFromArray(buffer, length);
-	delete[] buffer;
+	config.ParseFromString(OS::readFileSync(p_path + "/config"));
 	
-	for(int i = 0; i < config.storage_size(); i++) {
-		const Proto::StorageConfig &storage_config = config.storage(i);
-		StorageDriver *instance = p_setupStorage(storage_config);
+	for(int i = 0; i < config.storages_size(); i++) {
+		const std::string identifier = config.storages(i);
+
+		auto desc_path = p_path + "/storage/" + identifier + "/descriptor";
+		Proto::StorageDescriptor descriptor;
+		descriptor.ParseFromString(OS::readFileSync(desc_path));
+
+		StorageDriver *instance = setupStorage(descriptor.driver(), identifier);
 		instance->loadStorage();
 	}
 	
 	for(int i = 0; i < config.views_size(); i++) {
-		const Proto::ViewConfig &view_config = config.views(i);
-		ViewDriver *instance = p_setupView(view_config);
+		const std::string identifier = config.views(i);
+
+		auto desc_path = p_path + "/views/" + identifier + "/descriptor";
+		Proto::ViewDescriptor descriptor;
+		descriptor.ParseFromString(OS::readFileSync(desc_path));
+
+		ViewDriver *instance = setupView(descriptor.driver(), identifier);
 		instance->loadView();
 	}
 	
@@ -76,13 +78,20 @@ void Engine::loadConfig() {
 	closure.replay();
 }
 
-void Engine::createStorage(const Proto::StorageConfig &config) {
-	if(getStorage(config.identifier()) != -1)
+void Engine::createStorage(const std::string &driver,
+		const std::string &identifier, const Proto::StorageConfig &config) {
+	if(getStorage(identifier) != -1)
 		throw std::runtime_error("Storage exists already!");
-	osIntf->mkDir(p_path + "/storage/" + config.identifier());
-	StorageDriver *instance = p_setupStorage(config);
+	osIntf->mkDir(p_path + "/storage/" + identifier);
+	StorageDriver *instance = setupStorage(driver, identifier);
 	instance->createStorage();
-	p_writeConfig();
+	
+	auto desc_path = p_path + "/storage/" + identifier + "/descriptor";
+	Proto::StorageDescriptor descriptor;
+	descriptor.set_driver(driver);
+	OS::writeFileSync(desc_path, descriptor.SerializeAsString());
+
+	writeConfig();
 }
 int Engine::getStorage(const std::string &identifier) {
 	for(int i = 1; i < p_storage.size(); i++) {
@@ -100,16 +109,23 @@ void Engine::unlinkStorage(int storage) {
 	if(driver == nullptr)
 		throw std::runtime_error("Requested storage does not exist");
 	p_storage[storage] = nullptr;
-	p_writeConfig();
+	writeConfig();
 }
 
-void Engine::createView(const Proto::ViewConfig &config) {
-	if(getView(config.identifier()) != -1)
+void Engine::createView(const std::string &driver,
+		const std::string &identifier, const Proto::ViewConfig &config) {
+	if(getView(identifier) != -1)
 		throw std::runtime_error("View exists already!");
-	osIntf->mkDir(p_path + "/views/" + config.identifier());
-	ViewDriver *instance = p_setupView(config);
-	instance->createView();
-	p_writeConfig();
+	osIntf->mkDir(p_path + "/views/" + identifier);
+	ViewDriver *instance = setupView(driver, identifier);
+	instance->createView(config);
+	
+	auto desc_path = p_path + "/views/" + identifier + "/descriptor";
+	Proto::ViewDescriptor descriptor;
+	descriptor.set_driver(driver);
+	OS::writeFileSync(desc_path, descriptor.SerializeAsString());
+
+	writeConfig();
 }
 int Engine::getView(const std::string &identifier) {
 	for(int i = 1; i < p_views.size(); i++) {
@@ -127,7 +143,7 @@ void Engine::unlinkView(int view) {
 	if(driver == nullptr)
 		throw std::runtime_error("Requested view does not exist");
 	p_views[view] = nullptr;
-	p_writeConfig();
+	writeConfig();
 }
 
 SequenceId Engine::currentSequenceId() {
@@ -240,58 +256,53 @@ void Engine::query(QueryRequest *request,
 	driver->query(request, on_data, callback);
 }
 
-StorageDriver *Engine::p_setupStorage(const Proto::StorageConfig &config) {
+StorageDriver *Engine::setupStorage(const std::string &driver,
+		const std::string &identifier) {
 	StorageDriver::Factory *factory
-			= globStorageRegistry.getDriver(config.driver());
+			= globStorageRegistry.getDriver(driver);
 	if(factory == nullptr)
 		throw std::runtime_error(std::string("Storage driver '")
-			+ config.driver() + std::string("' not available"));
-	std::cout << "Setting up storage '" << config.identifier() << "'" << std::endl;
+			+ driver + std::string("' not available"));
+	std::cout << "Setting up storage '" << identifier << "'" << std::endl;
 
 	StorageDriver *instance = factory->newDriver(this);
-	instance->setIdentifier(config.identifier());
-	instance->setPath(p_path + "/storage/" + config.identifier());
-	instance->readConfig(config);
+	instance->setIdentifier(identifier);
+	instance->setPath(p_path + "/storage/" + identifier);
 	p_storage.push_back(instance);
 	return instance;
 }
 
-ViewDriver *Engine::p_setupView(const Proto::ViewConfig &config) {
+ViewDriver *Engine::setupView(const std::string &driver,
+		const std::string &identifier) {
 	ViewDriver::Factory *factory
-			= globViewRegistry.getDriver(config.driver());
+			= globViewRegistry.getDriver(driver);
 	if(factory == nullptr)
 		throw std::runtime_error(std::string("View driver '")
-			+ config.driver() + std::string("' not available"));
-	std::cout << "Setting up view '" << config.identifier() << "'" << std::endl;
+			+ driver + std::string("' not available"));
+	std::cout << "Setting up view '" << identifier << "'" << std::endl;
 
 	ViewDriver *instance = factory->newDriver(this);
-	instance->setIdentifier(config.identifier());
-	instance->setPath(p_path + "/views/" + config.identifier());
-	instance->readConfig(config);
+	instance->setIdentifier(identifier);
+	instance->setPath(p_path + "/views/" + identifier);
 	p_views.push_back(instance);
 	return instance;
 }
 
-void Engine::p_writeConfig() {
+void Engine::writeConfig() {
 	Proto::Config config;
 	
 	for(int i = 1; i < p_storage.size(); i++) {
 		if(p_storage[i] == nullptr)
 			continue;
-		*config.add_storage() = p_storage[i]->writeConfig();
+		config.add_storages(p_storage[i]->getIdentifier());
 	}
 	for(int i = 1; i < p_views.size(); i++) {
 		if(p_views[i] == nullptr)
 			continue;
-		*config.add_views() = p_views[i]->writeConfig();
+		config.add_views(p_views[i]->getIdentifier());
 	}
 
-	std::string serialized = config.SerializeAsString();
-	std::unique_ptr<Linux::File> file = osIntf->createFile();
-	file->openSync(p_path + "/config", Linux::kFileWrite
-			| Linux::kFileCreate | Linux::kFileTrunc);
-	file->pwriteSync(0, serialized.size(), serialized.c_str());
-	file->closeSync();
+	OS::writeFileSync(p_path + "/config", config.SerializeAsString());
 }
 
 // --------------------------------------------------------

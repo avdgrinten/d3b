@@ -19,11 +19,8 @@ public:
 	
 	JsView(Engine *engine);
 
-	virtual void createView();
+	virtual void createView(const Proto::ViewConfig &config);
 	virtual void loadView();
-
-	virtual Proto::ViewConfig writeConfig();
-	virtual void readConfig(const Proto::ViewConfig &config);
 	
 protected:
 	virtual void processInsert(SequenceId sequence_id,

@@ -50,16 +50,6 @@ void FlexStorage::loadStorage() {
 	processQueue();
 }
 
-Proto::StorageConfig FlexStorage::writeConfig() {
-	Proto::StorageConfig config;
-	config.set_driver("FlexStorage");
-	config.set_identifier(getIdentifier());
-	return config;
-}
-void FlexStorage::readConfig(const Proto::StorageConfig &config) {
-	
-}
-
 DocumentId FlexStorage::allocate() {
 	p_lastDocumentId++;
 	return p_lastDocumentId;

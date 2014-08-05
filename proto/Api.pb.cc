@@ -1913,6 +1913,8 @@ void CqApply::Swap(CqApply* other) {
 // ===================================================================
 
 #ifndef _MSC_VER
+const int CqCreateStorage::kDriverFieldNumber;
+const int CqCreateStorage::kIdentifierFieldNumber;
 const int CqCreateStorage::kConfigFieldNumber;
 #endif  // !_MSC_VER
 
@@ -1933,6 +1935,8 @@ CqCreateStorage::CqCreateStorage(const CqCreateStorage& from)
 
 void CqCreateStorage::SharedCtor() {
   _cached_size_ = 0;
+  driver_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
+  identifier_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
   config_ = NULL;
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
 }
@@ -1942,6 +1946,12 @@ CqCreateStorage::~CqCreateStorage() {
 }
 
 void CqCreateStorage::SharedDtor() {
+  if (driver_ != &::google::protobuf::internal::kEmptyString) {
+    delete driver_;
+  }
+  if (identifier_ != &::google::protobuf::internal::kEmptyString) {
+    delete identifier_;
+  }
   if (this != default_instance_) {
     delete config_;
   }
@@ -1964,6 +1974,16 @@ CqCreateStorage* CqCreateStorage::New() const {
 
 void CqCreateStorage::Clear() {
   if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
+    if (has_driver()) {
+      if (driver_ != &::google::protobuf::internal::kEmptyString) {
+        driver_->clear();
+      }
+    }
+    if (has_identifier()) {
+      if (identifier_ != &::google::protobuf::internal::kEmptyString) {
+        identifier_->clear();
+      }
+    }
     if (has_config()) {
       if (config_ != NULL) config_->::Db::Proto::StorageConfig::Clear();
     }
@@ -1977,10 +1997,38 @@ bool CqCreateStorage::MergePartialFromCodedStream(
   ::google::protobuf::uint32 tag;
   while ((tag = input->ReadTag()) != 0) {
     switch (::google::protobuf::internal::WireFormatLite::GetTagFieldNumber(tag)) {
-      // required .Db.Proto.StorageConfig config = 1;
+      // optional string driver = 1;
       case 1: {
         if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
             ::google::protobuf::internal::WireFormatLite::WIRETYPE_LENGTH_DELIMITED) {
+          DO_(::google::protobuf::internal::WireFormatLite::ReadString(
+                input, this->mutable_driver()));
+        } else {
+          goto handle_uninterpreted;
+        }
+        if (input->ExpectTag(18)) goto parse_identifier;
+        break;
+      }
+      
+      // optional string identifier = 2;
+      case 2: {
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_LENGTH_DELIMITED) {
+         parse_identifier:
+          DO_(::google::protobuf::internal::WireFormatLite::ReadString(
+                input, this->mutable_identifier()));
+        } else {
+          goto handle_uninterpreted;
+        }
+        if (input->ExpectTag(26)) goto parse_config;
+        break;
+      }
+      
+      // optional .Db.Proto.StorageConfig config = 3;
+      case 3: {
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_LENGTH_DELIMITED) {
+         parse_config:
           DO_(::google::protobuf::internal::WireFormatLite::ReadMessageNoVirtual(
                input, mutable_config()));
         } else {
@@ -2007,10 +2055,22 @@ bool CqCreateStorage::MergePartialFromCodedStream(
 
 void CqCreateStorage::SerializeWithCachedSizes(
     ::google::protobuf::io::CodedOutputStream* output) const {
-  // required .Db.Proto.StorageConfig config = 1;
+  // optional string driver = 1;
+  if (has_driver()) {
+    ::google::protobuf::internal::WireFormatLite::WriteString(
+      1, this->driver(), output);
+  }
+  
+  // optional string identifier = 2;
+  if (has_identifier()) {
+    ::google::protobuf::internal::WireFormatLite::WriteString(
+      2, this->identifier(), output);
+  }
+  
+  // optional .Db.Proto.StorageConfig config = 3;
   if (has_config()) {
     ::google::protobuf::internal::WireFormatLite::WriteMessage(
-      1, this->config(), output);
+      3, this->config(), output);
   }
   
 }
@@ -2019,7 +2079,21 @@ int CqCreateStorage::ByteSize() const {
   int total_size = 0;
   
   if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
-    // required .Db.Proto.StorageConfig config = 1;
+    // optional string driver = 1;
+    if (has_driver()) {
+      total_size += 1 +
+        ::google::protobuf::internal::WireFormatLite::StringSize(
+          this->driver());
+    }
+    
+    // optional string identifier = 2;
+    if (has_identifier()) {
+      total_size += 1 +
+        ::google::protobuf::internal::WireFormatLite::StringSize(
+          this->identifier());
+    }
+    
+    // optional .Db.Proto.StorageConfig config = 3;
     if (has_config()) {
       total_size += 1 +
         ::google::protobuf::internal::WireFormatLite::MessageSizeNoVirtual(
@@ -2041,6 +2115,12 @@ void CqCreateStorage::CheckTypeAndMergeFrom(
 void CqCreateStorage::MergeFrom(const CqCreateStorage& from) {
   GOOGLE_CHECK_NE(&from, this);
   if (from._has_bits_[0 / 32] & (0xffu << (0 % 32))) {
+    if (from.has_driver()) {
+      set_driver(from.driver());
+    }
+    if (from.has_identifier()) {
+      set_identifier(from.identifier());
+    }
     if (from.has_config()) {
       mutable_config()->::Db::Proto::StorageConfig::MergeFrom(from.config());
     }
@@ -2054,16 +2134,14 @@ void CqCreateStorage::CopyFrom(const CqCreateStorage& from) {
 }
 
 bool CqCreateStorage::IsInitialized() const {
-  if ((_has_bits_[0] & 0x00000001) != 0x00000001) return false;
   
-  if (has_config()) {
-    if (!this->config().IsInitialized()) return false;
-  }
   return true;
 }
 
 void CqCreateStorage::Swap(CqCreateStorage* other) {
   if (other != this) {
+    std::swap(driver_, other->driver_);
+    std::swap(identifier_, other->identifier_);
     std::swap(config_, other->config_);
     std::swap(_has_bits_[0], other->_has_bits_[0]);
     std::swap(_cached_size_, other->_cached_size_);
@@ -2078,6 +2156,8 @@ void CqCreateStorage::Swap(CqCreateStorage* other) {
 // ===================================================================
 
 #ifndef _MSC_VER
+const int CqCreateView::kDriverFieldNumber;
+const int CqCreateView::kIdentifierFieldNumber;
 const int CqCreateView::kConfigFieldNumber;
 #endif  // !_MSC_VER
 
@@ -2098,6 +2178,8 @@ CqCreateView::CqCreateView(const CqCreateView& from)
 
 void CqCreateView::SharedCtor() {
   _cached_size_ = 0;
+  driver_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
+  identifier_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
   config_ = NULL;
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
 }
@@ -2107,6 +2189,12 @@ CqCreateView::~CqCreateView() {
 }
 
 void CqCreateView::SharedDtor() {
+  if (driver_ != &::google::protobuf::internal::kEmptyString) {
+    delete driver_;
+  }
+  if (identifier_ != &::google::protobuf::internal::kEmptyString) {
+    delete identifier_;
+  }
   if (this != default_instance_) {
     delete config_;
   }
@@ -2129,6 +2217,16 @@ CqCreateView* CqCreateView::New() const {
 
 void CqCreateView::Clear() {
   if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
+    if (has_driver()) {
+      if (driver_ != &::google::protobuf::internal::kEmptyString) {
+        driver_->clear();
+      }
+    }
+    if (has_identifier()) {
+      if (identifier_ != &::google::protobuf::internal::kEmptyString) {
+        identifier_->clear();
+      }
+    }
     if (has_config()) {
       if (config_ != NULL) config_->::Db::Proto::ViewConfig::Clear();
     }
@@ -2142,10 +2240,38 @@ bool CqCreateView::MergePartialFromCodedStream(
   ::google::protobuf::uint32 tag;
   while ((tag = input->ReadTag()) != 0) {
     switch (::google::protobuf::internal::WireFormatLite::GetTagFieldNumber(tag)) {
-      // required .Db.Proto.ViewConfig config = 1;
+      // optional string driver = 1;
       case 1: {
         if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
             ::google::protobuf::internal::WireFormatLite::WIRETYPE_LENGTH_DELIMITED) {
+          DO_(::google::protobuf::internal::WireFormatLite::ReadString(
+                input, this->mutable_driver()));
+        } else {
+          goto handle_uninterpreted;
+        }
+        if (input->ExpectTag(18)) goto parse_identifier;
+        break;
+      }
+      
+      // optional string identifier = 2;
+      case 2: {
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_LENGTH_DELIMITED) {
+         parse_identifier:
+          DO_(::google::protobuf::internal::WireFormatLite::ReadString(
+                input, this->mutable_identifier()));
+        } else {
+          goto handle_uninterpreted;
+        }
+        if (input->ExpectTag(26)) goto parse_config;
+        break;
+      }
+      
+      // optional .Db.Proto.ViewConfig config = 3;
+      case 3: {
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_LENGTH_DELIMITED) {
+         parse_config:
           DO_(::google::protobuf::internal::WireFormatLite::ReadMessageNoVirtual(
                input, mutable_config()));
         } else {
@@ -2172,10 +2298,22 @@ bool CqCreateView::MergePartialFromCodedStream(
 
 void CqCreateView::SerializeWithCachedSizes(
     ::google::protobuf::io::CodedOutputStream* output) const {
-  // required .Db.Proto.ViewConfig config = 1;
+  // optional string driver = 1;
+  if (has_driver()) {
+    ::google::protobuf::internal::WireFormatLite::WriteString(
+      1, this->driver(), output);
+  }
+  
+  // optional string identifier = 2;
+  if (has_identifier()) {
+    ::google::protobuf::internal::WireFormatLite::WriteString(
+      2, this->identifier(), output);
+  }
+  
+  // optional .Db.Proto.ViewConfig config = 3;
   if (has_config()) {
     ::google::protobuf::internal::WireFormatLite::WriteMessage(
-      1, this->config(), output);
+      3, this->config(), output);
   }
   
 }
@@ -2184,7 +2322,21 @@ int CqCreateView::ByteSize() const {
   int total_size = 0;
   
   if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
-    // required .Db.Proto.ViewConfig config = 1;
+    // optional string driver = 1;
+    if (has_driver()) {
+      total_size += 1 +
+        ::google::protobuf::internal::WireFormatLite::StringSize(
+          this->driver());
+    }
+    
+    // optional string identifier = 2;
+    if (has_identifier()) {
+      total_size += 1 +
+        ::google::protobuf::internal::WireFormatLite::StringSize(
+          this->identifier());
+    }
+    
+    // optional .Db.Proto.ViewConfig config = 3;
     if (has_config()) {
       total_size += 1 +
         ::google::protobuf::internal::WireFormatLite::MessageSizeNoVirtual(
@@ -2206,6 +2358,12 @@ void CqCreateView::CheckTypeAndMergeFrom(
 void CqCreateView::MergeFrom(const CqCreateView& from) {
   GOOGLE_CHECK_NE(&from, this);
   if (from._has_bits_[0 / 32] & (0xffu << (0 % 32))) {
+    if (from.has_driver()) {
+      set_driver(from.driver());
+    }
+    if (from.has_identifier()) {
+      set_identifier(from.identifier());
+    }
     if (from.has_config()) {
       mutable_config()->::Db::Proto::ViewConfig::MergeFrom(from.config());
     }
@@ -2219,16 +2377,14 @@ void CqCreateView::CopyFrom(const CqCreateView& from) {
 }
 
 bool CqCreateView::IsInitialized() const {
-  if ((_has_bits_[0] & 0x00000001) != 0x00000001) return false;
   
-  if (has_config()) {
-    if (!this->config().IsInitialized()) return false;
-  }
   return true;
 }
 
 void CqCreateView::Swap(CqCreateView* other) {
   if (other != this) {
+    std::swap(driver_, other->driver_);
+    std::swap(identifier_, other->identifier_);
     std::swap(config_, other->config_);
     std::swap(_has_bits_[0], other->_has_bits_[0]);
     std::swap(_cached_size_, other->_cached_size_);

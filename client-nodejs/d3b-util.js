@@ -10,7 +10,8 @@ function createStorage(client, opts, callback) {
 		}else throw new Error("Unexpected response " + opcode);
 	});
 	req.send(d3b.ClientRequests.kCqCreateStorage, {
-		config: { driver: opts.driver, identifier: opts.identifier } });
+		driver: opts.driver, identifier: opts.identifier,
+			config: { } });
 }
 
 function createView(client, opts, callback) {
@@ -22,8 +23,8 @@ function createView(client, opts, callback) {
 		}else throw new Error("Unexpected response " + opcode);
 	});
 	req.send(d3b.ClientRequests.kCqCreateView, {
-		config: { driver: opts.driver, identifier: opts.identifier,
-			baseStorage: opts.baseStorage,
+		driver: opts.driver, identifier: opts.identifier,
+		config: { baseStorage: opts.baseStorage,
 			scriptFile: opts.scriptFile } });
 }
 
