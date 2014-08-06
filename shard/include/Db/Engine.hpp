@@ -124,7 +124,7 @@ private:
 	Ll::WriteAhead p_writeAhead;
 	
 	std::string p_path;
-	std::vector<StorageDriver*> p_storage;
+	std::vector<StorageDriver*> p_storages;
 	std::vector<ViewDriver*> p_views;
 
 	StorageDriver *setupStorage(const std::string &driver,

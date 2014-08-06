@@ -17,7 +17,7 @@ StorageRegistry globStorageRegistry;
 ViewRegistry globViewRegistry;
 
 Engine::Engine() : p_nextTransactId(1), p_currentSequenceId(0) {
-	p_storage.push_back(nullptr);
+	p_storages.push_back(nullptr);
 	p_views.push_back(nullptr);
 
 	p_eventFd = osIntf->createEventFd();
@@ -33,7 +33,7 @@ TaskPool *Engine::getIoPool() {
 void Engine::createConfig() {
 	if(osIntf->fileExists(p_path + "/config"))
 		throw std::runtime_error("Config file exists already!");
-	osIntf->mkDir(p_path + "/storage");
+	osIntf->mkDir(p_path + "/storages");
 	osIntf->mkDir(p_path + "/views");
 	osIntf->mkDir(p_path + "/extern");
 	
@@ -51,7 +51,7 @@ void Engine::loadConfig() {
 	for(int i = 0; i < config.storages_size(); i++) {
 		const std::string identifier = config.storages(i);
 
-		auto desc_path = p_path + "/storage/" + identifier + "/descriptor";
+		auto desc_path = p_path + "/storages/" + identifier + "/descriptor";
 		Proto::StorageDescriptor descriptor;
 		descriptor.ParseFromString(OS::readFileSync(desc_path));
 
@@ -82,11 +82,11 @@ void Engine::createStorage(const std::string &driver,
 		const std::string &identifier, const Proto::StorageConfig &config) {
 	if(getStorage(identifier) != -1)
 		throw std::runtime_error("Storage exists already!");
-	osIntf->mkDir(p_path + "/storage/" + identifier);
+	osIntf->mkDir(p_path + "/storages/" + identifier);
 	StorageDriver *instance = setupStorage(driver, identifier);
 	instance->createStorage();
 	
-	auto desc_path = p_path + "/storage/" + identifier + "/descriptor";
+	auto desc_path = p_path + "/storages/" + identifier + "/descriptor";
 	Proto::StorageDescriptor descriptor;
 	descriptor.set_driver(driver);
 	OS::writeFileSync(desc_path, descriptor.SerializeAsString());
@@ -94,10 +94,10 @@ void Engine::createStorage(const std::string &driver,
 	writeConfig();
 }
 int Engine::getStorage(const std::string &identifier) {
-	for(int i = 1; i < p_storage.size(); i++) {
-		if(p_storage[i] == nullptr)
+	for(int i = 1; i < p_storages.size(); i++) {
+		if(p_storages[i] == nullptr)
 			continue;
-		if(p_storage[i]->getIdentifier() == identifier)
+		if(p_storages[i]->getIdentifier() == identifier)
 			return i;
 	}
 	return -1;
@@ -105,10 +105,10 @@ int Engine::getStorage(const std::string &identifier) {
 void Engine::unlinkStorage(int storage) {
 	if(storage == -1)
 		throw std::runtime_error("Illegal storage specified");
-	StorageDriver *driver = p_storage[storage];
+	StorageDriver *driver = p_storages[storage];
 	if(driver == nullptr)
 		throw std::runtime_error("Requested storage does not exist");
-	p_storage[storage] = nullptr;
+	p_storages[storage] = nullptr;
 	writeConfig();
 }
 
@@ -170,7 +170,7 @@ void Engine::updateMutation(TransactionId transaction_id, Mutation &mutation) {
 	Transaction *transaction = transact_it->second;
 	
 	if(mutation.type == Mutation::kTypeInsert) {
-		StorageDriver *driver = p_storage[mutation.storageIndex];
+		StorageDriver *driver = p_storages[mutation.storageIndex];
 		mutation.documentId = driver->allocate();
 	}
 
@@ -245,7 +245,7 @@ void Engine::process() {
 void Engine::fetch(FetchRequest *fetch,
 		Async::Callback<void(FetchData &)> on_data,
 		Async::Callback<void(FetchError)> callback) {
-	StorageDriver *driver = p_storage[fetch->storageIndex];
+	StorageDriver *driver = p_storages[fetch->storageIndex];
 	driver->fetch(fetch, on_data, callback);
 }
 
@@ -267,8 +267,8 @@ StorageDriver *Engine::setupStorage(const std::string &driver,
 
 	StorageDriver *instance = factory->newDriver(this);
 	instance->setIdentifier(identifier);
-	instance->setPath(p_path + "/storage/" + identifier);
-	p_storage.push_back(instance);
+	instance->setPath(p_path + "/storages/" + identifier);
+	p_storages.push_back(instance);
 	return instance;
 }
 
@@ -291,10 +291,10 @@ ViewDriver *Engine::setupView(const std::string &driver,
 void Engine::writeConfig() {
 	Proto::Config config;
 	
-	for(int i = 1; i < p_storage.size(); i++) {
-		if(p_storage[i] == nullptr)
+	for(int i = 1; i < p_storages.size(); i++) {
+		if(p_storages[i] == nullptr)
 			continue;
-		config.add_storages(p_storage[i]->getIdentifier());
+		config.add_storages(p_storages[i]->getIdentifier());
 	}
 	for(int i = 1; i < p_views.size(); i++) {
 		if(p_views[i] == nullptr)
@@ -366,7 +366,7 @@ void Engine::ReplayClosure::onEntry(Proto::LogEntry &log_entry) {
 			throw std::runtime_error("Illegal transaction");
 		Transaction *transaction = transact_it->second;
 		
-		for(auto it = p_engine->p_storage.begin(); it != p_engine->p_storage.end(); ++it) {
+		for(auto it = p_engine->p_storages.begin(); it != p_engine->p_storages.end(); ++it) {
 			StorageDriver *driver = *it;
 			if(driver == nullptr)
 				continue;
@@ -473,7 +473,7 @@ void Engine::ProcessQueueClosure::submitCheckConstraint() {
 
 		Constraint &constraint = p_transaction->constraints[p_index];
 		if(constraint.type == Constraint::kTypeDocumentState) {
-			StorageDriver *driver = p_engine->p_storage[constraint.storageIndex];
+			StorageDriver *driver = p_engine->p_storages[constraint.storageIndex];
 
 			p_fetch.documentId = constraint.documentId;
 			p_fetch.sequenceId = p_engine->p_currentSequenceId;
@@ -557,7 +557,7 @@ void Engine::ProcessQueueClosure::processCommit() {
 }
 // NOTE: this function is called when kTypeSubmitCommit is handled
 void Engine::ProcessQueueClosure::commitComplete() {
-	for(auto it = p_engine->p_storage.begin(); it != p_engine->p_storage.end(); ++it) {
+	for(auto it = p_engine->p_storages.begin(); it != p_engine->p_storages.end(); ++it) {
 		StorageDriver *driver = *it;
 		if(driver == nullptr)
 			continue;
@@ -620,14 +620,14 @@ void Engine::ProcessQueueClosure::writeAhead() {
 
 			Proto::LogMutation *log_mutation = p_logEntry.add_mutations();
 			if(mutation.type == Mutation::kTypeInsert) {
-				StorageDriver *driver = p_engine->p_storage[mutation.storageIndex];
+				StorageDriver *driver = p_engine->p_storages[mutation.storageIndex];
 				
 				log_mutation->set_type(Proto::LogMutation::kTypeInsert);
 				log_mutation->set_storage_name(driver->getIdentifier());
 				log_mutation->set_document_id(mutation.documentId);
 				log_mutation->set_buffer(mutation.buffer);
 			}else if(mutation.type == Mutation::kTypeModify) {
-				StorageDriver *driver = p_engine->p_storage[mutation.storageIndex];
+				StorageDriver *driver = p_engine->p_storages[mutation.storageIndex];
 				
 				log_mutation->set_type(Proto::LogMutation::kTypeModify);
 				log_mutation->set_storage_name(driver->getIdentifier());
