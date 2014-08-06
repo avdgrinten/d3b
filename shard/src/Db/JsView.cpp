@@ -90,6 +90,11 @@ void JsView::loadView() {
 
 void JsView::processInsert(SequenceId sequence_id,
 		Mutation &mutation, Async::Callback<void(Error)> callback) {
+	if(mutation.storageIndex != p_storage) {
+		callback(Error(true));
+		return;
+	}
+
 	auto closure = new InsertClosure(this, mutation.documentId,
 			sequence_id, mutation.buffer, callback);
 	closure->apply();
@@ -97,6 +102,11 @@ void JsView::processInsert(SequenceId sequence_id,
 
 void JsView::processModify(SequenceId sequence_id,
 		Mutation &mutation, Async::Callback<void(Error)> callback) {
+	if(mutation.storageIndex != p_storage) {
+		callback(Error(true));
+		return;
+	}
+
 	auto closure = new InsertClosure(this, mutation.documentId,
 			sequence_id, mutation.buffer, callback);
 	closure->apply();
