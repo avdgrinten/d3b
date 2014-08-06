@@ -1,4 +1,6 @@
 
+#include <atomic>
+
 #include "Ll/Btree.hpp"
 
 namespace Db {
@@ -56,7 +58,7 @@ private:
 	void writeIndex(void *buffer, const Index &index);
 	Index readIndex(const void *buffer);
 	
-	DocumentId p_lastDocumentId;
+	std::atomic<DocumentId> p_lastDocumentId;
 	size_t p_dataPointer;
 	
 	Btree<Index> p_indexTree;

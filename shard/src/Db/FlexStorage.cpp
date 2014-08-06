@@ -51,8 +51,7 @@ void FlexStorage::loadStorage() {
 }
 
 DocumentId FlexStorage::allocate() {
-	p_lastDocumentId++;
-	return p_lastDocumentId;
+	return ++p_lastDocumentId;
 }
 
 void FlexStorage::processInsert(SequenceId sequence_id,
