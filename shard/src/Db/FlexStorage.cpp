@@ -18,12 +18,12 @@ namespace Db {
 
 FlexStorage::FlexStorage(Engine *engine)
 		: QueuedStorageDriver(engine), p_lastDocumentId(0), p_dataPointer(0),
+			p_dataCache(4096, engine->getIoPool()),
 			p_indexTree("index", 4096, Index::kStructSize, Reference::kStructSize,
-				engine->getIoPool()) {
+				engine->getIoPool()),
+			p_dataFile(&p_dataCache) {
 	p_indexTree.setWriteKey(ASYNC_MEMBER(this, &FlexStorage::writeIndex));
 	p_indexTree.setReadKey(ASYNC_MEMBER(this, &FlexStorage::readIndex));
-
-	p_dataFile = osIntf->createFile();
 }
 
 void FlexStorage::createStorage() {
@@ -31,8 +31,7 @@ void FlexStorage::createStorage() {
 	p_indexTree.createTree();
 
 	std::string data_path = p_path + "/data.bin";
-	p_dataFile->openSync(data_path, Linux::kFileCreate | Linux::kFileTrunc
-				| Linux::FileMode::read | Linux::FileMode::write);
+	p_dataCache.open(data_path);
 	
 	processQueue();
 }
@@ -44,8 +43,7 @@ void FlexStorage::loadStorage() {
 
 	std::string data_path = p_path + "/data.bin";
 	//NOTE: to test the durability implementation we always delete the data on load!
-	p_dataFile->openSync(data_path, Linux::kFileCreate | Linux::kFileTrunc
-				| Linux::FileMode::read | Linux::FileMode::write);
+	p_dataCache.open(data_path);
 	
 	processQueue();
 }
@@ -103,13 +101,12 @@ FlexStorage::InsertClosure::InsertClosure(FlexStorage *storage,
 		Async::Callback<void(Error)> callback)
 	: p_storage(storage), p_documentId(document_id),
 		p_sequenceId(sequence_id), p_buffer(buffer),
-		p_callback(callback), p_btreeInsert(&storage->p_indexTree) { }
+		p_callback(callback), p_dataWrite(&storage->p_dataFile),
+		p_btreeInsert(&storage->p_indexTree) { }
 
 void FlexStorage::InsertClosure::apply() {
 	size_t data_pointer = p_storage->p_dataPointer;
 	p_storage->p_dataPointer += p_buffer.size();
-
-	p_storage->p_dataFile->pwriteSync(data_pointer, p_buffer.size(), p_buffer.data());
 	
 	p_index.documentId = p_documentId;
 	p_index.sequenceId = p_sequenceId;
@@ -117,6 +114,10 @@ void FlexStorage::InsertClosure::apply() {
 	OS::packLe64(p_refBuffer + Reference::kOffset, data_pointer);
 	OS::packLe64(p_refBuffer + Reference::kLength, p_buffer.size());
 	
+	p_dataWrite.write(data_pointer, p_buffer.size(), p_buffer.data(),
+			ASYNC_MEMBER(this, &InsertClosure::onDataWrite));
+}
+void FlexStorage::InsertClosure::onDataWrite() {
 	p_btreeInsert.insert(&p_index, p_refBuffer,
 			ASYNC_MEMBER(this, &InsertClosure::compareToInserted),
 			ASYNC_MEMBER(this, &InsertClosure::onIndexInsert));
@@ -154,6 +155,7 @@ FlexStorage::FetchClosure::FetchClosure(FlexStorage *storage,
 		Async::Callback<void(FetchError)> callback)
 	: p_storage(storage), p_documentId(document_id), p_sequenceId(sequence_id),
 		p_onData(on_data), p_callback(callback),
+		p_dataRead(&storage->p_dataFile),
 		p_btreeFind(&storage->p_indexTree),
 		p_btreeIterate(&storage->p_indexTree) { }
 
@@ -203,12 +205,15 @@ void FlexStorage::FetchClosure::onSeek() {
 
 	size_t offset = OS::unpackLe64(ref_buffer + Reference::kOffset);
 	p_fetchLength = OS::unpackLe64(ref_buffer + Reference::kLength);
-
-	p_fetchBuffer = new char[p_fetchLength];
-	p_storage->p_dataFile->preadSync(offset, p_fetchLength, p_fetchBuffer);
 	
 	p_fetchData.documentId = p_documentId;
 	p_fetchData.sequenceId = index.sequenceId;
+
+	p_fetchBuffer = new char[p_fetchLength];
+	p_dataRead.read(offset, p_fetchLength, p_fetchBuffer,
+			ASYNC_MEMBER(this, &FetchClosure::onDataRead));
+}
+void FlexStorage::FetchClosure::onDataRead() {
 	p_fetchData.buffer = std::string(p_fetchBuffer, p_fetchLength);
 	delete[] p_fetchBuffer;
 

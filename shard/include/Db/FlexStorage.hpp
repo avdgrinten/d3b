@@ -1,6 +1,7 @@
 
 #include <atomic>
 
+#include "Ll/RandomAccessFile.hpp"
 #include "Ll/Btree.hpp"
 
 namespace Db {
@@ -61,8 +62,9 @@ private:
 	std::atomic<DocumentId> p_lastDocumentId;
 	size_t p_dataPointer;
 	
+	PageCache p_dataCache;
 	Btree<Index> p_indexTree;
-	std::unique_ptr<Linux::File> p_dataFile;
+	Ll::RandomAccessFile p_dataFile;
 
 	class InsertClosure {
 	public:
@@ -75,6 +77,7 @@ private:
 	private:
 		void compareToInserted(const Index &other,
 				Async::Callback<void(int)> callback);
+		void onDataWrite();
 		void onIndexInsert();
 
 		FlexStorage *p_storage;
@@ -85,7 +88,8 @@ private:
 		
 		Index p_index;
 		char p_refBuffer[Reference::kStructSize];
-
+		
+		Ll::RandomAccessFile::WriteClosure p_dataWrite;
 		Btree<Index>::InsertClosure p_btreeInsert;
 	};
 
@@ -103,6 +107,7 @@ private:
 				Async::Callback<void(int)> callback);
 		void onIndexFound(Btree<Index>::Ref ref);
 		void onSeek();
+		void onDataRead();
 
 		FlexStorage *p_storage;
 		DocumentId p_documentId;
@@ -114,6 +119,7 @@ private:
 		size_t p_fetchLength;
 		char *p_fetchBuffer;
 
+		Ll::RandomAccessFile::ReadClosure p_dataRead;
 		Btree<Index>::FindClosure p_btreeFind;
 		Btree<Index>::IterateClosure p_btreeIterate;
 	};

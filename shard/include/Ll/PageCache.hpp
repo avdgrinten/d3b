@@ -1,4 +1,7 @@
 
+#ifndef D3B_LL_PAGE_CACHE_HPP
+#define D3B_LL_PAGE_CACHE_HPP
+
 #include <unordered_map>
 #include <mutex>
 
@@ -16,6 +19,7 @@ public:
 	void writePage(PageNumber number);
 	void releasePage(PageNumber number);
 
+	int getPageSize();
 	int getUsedCount();
 
 private:
@@ -62,4 +66,6 @@ private:
 		Async::Callback<void(char *)> p_callback;
 	};
 };
+
+#endif
 

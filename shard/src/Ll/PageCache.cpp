@@ -108,6 +108,10 @@ void PageCache::releasePage(PageNumber number) {
 	}
 }
 
+int PageCache::getPageSize() {
+	return p_pageSize;
+}
+
 int PageCache::getUsedCount() {
 	return p_usedCount;
 }

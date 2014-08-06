@@ -3,6 +3,7 @@ CPP_FILES = src/Database.cpp src/Db/Engine.cpp src/Db/StorageDriver.cpp \
 	src/Db/ViewDriver.cpp src/Db/FlexStorage.cpp src/Db/JsView.cpp \
 	src/Ll/DataStore.cpp src/Ll/WriteAhead.cpp \
 	src/Ll/PageCache.cpp \
+	src/Ll/RandomAccessFile.cpp \
 	src/Ll/Tasks.cpp \
 	src/Ll/Crypto.cpp \
 	src/Ll/Tls.cpp \
