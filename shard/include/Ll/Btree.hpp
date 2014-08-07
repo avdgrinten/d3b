@@ -126,17 +126,23 @@ public:
 	
 	private:
 		void splitLeaf();
+		void splitLeafOnInitialize(char *child_buffer);
 		void onReadRightLink(char *link_buffer);
 		void splitInner();
+		void splitInnerOnInitialize(char *child_buffer);
 		void fixParent();
+		void fixParentOnInitialize(char *new_root_buffer);
 
 		Btree *p_tree;
 		Async::Callback<void()> p_onComplete;
 		
 		blknum_type p_blockNumber;
 		blknum_type p_blockIndex;
+		blknum_type p_leftSize;
+		blknum_type p_rightSize;
 		blknum_type p_splitNumber;
 		blknum_type p_rightLinkNumber;
+		blknum_type p_newRootNumber;
 		char *p_blockBuffer;
 		char *p_parentBuffer;
 		KeyType p_splitKey;
@@ -165,7 +171,7 @@ public:
 		void *p_valuePtr;
 		UnaryCompareCallback p_compare;
 		Async::Callback<void()> p_onComplete;
-
+	
 		blknum_type p_blockNumber;
 		blknum_type p_childNumber;
 		blknum_type p_childIndex;
@@ -234,7 +240,9 @@ public:
 		p_curFileHead.depth = 1;
 		p_writeFileHead();
 
-		char *root_block = p_pageCache.initializePage(1);
+		p_pageCache.initializePage(1, ASYNC_MEMBER(this, &Btree::createOnInitialize));
+	}
+	void createOnInitialize(char *root_block) {
 		p_headSetFlags(root_block, 1);
 		p_leafSetEntCount(root_block, 0);
 		p_leafSetLeftLink(root_block, 0);
@@ -380,7 +388,9 @@ private:
 			KeyType min, KeyType max);
 	
 	void p_writeFileHead() {
-		char *desc_block = p_pageCache.initializePage(0);
+		p_pageCache.initializePage(0, ASYNC_MEMBER(this, &Btree::writeHeadOnInitialize));
+	}
+	void writeHeadOnInitialize(char *desc_block) {
 		FileHead *file_head = (FileHead*)desc_block;
 		file_head->rootBlock = OS::toLeU32(p_curFileHead.rootBlock);
 		file_head->numBlocks = OS::toLeU32(p_curFileHead.numBlocks);
@@ -824,28 +834,32 @@ void Btree<KeyType>::SplitClosure::splitLeaf() {
 
 	blknum_type ent_count = p_tree->p_leafGetEntCount(p_blockBuffer);
 	p_rightLinkNumber = p_tree->p_leafGetRightLink(p_blockBuffer);
-	int left_n = ent_count / 2;
-	int right_n = ent_count - left_n;
-	assert(left_n > 0 && right_n > 0
-			&& left_n < p_tree->p_entsPerLeaf() - 1
-			&& right_n < p_tree->p_entsPerLeaf() - 1);
-	p_tree->p_leafSetEntCount(p_blockBuffer, left_n);
+	p_leftSize = ent_count / 2;
+	p_rightSize = ent_count - p_leftSize;
+	assert(p_leftSize > 0 && p_rightSize > 0
+			&& p_leftSize < p_tree->p_entsPerLeaf() - 1
+			&& p_rightSize < p_tree->p_entsPerLeaf() - 1);
+	p_tree->p_leafSetEntCount(p_blockBuffer, p_leftSize);
 	p_tree->p_leafSetRightLink(p_blockBuffer, p_splitNumber);
-//		std::cout << "split leaf into: " << left_n << ", " << right_n << std::endl;
+//		std::cout << "split leaf into: " << p_leftSize << ", " << p_rightSize << std::endl;
 	
-	char *split_block = p_tree->p_pageCache.initializePage(p_splitNumber);
+	p_tree->p_pageCache.initializePage(p_splitNumber,
+			ASYNC_MEMBER(this, &SplitClosure::splitLeafOnInitialize));
+}
+template<typename KeyType>
+void Btree<KeyType>::SplitClosure::splitLeafOnInitialize(char *split_block) {
 	p_tree->p_headSetFlags(split_block, 1);
-	p_tree->p_leafSetEntCount(split_block, right_n);
+	p_tree->p_leafSetEntCount(split_block, p_rightSize);
 	p_tree->p_leafSetLeftLink(split_block, p_blockNumber);
 	p_tree->p_leafSetRightLink(split_block, p_rightLinkNumber);
 
 	/* setup the entries of the new block */
-	p_splitKey = p_tree->p_readKey(p_blockBuffer + p_tree->p_keyOffLeaf(left_n - 1));
+	p_splitKey = p_tree->p_readKey(p_blockBuffer + p_tree->p_keyOffLeaf(p_leftSize - 1));
 	std::memcpy(split_block + p_tree->p_entOffLeaf(0),
-			p_blockBuffer + p_tree->p_entOffLeaf(left_n),
-			right_n * p_tree->p_entSizeLeaf());
+			p_blockBuffer + p_tree->p_entOffLeaf(p_leftSize),
+			p_rightSize * p_tree->p_entSizeLeaf());
 	/* FIXME: for debugging only! */
-	std::memset(p_blockBuffer + p_tree->p_entOffLeaf(left_n), 0, right_n * p_tree->p_entSizeLeaf());
+	std::memset(p_blockBuffer + p_tree->p_entOffLeaf(p_leftSize), 0, p_rightSize * p_tree->p_entSizeLeaf());
 	p_tree->p_pageCache.writePage(p_splitNumber);
 	p_tree->p_pageCache.releasePage(p_splitNumber);
 
@@ -869,33 +883,37 @@ void Btree<KeyType>::SplitClosure::splitInner() {
 //	std::cout << "split inner" << std::endl;
 	p_splitNumber = p_tree->p_allocBlock();
 
-	/* note: left_n + right_n = ent_count - 1
+	/* note: p_leftSize + p_rightSize = ent_count - 1
 		because one of the keys moves to the parent node */
 	blknum_type ent_count = p_tree->p_innerGetEntCount(p_blockBuffer);
-	int left_n = ent_count / 2;
-	int right_n = ent_count - left_n - 1;
-	assert(left_n > 0 && right_n > 0
-			&& left_n < p_tree->p_entsPerInner() - 2
-			&& right_n < p_tree->p_entsPerInner() - 1);
-	p_tree->p_innerSetEntCount(p_blockBuffer, left_n);
-//		std::cout << "split inner into: " << left_n << ", " << right_n << std::endl;
+	p_leftSize = ent_count / 2;
+	p_rightSize = ent_count - p_leftSize - 1;
+	assert(p_leftSize > 0 && p_rightSize > 0
+			&& p_leftSize < p_tree->p_entsPerInner() - 2
+			&& p_rightSize < p_tree->p_entsPerInner() - 1);
+	p_tree->p_innerSetEntCount(p_blockBuffer, p_leftSize);
+//		std::cout << "split inner into: " << p_leftSize << ", " << p_rightSize << std::endl;
 	
-	char *split_block = p_tree->p_pageCache.initializePage(p_splitNumber);
+	p_tree->p_pageCache.initializePage(p_splitNumber,
+			ASYNC_MEMBER(this, &SplitClosure::splitInnerOnInitialize));
+}
+template<typename KeyType>
+void Btree<KeyType>::SplitClosure::splitInnerOnInitialize(char *split_block) {
 	p_tree->p_headSetFlags(split_block, 0);
-	p_tree->p_innerSetEntCount(split_block, right_n);	
+	p_tree->p_innerSetEntCount(split_block, p_rightSize);	
 	
 	/* setup the leftmost child reference of the new block */
-	char *block_rref = p_blockBuffer + p_tree->p_refOffInner(left_n);
+	char *block_rref = p_blockBuffer + p_tree->p_refOffInner(p_leftSize);
 	char *split_lref = split_block + p_tree->p_lrefOffInner();
 	*(blknum_type*)split_lref = *(blknum_type*)block_rref;
-	p_splitKey = p_tree->p_readKey(p_blockBuffer + p_tree->p_keyOffInner(left_n));
+	p_splitKey = p_tree->p_readKey(p_blockBuffer + p_tree->p_keyOffInner(p_leftSize));
 
 	/* setup the remaining entries of the new block */
 	std::memcpy(split_block + p_tree->p_entOffInner(0),
-			p_blockBuffer + p_tree->p_entOffInner(left_n + 1),
-			right_n * p_tree->p_entSizeInner());
+			p_blockBuffer + p_tree->p_entOffInner(p_leftSize + 1),
+			p_rightSize * p_tree->p_entSizeInner());
 	/* FIXME: for debugging only! */
-	std::memset(p_blockBuffer + p_tree->p_entOffInner(left_n), 0, (right_n + 1) * p_tree->p_entSizeInner());
+	std::memset(p_blockBuffer + p_tree->p_entOffInner(p_leftSize), 0, (p_rightSize + 1) * p_tree->p_entSizeInner());
 	p_tree->p_pageCache.writePage(p_splitNumber);
 	p_tree->p_pageCache.releasePage(p_splitNumber);
 	
@@ -908,25 +926,31 @@ void Btree<KeyType>::SplitClosure::fixParent() {
 		assert(parent_count < p_tree->p_entsPerInner());
 
 		p_tree->p_insertAtInnerR(p_parentBuffer, p_blockIndex + 1, p_splitKey, p_splitNumber);
+		
+		p_onComplete();
 	}else{
-		blknum_type new_root_num = p_tree->p_allocBlock();
-		p_tree->p_curFileHead.rootBlock = new_root_num;
+		p_newRootNumber = p_tree->p_allocBlock();
+		p_tree->p_curFileHead.rootBlock = p_newRootNumber;
 		p_tree->p_curFileHead.depth++;
 		p_tree->p_writeFileHead();
 		
-		char *new_root_buffer = p_tree->p_pageCache.initializePage(new_root_num);
-		p_tree->p_headSetFlags(new_root_buffer, 0);
-		p_tree->p_innerSetEntCount(new_root_buffer, 1);
-		
-		char *lref = new_root_buffer + p_tree->p_lrefOffInner();
-		char *ref0 = new_root_buffer + p_tree->p_refOffInner(0);
-		*((blknum_type*)lref) = OS::toLeU32(p_blockNumber);
-		*((blknum_type*)ref0) = OS::toLeU32(p_splitNumber);
-		p_tree->p_writeKey(new_root_buffer + p_tree->p_keyOffInner(0), p_splitKey);
-
-		p_tree->p_pageCache.writePage(new_root_num);
-		p_tree->p_pageCache.releasePage(new_root_num);
+		p_tree->p_pageCache.initializePage(p_newRootNumber,
+				ASYNC_MEMBER(this, &SplitClosure::fixParentOnInitialize));
 	}
+}
+template<typename KeyType>
+void Btree<KeyType>::SplitClosure::fixParentOnInitialize(char *new_root_buffer) {
+	p_tree->p_headSetFlags(new_root_buffer, 0);
+	p_tree->p_innerSetEntCount(new_root_buffer, 1);
+	
+	char *lref = new_root_buffer + p_tree->p_lrefOffInner();
+	char *ref0 = new_root_buffer + p_tree->p_refOffInner(0);
+	*((blknum_type*)lref) = OS::toLeU32(p_blockNumber);
+	*((blknum_type*)ref0) = OS::toLeU32(p_splitNumber);
+	p_tree->p_writeKey(new_root_buffer + p_tree->p_keyOffInner(0), p_splitKey);
+
+	p_tree->p_pageCache.writePage(p_newRootNumber);
+	p_tree->p_pageCache.releasePage(p_newRootNumber);
 
 	p_onComplete();
 }
