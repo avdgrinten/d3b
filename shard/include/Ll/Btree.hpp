@@ -20,6 +20,7 @@ public:
 			Linux::size_type block_size,
 			Linux::size_type key_size,
 			Linux::size_type val_size,
+			CacheHost *cache_host,
 			TaskPool *io_pool);
 
 	class Ref {
@@ -403,8 +404,8 @@ private:
 template<typename KeyType>
 Btree<KeyType>::Btree(std::string name, Linux::size_type block_size,
 		Linux::size_type key_size, Linux::size_type val_size,
-		TaskPool *io_pool)
-	: p_name(name), p_pageCache(block_size, io_pool), p_blockSize(block_size),
+		CacheHost *cache_host, TaskPool *io_pool)
+	: p_name(name), p_pageCache(cache_host, block_size, io_pool), p_blockSize(block_size),
 		p_keySize(key_size), p_valSize(val_size) {
 	assert(p_blockSize > sizeof(FileHead)
 			&& p_blockSize > sizeof(InnerHead)

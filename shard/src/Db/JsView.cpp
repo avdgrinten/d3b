@@ -27,7 +27,7 @@ namespace Db {
 JsView::JsView(Engine *engine)
 	: QueuedViewDriver(engine), p_keyStore("keys"),
 		p_orderTree("order", 4096, sizeof(DocumentId), Link::kStructSize,
-			engine->getIoPool()) {
+			engine->getCacheHost(), engine->getIoPool()) {
 	p_orderTree.setWriteKey(ASYNC_MEMBER(this, &JsView::writeKey));
 	p_orderTree.setReadKey(ASYNC_MEMBER(this, &JsView::readKey));
 }

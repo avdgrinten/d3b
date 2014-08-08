@@ -23,6 +23,9 @@ Engine::Engine() : p_nextTransactId(1), p_currentSequenceId(0) {
 	p_eventFd = osIntf->createEventFd();
 }
 
+CacheHost *Engine::getCacheHost() {
+	return &p_cacheHost;
+}
 TaskPool *Engine::getProcessPool() {
 	return &p_processPool;
 }

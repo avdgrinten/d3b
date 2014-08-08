@@ -18,9 +18,9 @@ namespace Db {
 
 FlexStorage::FlexStorage(Engine *engine)
 		: QueuedStorageDriver(engine), p_lastDocumentId(0), p_dataPointer(0),
-			p_dataCache(4096, engine->getIoPool()),
+			p_dataCache(engine->getCacheHost(), 4096, engine->getIoPool()),
 			p_indexTree("index", 4096, Index::kStructSize, Reference::kStructSize,
-				engine->getIoPool()),
+				engine->getCacheHost(), engine->getIoPool()),
 			p_dataFile(&p_dataCache) {
 	p_indexTree.setWriteKey(ASYNC_MEMBER(this, &FlexStorage::writeIndex));
 	p_indexTree.setReadKey(ASYNC_MEMBER(this, &FlexStorage::readIndex));

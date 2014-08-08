@@ -10,6 +10,51 @@
 #include "Ll/PageCache.hpp"
 
 // --------------------------------------------------------
+// Cacheable
+// --------------------------------------------------------
+
+Cacheable::Cacheable() : p_moreRecentlyUsed(nullptr),
+		p_lessRecentlyUsed(nullptr) { }
+
+// --------------------------------------------------------
+// CacheHost
+// --------------------------------------------------------
+
+CacheHost::CacheHost() : p_mostRecentlyUsed(nullptr),
+		p_leastRecentlyUsed(nullptr) { }
+
+void CacheHost::pushItem(Cacheable *item) {
+	std::lock_guard<std::mutex> lock(p_listMutex);
+	
+	item->p_moreRecentlyUsed = nullptr;
+	item->p_lessRecentlyUsed = p_mostRecentlyUsed;
+	if(p_mostRecentlyUsed == nullptr) {
+		p_leastRecentlyUsed = item;
+	}else{
+		p_mostRecentlyUsed->p_moreRecentlyUsed = item;
+	}
+	p_mostRecentlyUsed = item;
+}
+void CacheHost::removeItem(Cacheable *item) {
+	std::lock_guard<std::mutex> lock(p_listMutex);
+	
+	Cacheable *less_recently = item->p_lessRecentlyUsed;
+	Cacheable *more_recently = item->p_moreRecentlyUsed;
+	if(less_recently == nullptr) {
+		assert(p_leastRecentlyUsed == item);
+		p_leastRecentlyUsed = more_recently;
+	}else{
+		less_recently->p_moreRecentlyUsed = more_recently;
+	}
+	if(more_recently == nullptr) {
+		assert(p_mostRecentlyUsed == item);
+		p_mostRecentlyUsed = less_recently;
+	}else{
+		more_recently->p_lessRecentlyUsed = less_recently;
+	}
+}
+
+// --------------------------------------------------------
 // PageInfo
 // --------------------------------------------------------
 
@@ -32,8 +77,8 @@ void PageInfo::diskRead() {
 // PageCache
 // --------------------------------------------------------
 
-PageCache::PageCache(int page_size, TaskPool *io_pool)
-		: p_pageSize(page_size), p_usedCount(0), p_ioPool(io_pool) {
+PageCache::PageCache(CacheHost *cache_host, int page_size, TaskPool *io_pool)
+		: p_cacheHost(cache_host), p_pageSize(page_size), p_usedCount(0), p_ioPool(io_pool) {
 	p_file = osIntf->createFile();
 }
 
@@ -53,9 +98,10 @@ void PageCache::initializePage(PageNumber number,
 		info->p_useCount = 1;
 		info->p_isReady = true;
 		info->p_isDirty = false;
+		p_usedCount++;
 		
 		p_presentPages.insert(std::make_pair(number, info));
-		p_usedCount++;
+		p_cacheHost->pushItem(info);
 
 		memset(info->p_buffer, 0, p_pageSize);
 		lock.unlock();
@@ -65,8 +111,10 @@ void PageCache::initializePage(PageNumber number,
 		assert(info->p_useCount == 0);
 		assert(info->p_isReady);
 		info->p_useCount = 1;
-
 		p_usedCount++;
+		
+		p_cacheHost->removeItem(info);
+		p_cacheHost->pushItem(info);
 
 		lock.unlock();
 		callback(info->p_buffer);
@@ -89,6 +137,7 @@ void PageCache::readPage(PageNumber number,
 		info->callbacks.push_back(wrapper);
 		
 		p_presentPages.insert(std::make_pair(number, info));
+		p_cacheHost->pushItem(info);
 		p_usedCount++;
 
 		p_ioPool->submit(ASYNC_MEMBER(info, &PageInfo::diskRead));
@@ -98,6 +147,9 @@ void PageCache::readPage(PageNumber number,
 			p_usedCount++;
 		info->p_useCount++;
 		
+		p_cacheHost->removeItem(info);
+		p_cacheHost->pushItem(info);
+
 		if(info->p_isReady) {
 			char *buffer = info->p_buffer;
 			lock.unlock(); // NOTE: unlock before entering callbacks
@@ -132,6 +184,8 @@ void PageCache::releasePage(PageNumber number) {
 			p_file->pwriteSync(number * p_pageSize, p_pageSize, info->p_buffer);
 		delete[] info->p_buffer;
 		p_presentPages.erase(iterator);
+		p_cacheHost->removeItem(info);
+		delete info;
 	}
 }
 

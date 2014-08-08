@@ -5,9 +5,35 @@
 #include <unordered_map>
 #include <mutex>
 
+class CacheHost;
+
+class Cacheable {
+friend class CacheHost;
+public:
+	Cacheable();
+
+private:
+	Cacheable *p_moreRecentlyUsed;
+	Cacheable *p_lessRecentlyUsed;
+};
+
+class CacheHost {
+public:
+	CacheHost();
+	
+	void pushItem(Cacheable *item);
+	void removeItem(Cacheable *item);
+
+private:
+	Cacheable *p_mostRecentlyUsed;
+	Cacheable *p_leastRecentlyUsed;
+
+	std::mutex p_listMutex;
+};
+
 class PageCache;
 
-struct PageInfo {
+class PageInfo : public Cacheable {
 friend class PageCache;
 public:
 	typedef int64_t PageNumber;
@@ -34,7 +60,7 @@ friend class PageInfo;
 public:
 	typedef int64_t PageNumber;
 
-	PageCache(int page_size, TaskPool *io_pool);
+	PageCache(CacheHost *cache_host, int page_size, TaskPool *io_pool);
 	
 	void open(const std::string &path);
 
@@ -49,6 +75,7 @@ public:
 	int getUsedCount();
 
 private:
+	CacheHost *p_cacheHost;
 	int p_pageSize;
 	int p_usedCount;
 	TaskPool *p_ioPool;

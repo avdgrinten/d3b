@@ -4,6 +4,7 @@
 #include <vector>
 #include <unordered_map>
 
+#include "Ll/PageCache.hpp"
 #include "Ll/WriteAhead.hpp"
 
 namespace Db {
@@ -65,6 +66,7 @@ public:
 			Async::Callback<void(QueryData &)> report,
 			Async::Callback<void(QueryError)> callback);
 	
+	CacheHost *getCacheHost();
 	TaskPool *getProcessPool();
 	TaskPool *getIoPool();
 
@@ -78,6 +80,7 @@ public:
 	}
 
 private:
+	CacheHost p_cacheHost;
 	TaskPool p_processPool;
 	TaskPool p_ioPool;
 
