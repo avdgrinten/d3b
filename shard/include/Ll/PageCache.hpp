@@ -11,24 +11,53 @@ class Cacheable {
 friend class CacheHost;
 public:
 	Cacheable();
+	
+	// called when the resources of this item may be acquired
+	virtual void acquire() = 0;
+	// called when the resources of this item must be released
+	// can only be called after acquire()
+	virtual void release() = 0;
+
+	virtual int64_t getFootprint() = 0;
 
 private:
 	Cacheable *p_moreRecentlyUsed;
 	Cacheable *p_lessRecentlyUsed;
+	bool p_alive;
 };
 
 class CacheHost {
 public:
 	CacheHost();
 	
-	void pushItem(Cacheable *item);
-	void removeItem(Cacheable *item);
+	// requests permission to acquire the resources for an item
+	void requestAcquire(Cacheable *item);
+	// informs the cache host that an item has been accessed
+	void onAccess(Cacheable *item);
+	// signals that the resources belonging to an item have been successfully released
+	void afterRelease(Cacheable *item);
+	
+	void setLimit(int64_t limit);
 
 private:
-	Cacheable *p_mostRecentlyUsed;
-	Cacheable *p_leastRecentlyUsed;
+	void releaseItem(Cacheable *item,
+			std::unique_lock<std::mutex> &lock);
+
+	Cacheable *&mostRecently();
+	Cacheable *&leastRecently();
+
+	class Sentinel : public Cacheable {
+	public:
+		virtual void acquire();
+		virtual void release();
+		virtual int64_t getFootprint();
+	};
 
 	std::mutex p_listMutex;
+	std::deque<Cacheable *> p_acquireFifo;
+	Sentinel p_sentinel;
+	int64_t p_activeFootprint;
+	int64_t p_limit;
 };
 
 class PageCache;
@@ -37,22 +66,30 @@ class PageInfo : public Cacheable {
 friend class PageCache;
 public:
 	typedef int64_t PageNumber;
+
+	enum Flags {
+		kFlagLoaded = 1,
+		kFlagDirty = 2,
+		kFlagInitialize = 4,
+		kFlagRelease = 8
+	};
+	
+	virtual void acquire();
+	virtual void release();
+	virtual int64_t getFootprint();
 	
 private:
 	PageInfo(PageCache *cache, PageNumber number);
 
 	void diskRead();
+	void doRelease(std::unique_lock<std::mutex> lock);
 	
 	PageCache *p_cache;
-	PageNumber p_number;
 	char *p_buffer;
-	// true if the page has successfully been read
-	bool p_isReady;
-	// true if the page should be written
-	bool p_isDirty;
+	PageNumber p_number;
+	std::vector<TaskCallback> p_waitQueue;
 	int p_useCount;
-
-	std::vector<TaskCallback> callbacks;
+	uint8_t p_flags;
 };
 
 class PageCache {
@@ -77,7 +114,6 @@ public:
 private:
 	CacheHost *p_cacheHost;
 	int p_pageSize;
-	int p_usedCount;
 	TaskPool *p_ioPool;
 	std::mutex p_mutex;
 	std::unique_ptr<Linux::File> p_file;

@@ -239,7 +239,6 @@ public:
 		p_curFileHead.rootBlock = 1;
 		p_curFileHead.numBlocks = 2;
 		p_curFileHead.depth = 1;
-		p_writeFileHead();
 
 		p_pageCache.initializePage(1, ASYNC_MEMBER(this, &Btree::createOnInitialize));
 	}
@@ -379,7 +378,6 @@ private:
 	blknum_type p_allocBlock() {	
 		blknum_type number = p_curFileHead.numBlocks;
 		p_curFileHead.numBlocks++;
-		p_writeFileHead();
 		return number;
 	}
 
@@ -388,6 +386,7 @@ private:
 	void p_blockIntegrity(blknum_type block_num,
 			KeyType min, KeyType max);
 	
+	//FIXME: write file head on close
 	void p_writeFileHead() {
 		p_pageCache.initializePage(0, ASYNC_MEMBER(this, &Btree::writeHeadOnInitialize));
 	}
@@ -933,7 +932,6 @@ void Btree<KeyType>::SplitClosure::fixParent() {
 		p_newRootNumber = p_tree->p_allocBlock();
 		p_tree->p_curFileHead.rootBlock = p_newRootNumber;
 		p_tree->p_curFileHead.depth++;
-		p_tree->p_writeFileHead();
 		
 		p_tree->p_pageCache.initializePage(p_newRootNumber,
 				ASYNC_MEMBER(this, &SplitClosure::fixParentOnInitialize));

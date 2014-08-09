@@ -21,6 +21,8 @@ Engine::Engine() : p_nextTransactId(1), p_currentSequenceId(0) {
 	p_views.push_back(nullptr);
 
 	p_eventFd = osIntf->createEventFd();
+
+	p_cacheHost.setLimit(16 * 4096);
 }
 
 CacheHost *Engine::getCacheHost() {
