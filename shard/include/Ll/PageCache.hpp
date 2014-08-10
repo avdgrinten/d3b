@@ -83,6 +83,8 @@ private:
 
 	void diskRead();
 	void doRelease(std::unique_lock<std::mutex> lock);
+	void diskWrite();
+	void finishRelease(std::unique_lock<std::mutex> lock);
 	
 	PageCache *p_cache;
 	char *p_buffer;

@@ -161,11 +161,20 @@ void PageInfo::doRelease(std::unique_lock<std::mutex> lock) {
 	p_flags &= ~kFlagRelease;
 
 	if(p_flags & kFlagDirty) {
-		p_cache->p_file->pwriteSync(p_number * p_cache->p_pageSize,
-			p_cache->p_pageSize, p_buffer);
-		p_flags &= ~kFlagDirty;
+		p_cache->p_ioPool->submit(ASYNC_MEMBER(this, &PageInfo::diskWrite));
+	}else{
+		finishRelease(std::move(lock));
 	}
-	
+}
+void PageInfo::diskWrite() {
+	p_cache->p_file->pwriteSync(p_number * p_cache->p_pageSize,
+		p_cache->p_pageSize, p_buffer);
+	p_flags &= ~kFlagDirty;
+
+	std::unique_lock<std::mutex> lock(p_cache->p_mutex);
+	finishRelease(std::move(lock));
+}
+void PageInfo::finishRelease(std::unique_lock<std::mutex> lock) {
 	delete[] p_buffer;
 	
 	lock.unlock();
