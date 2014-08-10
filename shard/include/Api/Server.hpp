@@ -129,6 +129,7 @@ private:
 	private:
 		void onSubmit(Db::SubmitError error);
 		void onCommit(Db::SequenceId sequence_id);
+		void onRollback();
 
 		Db::Engine *p_engine;
 		Connection *p_connection;

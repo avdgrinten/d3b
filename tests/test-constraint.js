@@ -103,7 +103,7 @@ testConstraintConflict: function(test) {
 				});
 		},
 		function(callback) {
-			d3bUtil.apply(client, { transactionId: transaction_id1, doSubmit: true },
+			d3bUtil.apply(client, { transactionId: transaction_id1, type: 'kTypeSubmit' },
 				function(error) {
 					test.equal(error, 'kCodeSuccess');
 					callback();
@@ -127,7 +127,7 @@ testConstraintConflict: function(test) {
 				});
 		},
 		function(callback) {
-			d3bUtil.apply(client, { transactionId: transaction_id2, doSubmit: true },
+			d3bUtil.apply(client, { transactionId: transaction_id2, type: 'kTypeSubmit' },
 				function(error) {
 					test.equal(error, 'kCodeSubmitConstraintConflict');
 					callback();
@@ -191,7 +191,7 @@ testMutationConflict: function(test) {
 				});
 		},
 		function(callback) {
-			d3bUtil.apply(client, { transactionId: transaction_id1, doSubmit: true },
+			d3bUtil.apply(client, { transactionId: transaction_id1, type: 'kTypeSubmit' },
 				function(error) {
 					test.equal(error, 'kCodeSuccess');
 					callback();
@@ -215,7 +215,7 @@ testMutationConflict: function(test) {
 				});
 		},
 		function(callback) {
-			d3bUtil.apply(client, { transactionId: transaction_id2, doSubmit: true },
+			d3bUtil.apply(client, { transactionId: transaction_id2, type: 'kTypeSubmit' },
 				function(error) {
 					test.equal(error, 'kCodeSubmitMutationConflict');
 					callback();

@@ -91,10 +91,16 @@ message CqUpdate {
 }
 
 message CqApply {
+	enum Type {
+		kTypeNone = 0;
+		kTypeSubmit = 1;
+		kTypeSubmitCommit = 2;
+		kTypeCommit = 3;
+		kTypeRollback = 4;
+	}
+
 	optional int64 transaction_id = 1;
-	optional bool do_submit = 2;
-	optional bool do_commit = 3;
-	optional bool do_rollback = 4;
+	optional Type type = 2;
 }
 
 message CqCreateStorage {

@@ -478,12 +478,15 @@ void Server::ApplyClosure::execute(size_t packet_size, const char *packet_buffer
 		return;
 	}
 
-	if(request.do_submit()) {
+	if(request.type() == Proto::CqApply::kTypeSubmit) {
 		p_engine->submit(request.transaction_id(),
 				ASYNC_MEMBER(this, &ApplyClosure::onSubmit));
-	}else if(request.do_commit()) {
+	}else if(request.type() == Proto::CqApply::kTypeCommit) {
 		p_engine->commit(request.transaction_id(),
 				ASYNC_MEMBER(this, &ApplyClosure::onCommit));
+	}else if(request.type() == Proto::CqApply::kTypeRollback) {
+		p_engine->rollback(request.transaction_id(),
+				ASYNC_MEMBER(this, &ApplyClosure::onRollback));
 	}else{
 		Proto::SrFin response;
 		response.set_error(Proto::kCodeIllegalState);
@@ -526,6 +529,14 @@ void Server::ApplyClosure::onCommit(Db::SequenceId sequence_id) {
 	Proto::SrFin response;
 	response.set_error(Proto::kCodeSuccess);
 	response.set_sequence_id(sequence_id);
+	p_connection->postResponse(Proto::kSrFin, p_responseId, response);
+	
+	delete this;
+}
+
+void Server::ApplyClosure::onRollback() {
+	Proto::SrFin response;
+	response.set_error(Proto::kCodeSuccess);
 	p_connection->postResponse(Proto::kSrFin, p_responseId, response);
 	
 	delete this;

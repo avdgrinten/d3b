@@ -163,17 +163,19 @@ TransactionId Engine::transaction() {
 	TransactionId transaction_id = p_nextTransactId++;
 
 	Transaction *transaction = Transaction::allocate();
+	transaction->state = Transaction::kStateOpen;
 	p_openTransactions.insert(std::make_pair(transaction_id, transaction));
 	return transaction_id;
 }
 void Engine::updateMutation(TransactionId transaction_id, Mutation &mutation) {
 	std::lock_guard<std::mutex> lock(p_mutex);
 
-	auto transact_it = p_openTransactions.find(transaction_id);
-	if(transact_it == p_openTransactions.end())
+	auto iterator = p_openTransactions.find(transaction_id);
+	if(iterator == p_openTransactions.end())
 		throw std::runtime_error("Illegal transaction");	
-	Transaction *transaction = transact_it->second;
-	
+	Transaction *transaction = iterator->second;
+	assert(transaction->state == Transaction::kStateOpen);
+
 	if(mutation.type == Mutation::kTypeInsert) {
 		StorageDriver *driver = p_storages[mutation.storageIndex];
 		mutation.documentId = driver->allocate();
@@ -184,16 +186,24 @@ void Engine::updateMutation(TransactionId transaction_id, Mutation &mutation) {
 void Engine::updateConstraint(TransactionId transaction_id, Constraint &constraint) {
 	std::lock_guard<std::mutex> lock(p_mutex);
 	
-	auto transact_it = p_openTransactions.find(transaction_id);
-	if(transact_it == p_openTransactions.end())
+	auto iterator = p_openTransactions.find(transaction_id);
+	if(iterator == p_openTransactions.end())
 		throw std::runtime_error("Illegal transaction");	
-	Transaction *transaction = transact_it->second;
+	Transaction *transaction = iterator->second;
+	assert(transaction->state == Transaction::kStateOpen);
 	
 	transaction->constraints.push_back(std::move(constraint));
 }
 void Engine::submit(TransactionId transaction_id,
 		Async::Callback<void(SubmitError)> callback) {
 	std::unique_lock<std::mutex> lock(p_mutex);
+	
+	auto iterator = p_openTransactions.find(transaction_id);
+	if(iterator == p_openTransactions.end())
+		throw std::runtime_error("Illegal transaction");	
+	Transaction *transaction = iterator->second;
+	assert(transaction->state == Transaction::kStateOpen);
+	transaction->state = Transaction::kStateInSubmit;
 
 	QueueItem queued;
 	queued.type = QueueItem::kTypeSubmit;
@@ -207,6 +217,13 @@ void Engine::submit(TransactionId transaction_id,
 void Engine::submitCommit(TransactionId transaction_id,
 		Async::Callback<void(std::pair<SubmitError, SequenceId>)> callback) {
 	std::unique_lock<std::mutex> lock(p_mutex);
+	
+	auto iterator = p_openTransactions.find(transaction_id);
+	if(iterator == p_openTransactions.end())
+		throw std::runtime_error("Illegal transaction");	
+	Transaction *transaction = iterator->second;
+	assert(transaction->state == Transaction::kStateOpen);
+	transaction->state = Transaction::kStateInSubmit;
 
 	QueueItem queued;
 	queued.type = QueueItem::kTypeSubmitCommit;
@@ -220,11 +237,39 @@ void Engine::submitCommit(TransactionId transaction_id,
 void Engine::commit(TransactionId transaction_id,
 		Async::Callback<void(SequenceId)> callback) {
 	std::unique_lock<std::mutex> lock(p_mutex);
+	
+	auto iterator = p_openTransactions.find(transaction_id);
+	if(iterator == p_openTransactions.end())
+		throw std::runtime_error("Illegal transaction");	
+	Transaction *transaction = iterator->second;
+	assert(transaction->state == Transaction::kStateSubmitted);
+	transaction->state = Transaction::kStateInCommitOrRollback;
 
 	QueueItem queued;
 	queued.type = QueueItem::kTypeCommit;
 	queued.trid = transaction_id;
 	queued.commitCallback = callback;
+	p_submitQueue.push_back(queued);
+
+	lock.unlock();
+	p_eventFd->increment();
+}
+void Engine::rollback(TransactionId transaction_id,
+		Async::Callback<void()> callback) {
+	std::unique_lock<std::mutex> lock(p_mutex);
+	
+	auto iterator = p_openTransactions.find(transaction_id);
+	if(iterator == p_openTransactions.end())
+		throw std::runtime_error("Illegal transaction");	
+	Transaction *transaction = iterator->second;
+	assert(transaction->state == Transaction::kStateOpen
+			|| transaction->state == Transaction::kStateSubmitted);
+	transaction->state = Transaction::kStateInCommitOrRollback;
+
+	QueueItem queued;
+	queued.type = QueueItem::kTypeRollback;
+	queued.trid = transaction_id;
+	queued.rollbackCallback = callback;
 	p_submitQueue.push_back(queued);
 
 	lock.unlock();
@@ -415,6 +460,8 @@ void Engine::ProcessQueueClosure::process() {
 			processSubmit();
 		}else if(p_queueItem.type == QueueItem::kTypeCommit) {
 			processCommit();
+		}else if(p_queueItem.type == QueueItem::kTypeRollback) {
+			processRollback();
 		}else throw std::logic_error("Queued item has illegal type");
 	}else{
 		lock.unlock();
@@ -515,12 +562,15 @@ void Engine::ProcessQueueClosure::checkStateOnFetch(FetchError error) {
 void Engine::ProcessQueueClosure::submitComplete() {
 	std::unique_lock<std::mutex> lock(p_engine->p_mutex);
 	p_engine->p_submittedTransactions.push_back(p_queueItem.trid);
-	lock.unlock();
 
 	if(p_queueItem.type == QueueItem::kTypeSubmit) {
+		p_transaction->state = Transaction::kStateSubmitted;
+		lock.unlock();
+
 		p_queueItem.submitCallback(kSubmitSuccess);
 		LocalTaskQueue::get()->submit(ASYNC_MEMBER(this, &ProcessQueueClosure::process));
 	}else if(p_queueItem.type == QueueItem::kTypeSubmitCommit) {
+		lock.unlock();
 		commitComplete();
 	}else throw std::logic_error("Illegal queue item");
 }
@@ -581,7 +631,7 @@ void Engine::ProcessQueueClosure::commitComplete() {
 
 	std::unique_lock<std::mutex> lock(p_engine->p_mutex);
 	
-	// commit/rollback always frees the transaction
+	// commit always frees the transaction
 	auto open_iterator = p_engine->p_openTransactions.find(p_queueItem.trid);
 	assert(open_iterator != p_engine->p_openTransactions.end());
 	p_engine->p_openTransactions.erase(open_iterator);
@@ -600,6 +650,28 @@ void Engine::ProcessQueueClosure::commitComplete() {
 		lock.unlock();
 		p_queueItem.submitCommitCallback(std::make_pair(kSubmitSuccess, p_sequenceId));
 	}else throw std::logic_error("Illegal queue item");
+	LocalTaskQueue::get()->submit(ASYNC_MEMBER(this, &ProcessQueueClosure::process));
+}
+void Engine::ProcessQueueClosure::processRollback() {
+	std::unique_lock<std::mutex> lock(p_engine->p_mutex);
+	
+	auto open_iterator = p_engine->p_openTransactions.find(p_queueItem.trid);
+	assert(open_iterator != p_engine->p_openTransactions.end());
+	p_transaction = open_iterator->second;
+
+	p_engine->p_openTransactions.erase(open_iterator);
+
+	if(p_transaction->state == Transaction::kStateSubmitted) {
+		auto submit_iterator = std::find(p_engine->p_submittedTransactions.begin(),
+				p_engine->p_submittedTransactions.end(), p_queueItem.trid);
+		assert(submit_iterator != p_engine->p_submittedTransactions.end());
+		p_engine->p_submittedTransactions.erase(submit_iterator);
+	}
+
+	p_transaction->refDecrement();
+	
+	lock.unlock();
+	p_queueItem.rollbackCallback();
 	LocalTaskQueue::get()->submit(ASYNC_MEMBER(this, &ProcessQueueClosure::process));
 }
 

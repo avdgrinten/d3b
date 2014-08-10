@@ -158,9 +158,7 @@ function apply(client, opts, callback) {
 			req.fin();
 		}else throw new Error("Unexpected response " + opcode);
 	});
-	var message = { transactionId: opts.transactionId,
-			doSubmit: opts.doSubmit,
-			doCommit: opts.doCommit };
+	var message = { transactionId: opts.transactionId, type: opts.type };
 	req.send(d3b.ClientRequests.kCqApply, message);
 }
 

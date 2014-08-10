@@ -56,7 +56,7 @@ public:
 	void commit(TransactionId trid,
 			Async::Callback<void(SequenceId)> callback);
 	void rollback(TransactionId trid,
-			Async::Callback<void(Error)> callback);
+			Async::Callback<void()> callback);
 
 	void fetch(FetchRequest *fetch,
 			Async::Callback<void(FetchData &)> on_data,
@@ -80,11 +80,6 @@ public:
 	}
 
 private:
-	CacheHost p_cacheHost;
-	TaskPool p_processPool;
-	TaskPool p_ioPool;
-
-	/* ------- request and update queue -------- */
 	struct QueueItem {
 		enum Type {
 			kTypeNone, kTypeSubmit, kTypeSubmitCommit, kTypeCommit, kTypeRollback
@@ -96,27 +91,53 @@ private:
 		Async::Callback<void(SubmitError)> submitCallback;
 		Async::Callback<void(std::pair<SubmitError, SequenceId>)> submitCommitCallback;
 		Async::Callback<void(SequenceId)> commitCallback;
+		Async::Callback<void()> rollbackCallback;
 	};
-	
-	std::unique_ptr<Linux::EventFd> p_eventFd;
-	std::deque<QueueItem> p_submitQueue;
 
-	/* --------- active transactions -------- */
 	class Transaction {
 	public:
+		enum State {
+			kStateNone,
+			// transaction can still be modified
+			kStateOpen,
+			// transaction has been queued for submit
+			kStateInSubmit,
+			// transaction has been successfully submitted
+			kStateSubmitted,
+			// transaction has been queued for commit or rollback
+			kStateInCommitOrRollback
+		};
+
 		static Transaction *allocate();
 		
 		void refIncrement();
 		void refDecrement();
+		
+		State state;
 
 		std::vector<Mutation> mutations;
 		std::vector<Constraint> constraints;
-
 	private:
 		Transaction() : p_refCount(1) { }
 
 		int p_refCount;
 	};
+
+	StorageDriver *setupStorage(const std::string &driver,
+			const std::string &identifier);
+	ViewDriver *setupView(const std::string &driver,
+			const std::string &identifier);
+	
+	void writeConfig();
+
+	bool compatible(Mutation &mutation, Constraint &constraint);
+
+	CacheHost p_cacheHost;
+	TaskPool p_processPool;
+	TaskPool p_ioPool;
+	
+	std::unique_ptr<Linux::EventFd> p_eventFd;
+	std::deque<QueueItem> p_submitQueue;
 
 	TransactionId p_nextTransactId;
 	SequenceId p_currentSequenceId;
@@ -129,15 +150,6 @@ private:
 	std::string p_path;
 	std::vector<StorageDriver*> p_storages;
 	std::vector<ViewDriver*> p_views;
-
-	StorageDriver *setupStorage(const std::string &driver,
-			const std::string &identifier);
-	ViewDriver *setupView(const std::string &driver,
-			const std::string &identifier);
-	
-	void writeConfig();
-
-	bool compatible(Mutation &mutation, Constraint &constraint);
 
 	class ProcessQueueClosure {
 	public:
@@ -156,6 +168,7 @@ private:
 		void commitComplete();
 		void writeAhead();
 		void afterWriteAhead(Error error);
+		void processRollback();
 
 		Engine *p_engine;
 		

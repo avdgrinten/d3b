@@ -70,6 +70,18 @@ const Constraint_Type Constraint_Type_Type_MIN = Constraint_Type_kTypeNone;
 const Constraint_Type Constraint_Type_Type_MAX = Constraint_Type_kTypeDocumentState;
 const int Constraint_Type_Type_ARRAYSIZE = Constraint_Type_Type_MAX + 1;
 
+enum CqApply_Type {
+  CqApply_Type_kTypeNone = 0,
+  CqApply_Type_kTypeSubmit = 1,
+  CqApply_Type_kTypeSubmitCommit = 2,
+  CqApply_Type_kTypeCommit = 3,
+  CqApply_Type_kTypeRollback = 4
+};
+bool CqApply_Type_IsValid(int value);
+const CqApply_Type CqApply_Type_Type_MIN = CqApply_Type_kTypeNone;
+const CqApply_Type CqApply_Type_Type_MAX = CqApply_Type_kTypeRollback;
+const int CqApply_Type_Type_ARRAYSIZE = CqApply_Type_Type_MAX + 1;
+
 enum ErrorCode {
   kCodeNone = 0,
   kCodeSuccess = 1,
@@ -793,6 +805,22 @@ class CqApply : public ::google::protobuf::MessageLite {
   
   // nested types ----------------------------------------------------
   
+  typedef CqApply_Type Type;
+  static const Type kTypeNone = CqApply_Type_kTypeNone;
+  static const Type kTypeSubmit = CqApply_Type_kTypeSubmit;
+  static const Type kTypeSubmitCommit = CqApply_Type_kTypeSubmitCommit;
+  static const Type kTypeCommit = CqApply_Type_kTypeCommit;
+  static const Type kTypeRollback = CqApply_Type_kTypeRollback;
+  static inline bool Type_IsValid(int value) {
+    return CqApply_Type_IsValid(value);
+  }
+  static const Type Type_MIN =
+    CqApply_Type_Type_MIN;
+  static const Type Type_MAX =
+    CqApply_Type_Type_MAX;
+  static const int Type_ARRAYSIZE =
+    CqApply_Type_Type_ARRAYSIZE;
+  
   // accessors -------------------------------------------------------
   
   // optional int64 transaction_id = 1;
@@ -802,45 +830,25 @@ class CqApply : public ::google::protobuf::MessageLite {
   inline ::google::protobuf::int64 transaction_id() const;
   inline void set_transaction_id(::google::protobuf::int64 value);
   
-  // optional bool do_submit = 2;
-  inline bool has_do_submit() const;
-  inline void clear_do_submit();
-  static const int kDoSubmitFieldNumber = 2;
-  inline bool do_submit() const;
-  inline void set_do_submit(bool value);
-  
-  // optional bool do_commit = 3;
-  inline bool has_do_commit() const;
-  inline void clear_do_commit();
-  static const int kDoCommitFieldNumber = 3;
-  inline bool do_commit() const;
-  inline void set_do_commit(bool value);
-  
-  // optional bool do_rollback = 4;
-  inline bool has_do_rollback() const;
-  inline void clear_do_rollback();
-  static const int kDoRollbackFieldNumber = 4;
-  inline bool do_rollback() const;
-  inline void set_do_rollback(bool value);
+  // optional .Api.Proto.CqApply.Type type = 2;
+  inline bool has_type() const;
+  inline void clear_type();
+  static const int kTypeFieldNumber = 2;
+  inline ::Api::Proto::CqApply_Type type() const;
+  inline void set_type(::Api::Proto::CqApply_Type value);
   
   // @@protoc_insertion_point(class_scope:Api.Proto.CqApply)
  private:
   inline void set_has_transaction_id();
   inline void clear_has_transaction_id();
-  inline void set_has_do_submit();
-  inline void clear_has_do_submit();
-  inline void set_has_do_commit();
-  inline void clear_has_do_commit();
-  inline void set_has_do_rollback();
-  inline void clear_has_do_rollback();
+  inline void set_has_type();
+  inline void clear_has_type();
   
   ::google::protobuf::int64 transaction_id_;
-  bool do_submit_;
-  bool do_commit_;
-  bool do_rollback_;
+  int type_;
   
   mutable int _cached_size_;
-  ::google::protobuf::uint32 _has_bits_[(4 + 31) / 32];
+  ::google::protobuf::uint32 _has_bits_[(2 + 31) / 32];
   
   friend void  protobuf_AddDesc_proto_2fApi_2eproto();
   friend void protobuf_AssignDesc_proto_2fApi_2eproto();
@@ -2415,70 +2423,27 @@ inline void CqApply::set_transaction_id(::google::protobuf::int64 value) {
   transaction_id_ = value;
 }
 
-// optional bool do_submit = 2;
-inline bool CqApply::has_do_submit() const {
+// optional .Api.Proto.CqApply.Type type = 2;
+inline bool CqApply::has_type() const {
   return (_has_bits_[0] & 0x00000002u) != 0;
 }
-inline void CqApply::set_has_do_submit() {
+inline void CqApply::set_has_type() {
   _has_bits_[0] |= 0x00000002u;
 }
-inline void CqApply::clear_has_do_submit() {
+inline void CqApply::clear_has_type() {
   _has_bits_[0] &= ~0x00000002u;
 }
-inline void CqApply::clear_do_submit() {
-  do_submit_ = false;
-  clear_has_do_submit();
+inline void CqApply::clear_type() {
+  type_ = 0;
+  clear_has_type();
 }
-inline bool CqApply::do_submit() const {
-  return do_submit_;
+inline ::Api::Proto::CqApply_Type CqApply::type() const {
+  return static_cast< ::Api::Proto::CqApply_Type >(type_);
 }
-inline void CqApply::set_do_submit(bool value) {
-  set_has_do_submit();
-  do_submit_ = value;
-}
-
-// optional bool do_commit = 3;
-inline bool CqApply::has_do_commit() const {
-  return (_has_bits_[0] & 0x00000004u) != 0;
-}
-inline void CqApply::set_has_do_commit() {
-  _has_bits_[0] |= 0x00000004u;
-}
-inline void CqApply::clear_has_do_commit() {
-  _has_bits_[0] &= ~0x00000004u;
-}
-inline void CqApply::clear_do_commit() {
-  do_commit_ = false;
-  clear_has_do_commit();
-}
-inline bool CqApply::do_commit() const {
-  return do_commit_;
-}
-inline void CqApply::set_do_commit(bool value) {
-  set_has_do_commit();
-  do_commit_ = value;
-}
-
-// optional bool do_rollback = 4;
-inline bool CqApply::has_do_rollback() const {
-  return (_has_bits_[0] & 0x00000008u) != 0;
-}
-inline void CqApply::set_has_do_rollback() {
-  _has_bits_[0] |= 0x00000008u;
-}
-inline void CqApply::clear_has_do_rollback() {
-  _has_bits_[0] &= ~0x00000008u;
-}
-inline void CqApply::clear_do_rollback() {
-  do_rollback_ = false;
-  clear_has_do_rollback();
-}
-inline bool CqApply::do_rollback() const {
-  return do_rollback_;
-}
-inline void CqApply::set_do_rollback(bool value) {
-  set_has_do_rollback();
-  do_rollback_ = value;
+inline void CqApply::set_type(::Api::Proto::CqApply_Type value) {
+  GOOGLE_DCHECK(::Api::Proto::CqApply_Type_IsValid(value));
+  set_has_type();
+  type_ = value;
 }
 
 // -------------------------------------------------------------------

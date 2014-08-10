@@ -1655,11 +1655,32 @@ void CqUpdate::Swap(CqUpdate* other) {
 
 // ===================================================================
 
+bool CqApply_Type_IsValid(int value) {
+  switch(value) {
+    case 0:
+    case 1:
+    case 2:
+    case 3:
+    case 4:
+      return true;
+    default:
+      return false;
+  }
+}
+
+#ifndef _MSC_VER
+const CqApply_Type CqApply::kTypeNone;
+const CqApply_Type CqApply::kTypeSubmit;
+const CqApply_Type CqApply::kTypeSubmitCommit;
+const CqApply_Type CqApply::kTypeCommit;
+const CqApply_Type CqApply::kTypeRollback;
+const CqApply_Type CqApply::Type_MIN;
+const CqApply_Type CqApply::Type_MAX;
+const int CqApply::Type_ARRAYSIZE;
+#endif  // _MSC_VER
 #ifndef _MSC_VER
 const int CqApply::kTransactionIdFieldNumber;
-const int CqApply::kDoSubmitFieldNumber;
-const int CqApply::kDoCommitFieldNumber;
-const int CqApply::kDoRollbackFieldNumber;
+const int CqApply::kTypeFieldNumber;
 #endif  // !_MSC_VER
 
 CqApply::CqApply()
@@ -1679,9 +1700,7 @@ CqApply::CqApply(const CqApply& from)
 void CqApply::SharedCtor() {
   _cached_size_ = 0;
   transaction_id_ = GOOGLE_LONGLONG(0);
-  do_submit_ = false;
-  do_commit_ = false;
-  do_rollback_ = false;
+  type_ = 0;
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
 }
 
@@ -1712,9 +1731,7 @@ CqApply* CqApply::New() const {
 void CqApply::Clear() {
   if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
     transaction_id_ = GOOGLE_LONGLONG(0);
-    do_submit_ = false;
-    do_commit_ = false;
-    do_rollback_ = false;
+    type_ = 0;
   }
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
 }
@@ -1736,51 +1753,22 @@ bool CqApply::MergePartialFromCodedStream(
         } else {
           goto handle_uninterpreted;
         }
-        if (input->ExpectTag(16)) goto parse_do_submit;
+        if (input->ExpectTag(16)) goto parse_type;
         break;
       }
       
-      // optional bool do_submit = 2;
+      // optional .Api.Proto.CqApply.Type type = 2;
       case 2: {
         if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
             ::google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT) {
-         parse_do_submit:
+         parse_type:
+          int value;
           DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
-                   bool, ::google::protobuf::internal::WireFormatLite::TYPE_BOOL>(
-                 input, &do_submit_)));
-          set_has_do_submit();
-        } else {
-          goto handle_uninterpreted;
-        }
-        if (input->ExpectTag(24)) goto parse_do_commit;
-        break;
-      }
-      
-      // optional bool do_commit = 3;
-      case 3: {
-        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
-            ::google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT) {
-         parse_do_commit:
-          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
-                   bool, ::google::protobuf::internal::WireFormatLite::TYPE_BOOL>(
-                 input, &do_commit_)));
-          set_has_do_commit();
-        } else {
-          goto handle_uninterpreted;
-        }
-        if (input->ExpectTag(32)) goto parse_do_rollback;
-        break;
-      }
-      
-      // optional bool do_rollback = 4;
-      case 4: {
-        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
-            ::google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT) {
-         parse_do_rollback:
-          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
-                   bool, ::google::protobuf::internal::WireFormatLite::TYPE_BOOL>(
-                 input, &do_rollback_)));
-          set_has_do_rollback();
+                   int, ::google::protobuf::internal::WireFormatLite::TYPE_ENUM>(
+                 input, &value)));
+          if (::Api::Proto::CqApply_Type_IsValid(value)) {
+            set_type(static_cast< ::Api::Proto::CqApply_Type >(value));
+          }
         } else {
           goto handle_uninterpreted;
         }
@@ -1810,19 +1798,10 @@ void CqApply::SerializeWithCachedSizes(
     ::google::protobuf::internal::WireFormatLite::WriteInt64(1, this->transaction_id(), output);
   }
   
-  // optional bool do_submit = 2;
-  if (has_do_submit()) {
-    ::google::protobuf::internal::WireFormatLite::WriteBool(2, this->do_submit(), output);
-  }
-  
-  // optional bool do_commit = 3;
-  if (has_do_commit()) {
-    ::google::protobuf::internal::WireFormatLite::WriteBool(3, this->do_commit(), output);
-  }
-  
-  // optional bool do_rollback = 4;
-  if (has_do_rollback()) {
-    ::google::protobuf::internal::WireFormatLite::WriteBool(4, this->do_rollback(), output);
+  // optional .Api.Proto.CqApply.Type type = 2;
+  if (has_type()) {
+    ::google::protobuf::internal::WireFormatLite::WriteEnum(
+      2, this->type(), output);
   }
   
 }
@@ -1838,19 +1817,10 @@ int CqApply::ByteSize() const {
           this->transaction_id());
     }
     
-    // optional bool do_submit = 2;
-    if (has_do_submit()) {
-      total_size += 1 + 1;
-    }
-    
-    // optional bool do_commit = 3;
-    if (has_do_commit()) {
-      total_size += 1 + 1;
-    }
-    
-    // optional bool do_rollback = 4;
-    if (has_do_rollback()) {
-      total_size += 1 + 1;
+    // optional .Api.Proto.CqApply.Type type = 2;
+    if (has_type()) {
+      total_size += 1 +
+        ::google::protobuf::internal::WireFormatLite::EnumSize(this->type());
     }
     
   }
@@ -1871,14 +1841,8 @@ void CqApply::MergeFrom(const CqApply& from) {
     if (from.has_transaction_id()) {
       set_transaction_id(from.transaction_id());
     }
-    if (from.has_do_submit()) {
-      set_do_submit(from.do_submit());
-    }
-    if (from.has_do_commit()) {
-      set_do_commit(from.do_commit());
-    }
-    if (from.has_do_rollback()) {
-      set_do_rollback(from.do_rollback());
+    if (from.has_type()) {
+      set_type(from.type());
     }
   }
 }
@@ -1897,9 +1861,7 @@ bool CqApply::IsInitialized() const {
 void CqApply::Swap(CqApply* other) {
   if (other != this) {
     std::swap(transaction_id_, other->transaction_id_);
-    std::swap(do_submit_, other->do_submit_);
-    std::swap(do_commit_, other->do_commit_);
-    std::swap(do_rollback_, other->do_rollback_);
+    std::swap(type_, other->type_);
     std::swap(_has_bits_[0], other->_has_bits_[0]);
     std::swap(_cached_size_, other->_cached_size_);
   }
