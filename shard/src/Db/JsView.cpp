@@ -25,18 +25,25 @@ std::string exceptString(const v8::Handle<v8::Message> message) {
 namespace Db {
 
 JsView::JsView(Engine *engine)
-	: QueuedViewDriver(engine), p_keyStore("keys"),
-		p_orderTree("order", 4096, sizeof(DocumentId), Link::kStructSize,
-			engine->getCacheHost(), engine->getIoPool()) {
-	p_orderTree.setWriteKey(ASYNC_MEMBER(this, &JsView::writeKey));
-	p_orderTree.setReadKey(ASYNC_MEMBER(this, &JsView::readKey));
+	: QueuedViewDriver(engine),
+		p_keyCache(engine->getCacheHost(), 4096, engine->getIoPool()),
+		p_keyFile(&p_keyCache),
+		p_orderTree("order", 4096, KeyRef::kStructSize, Link::kStructSize,
+			engine->getCacheHost(), engine->getIoPool()),
+		p_keyPointer(0) {
+	p_orderTree.setWriteKey(ASYNC_MEMBER(this, &JsView::writeKeyRef));
+	p_orderTree.setReadKey(ASYNC_MEMBER(this, &JsView::readKeyRef));
 }
 
-void JsView::writeKey(void *buffer, const DocumentId &key) {
-	*(DocumentId*)buffer = OS::toLe(key);
+void JsView::writeKeyRef(void *buffer, const KeyRef &keyref) {
+	OS::packLe64((char *)buffer + KeyRef::kOffset, keyref.offset);
+	OS::packLe32((char *)buffer + KeyRef::kLength, keyref.length);
 }
-DocumentId JsView::readKey(const void *buffer) {
-	return OS::fromLe(*(DocumentId*)buffer);
+JsView::KeyRef JsView::readKeyRef(const void *buffer) {
+	KeyRef keyref;
+	keyref.offset = OS::unpackLe64((char *)buffer + KeyRef::kOffset);
+	keyref.length = OS::unpackLe32((char *)buffer + KeyRef::kLength);
+	return keyref;
 }
 
 void JsView::createView(const Proto::ViewConfig &config) {
@@ -53,8 +60,7 @@ void JsView::createView(const Proto::ViewConfig &config) {
 	for(int i = 0; i < 5; i++)
 		p_idleInstances.push(new JsInstance(p_path + "/../../extern/" + p_scriptFile));
 	
-	p_keyStore.setPath(this->getPath());
-	p_keyStore.createStore();
+	p_keyCache.open(getPath() + "/keys.bin");
 
 	p_orderTree.setPath(this->getPath());
 	p_orderTree.createTree();
@@ -77,9 +83,8 @@ void JsView::loadView() {
 	for(int i = 0; i < 5; i++)
 		p_idleInstances.push(new JsInstance(p_path + "/../../extern/" + p_scriptFile));
 
-	p_keyStore.setPath(this->getPath());
 	//NOTE: to test the durability implementation we always delete the data on load!
-	p_keyStore.createStore();
+	p_keyCache.open(getPath() + "/keys.bin");
 
 	p_orderTree.setPath(this->getPath());
 	//NOTE: to test the durability implementation we always delete the data on load!
@@ -322,8 +327,9 @@ JsView::InsertClosure::InsertClosure(JsView *view, DocumentId document_id,
 		SequenceId sequence_id, std::string buffer,
 		Async::Callback<void(Error)> callback)
 	: p_view(view), p_documentId(document_id),
-		p_sequenceId(sequence_id), p_buffer(buffer),
-		p_callback(callback), p_btreeInsert(&view->p_orderTree) {
+		p_sequenceId(sequence_id), p_buffer(buffer), p_callback(callback),
+		p_keyWrite(&view->p_keyFile), p_keyRead(&view->p_keyFile),
+		p_btreeInsert(&view->p_orderTree) {
 }
 
 void JsView::InsertClosure::apply() {
@@ -342,35 +348,36 @@ void JsView::InsertClosure::acquireInstance(JsInstance *instance) {
 	v8::Local<v8::Value> ser = p_instance->serializeKey(p_newKey);
 	v8::String::Utf8Value ser_value(ser);	
 	
-	/* add the document's key to the key store */
-	auto key_object = p_view->p_keyStore.createObject();
-	p_view->p_keyStore.allocObject(key_object, ser_value.length());
-	p_view->p_keyStore.writeObject(key_object, 0, ser_value.length(), *ser_value);
-	p_insertKey = p_view->p_keyStore.objectLid(key_object);
-
+	p_insertKey.offset = p_view->p_keyPointer;
+	p_insertKey.length = ser_value.length();
+	p_view->p_keyPointer += ser_value.length();
+	p_keyWrite.write(p_insertKey.offset, p_insertKey.length, *ser_value,
+			ASYNC_MEMBER(this, &InsertClosure::afterWriteKey));
+}
+void JsView::InsertClosure::afterWriteKey() {
 	OS::packLe64(p_linkBuffer + Link::kDocumentId, p_documentId);
 	OS::packLe64(p_linkBuffer + Link::kSequenceId, p_sequenceId);
 
-	/* TODO: re-use removed document entries */
-	
 	p_btreeInsert.insert(&p_insertKey, p_linkBuffer,
 		ASYNC_MEMBER(this, &InsertClosure::compareToNew),
 		ASYNC_MEMBER(this, &InsertClosure::onComplete));
 }
-void JsView::InsertClosure::compareToNew(const DocumentId &keyid_a,
+void JsView::InsertClosure::compareToNew(const KeyRef &keyref,
 		Async::Callback<void(int)> callback) {
-	auto object_a = p_view->p_keyStore.getObject(keyid_a);
-	auto length_a = p_view->p_keyStore.objectLength(object_a);
-	char *buf_a = new char[length_a];
-	p_view->p_keyStore.readObject(object_a, 0, length_a, buf_a);
-
+	p_compareBuffer = new char[keyref.length];
+	p_compareLength = keyref.length;
+	p_compareCallback = callback;
+	p_keyRead.read(keyref.offset, keyref.length, p_compareBuffer,
+			ASYNC_MEMBER(this, &InsertClosure::doCompareToNew));
+}
+void JsView::InsertClosure::doCompareToNew() {
 	JsScope scope(*p_instance);
 	
-	v8::Local<v8::Value> ser_a = v8::String::New(buf_a, length_a);
-	delete[] buf_a;
+	v8::Local<v8::Value> ser_a = v8::String::New(p_compareBuffer, p_compareLength);
+	delete[] p_compareBuffer;
 	v8::Local<v8::Value> key_a = p_instance->deserializeKey(ser_a);
 	v8::Local<v8::Value> result = p_instance->compare(key_a, p_newKey);
-	callback(result->Int32Value());
+	p_compareCallback(result->Int32Value());
 }
 void JsView::InsertClosure::onComplete() {
 	p_view->releaseInstance(p_instance);
@@ -388,7 +395,8 @@ JsView::QueryClosure::QueryClosure(JsView *view, QueryRequest *query,
 		Async::Callback<void(QueryData &)> on_data,
 		Async::Callback<void(QueryError)> on_complete)
 	: p_view(view), p_query(query), p_onData(on_data),
-		p_onComplete(on_complete), p_btreeFind(&view->p_orderTree),
+		p_onComplete(on_complete), p_keyRead(&view->p_keyFile),
+		p_btreeFind(&view->p_orderTree),
 		p_btreeIterate(&view->p_orderTree) {
 }
 
@@ -405,7 +413,7 @@ void JsView::QueryClosure::acquireInstance(JsInstance *instance) {
 		p_endKey = v8::Persistent<v8::Value>::New(p_instance->extractKey(p_query->toKey.c_str(),
 				p_query->toKey.size()));
 	
-	Btree<DocumentId>::Ref begin_ref;
+	Btree<KeyRef>::Ref begin_ref;
 	if(p_query->useFromKey) {
 		p_beginKey = v8::Persistent<v8::Value>::New(p_instance->extractKey(p_query->fromKey.c_str(),
 				p_query->fromKey.size()));
@@ -415,23 +423,25 @@ void JsView::QueryClosure::acquireInstance(JsInstance *instance) {
 		p_btreeFind.findFirst(ASYNC_MEMBER(this, &QueryClosure::onFindBegin));
 	}
 }
-void JsView::QueryClosure::onFindBegin(Btree<DocumentId>::Ref ref) {
+void JsView::QueryClosure::onFindBegin(Btree<KeyRef>::Ref ref) {
 	p_btreeIterate.seek(ref, ASYNC_MEMBER(this, &QueryClosure::fetchItem));
 }
-void JsView::QueryClosure::compareToBegin(const DocumentId &keyid_a,
+void JsView::QueryClosure::compareToBegin(const KeyRef &keyref,
 		Async::Callback<void(int)> callback) {
-	auto object_a = p_view->p_keyStore.getObject(keyid_a);
-	auto length_a = p_view->p_keyStore.objectLength(object_a);
-	char *buf_a = new char[length_a];
-	p_view->p_keyStore.readObject(object_a, 0, length_a, buf_a);
-	
+	p_compareBuffer = new char[keyref.length];
+	p_compareLength = keyref.length;
+	p_compareCallback = callback;
+	p_keyRead.read(keyref.offset, keyref.length, p_compareBuffer,
+			ASYNC_MEMBER(this, &QueryClosure::doCompareToBegin));
+}
+void JsView::QueryClosure::doCompareToBegin() {
 	JsScope scope(*p_instance);
 
-	v8::Local<v8::Value> ser_a = v8::String::New(buf_a, length_a);
-	delete[] buf_a;
+	v8::Local<v8::Value> ser_a = v8::String::New(p_compareBuffer, p_compareLength);
+	delete[] p_compareBuffer;
 	v8::Local<v8::Value> key_a = p_instance->deserializeKey(ser_a);
 	v8::Local<v8::Value> result = p_instance->compare(key_a, p_beginKey);
-	callback(result->Int32Value());
+	p_compareCallback(result->Int32Value());
 }
 void JsView::QueryClosure::fetchItem() {
 	if(!p_btreeIterate.valid()) {

@@ -3,7 +3,7 @@
 #include <cstring>
 #include <v8.h>
 
-#include "Ll/DataStore.hpp"
+#include "Ll/RandomAccessFile.hpp"
 #include "Ll/Btree.hpp"
 
 namespace Db {
@@ -35,6 +35,18 @@ protected:
 private:
 	class JsInstance;
 	class JsScope;
+	
+	struct KeyRef {
+		enum Fields {
+			kOffset = 0,
+			kLength = 8,
+			// overall size of this struct
+			kStructSize = 12
+		};
+
+		int64_t offset;
+		int32_t length;
+	};
 
 	struct Link {
 		enum Fields {
@@ -48,9 +60,8 @@ private:
 		SequenceId sequenceId;
 	};
 
-	int compare(const DocumentId &key_a, const DocumentId &key_b);
-	void writeKey(void *buffer, const DocumentId &key);
-	DocumentId readKey(const void *buffer);
+	void writeKeyRef(void *buffer, const KeyRef &key);
+	KeyRef readKeyRef(const void *buffer);
 
 	void grabInstance(Async::Callback<void(JsInstance *)> callback);
 	void releaseInstance(JsInstance *instance);
@@ -59,11 +70,13 @@ private:
 	std::string p_storageName;
 
 	int p_storage;
-	DataStore p_keyStore;
-	Btree<DocumentId> p_orderTree;
+	PageCache p_keyCache;
+	Ll::RandomAccessFile p_keyFile;
+	Btree<KeyRef> p_orderTree;
 	std::stack<JsInstance *> p_idleInstances;
 	std::queue<Async::Callback<void(JsInstance *)>> p_waitForInstance;
 	std::mutex p_mutex;
+	size_t p_keyPointer;
 
 	class JsInstance {
 	friend class JsScope;
@@ -119,9 +132,10 @@ private:
 	
 	private:
 		void acquireInstance(JsInstance *instance);
-		void compareToBegin(const DocumentId &id,
+		void compareToBegin(const KeyRef &id,
 				Async::Callback<void(int)> callback);
-		void onFindBegin(Btree<DocumentId>::Ref ref);
+		void doCompareToBegin();
+		void onFindBegin(Btree<KeyRef>::Ref ref);
 		void fetchItem();
 		void fetchItemLoop();
 		void onFetchData(FetchData &data);
@@ -134,6 +148,9 @@ private:
 		Async::Callback<void(QueryError)> p_onComplete;
 
 		JsInstance *p_instance;
+		char *p_compareBuffer;
+		int32_t p_compareLength;
+		Async::Callback<void(int)> p_compareCallback;
 		v8::Persistent<v8::Value> p_beginKey;
 		v8::Persistent<v8::Value> p_endKey;
 		SequenceId p_expectedSequenceId;
@@ -141,8 +158,9 @@ private:
 		QueryData p_queryData;
 		int p_fetchedCount;
 
-		Btree<DocumentId>::FindClosure p_btreeFind;
-		Btree<DocumentId>::IterateClosure p_btreeIterate;
+		Ll::RandomAccessFile::ReadClosure p_keyRead;
+		Btree<KeyRef>::FindClosure p_btreeFind;
+		Btree<KeyRef>::IterateClosure p_btreeIterate;
 	};
 
 	class InsertClosure {
@@ -155,8 +173,10 @@ private:
 
 	private:
 		void acquireInstance(JsInstance *instance);
-		void compareToNew(const DocumentId &id,
+		void afterWriteKey();
+		void compareToNew(const KeyRef &id,
 				Async::Callback<void(int)> callback);
+		void doCompareToNew();
 		void onComplete();
 
 		JsView *p_view;
@@ -166,11 +186,16 @@ private:
 		Async::Callback<void(Error)> p_callback;
 
 		JsInstance *p_instance;
+		char *p_compareBuffer;
+		int32_t p_compareLength;
+		Async::Callback<void(int)> p_compareCallback;
 		v8::Persistent<v8::Value> p_newKey;
 		char p_linkBuffer[Link::kStructSize];
-		DocumentId p_insertKey;
-
-		Btree<DocumentId>::InsertClosure p_btreeInsert;
+		KeyRef p_insertKey;
+		
+		Ll::RandomAccessFile::WriteClosure p_keyWrite;
+		Ll::RandomAccessFile::ReadClosure p_keyRead;
+		Btree<KeyRef>::InsertClosure p_btreeInsert;
 	};
 };
 
