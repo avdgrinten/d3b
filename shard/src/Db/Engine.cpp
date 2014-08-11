@@ -79,8 +79,23 @@ void Engine::loadConfig() {
 	p_writeAhead.setIdentifier("transact");
 	p_writeAhead.loadLog();
 
-	ReplayClosure closure = ReplayClosure(this);
-	closure.replay();
+	ReplayMetaClosure meta_closure = ReplayMetaClosure(this);
+	meta_closure.replay();
+	
+	for(auto it = p_storages.begin(); it != p_storages.end(); ++it) {
+		StorageDriver *driver = *it;
+		if(driver == nullptr)
+			continue;
+		ReplayDataClosure data_closure = ReplayDataClosure(this, driver);
+		data_closure.replay();
+	}
+	for(auto it = p_views.begin(); it != p_views.end(); ++it) {
+		ViewDriver *driver = *it;
+		if(driver == nullptr)
+			continue;
+		ReplayDataClosure data_closure = ReplayDataClosure(this, driver);
+		data_closure.replay();
+	}
 }
 
 void Engine::createStorage(const std::string &driver,
@@ -164,14 +179,14 @@ TransactionId Engine::transaction() {
 
 	Transaction *transaction = Transaction::allocate();
 	transaction->state = Transaction::kStateOpen;
-	p_openTransactions.insert(std::make_pair(transaction_id, transaction));
+	p_activeTransactions.insert(std::make_pair(transaction_id, transaction));
 	return transaction_id;
 }
 void Engine::updateMutation(TransactionId transaction_id, Mutation &mutation) {
 	std::lock_guard<std::mutex> lock(p_mutex);
 
-	auto iterator = p_openTransactions.find(transaction_id);
-	if(iterator == p_openTransactions.end())
+	auto iterator = p_activeTransactions.find(transaction_id);
+	if(iterator == p_activeTransactions.end())
 		throw std::runtime_error("Illegal transaction");	
 	Transaction *transaction = iterator->second;
 	assert(transaction->state == Transaction::kStateOpen);
@@ -186,8 +201,8 @@ void Engine::updateMutation(TransactionId transaction_id, Mutation &mutation) {
 void Engine::updateConstraint(TransactionId transaction_id, Constraint &constraint) {
 	std::lock_guard<std::mutex> lock(p_mutex);
 	
-	auto iterator = p_openTransactions.find(transaction_id);
-	if(iterator == p_openTransactions.end())
+	auto iterator = p_activeTransactions.find(transaction_id);
+	if(iterator == p_activeTransactions.end())
 		throw std::runtime_error("Illegal transaction");	
 	Transaction *transaction = iterator->second;
 	assert(transaction->state == Transaction::kStateOpen);
@@ -198,8 +213,8 @@ void Engine::submit(TransactionId transaction_id,
 		Async::Callback<void(SubmitError)> callback) {
 	std::unique_lock<std::mutex> lock(p_mutex);
 	
-	auto iterator = p_openTransactions.find(transaction_id);
-	if(iterator == p_openTransactions.end())
+	auto iterator = p_activeTransactions.find(transaction_id);
+	if(iterator == p_activeTransactions.end())
 		throw std::runtime_error("Illegal transaction");	
 	Transaction *transaction = iterator->second;
 	assert(transaction->state == Transaction::kStateOpen);
@@ -218,8 +233,8 @@ void Engine::submitCommit(TransactionId transaction_id,
 		Async::Callback<void(std::pair<SubmitError, SequenceId>)> callback) {
 	std::unique_lock<std::mutex> lock(p_mutex);
 	
-	auto iterator = p_openTransactions.find(transaction_id);
-	if(iterator == p_openTransactions.end())
+	auto iterator = p_activeTransactions.find(transaction_id);
+	if(iterator == p_activeTransactions.end())
 		throw std::runtime_error("Illegal transaction");	
 	Transaction *transaction = iterator->second;
 	assert(transaction->state == Transaction::kStateOpen);
@@ -238,8 +253,8 @@ void Engine::commit(TransactionId transaction_id,
 		Async::Callback<void(SequenceId)> callback) {
 	std::unique_lock<std::mutex> lock(p_mutex);
 	
-	auto iterator = p_openTransactions.find(transaction_id);
-	if(iterator == p_openTransactions.end())
+	auto iterator = p_activeTransactions.find(transaction_id);
+	if(iterator == p_activeTransactions.end())
 		throw std::runtime_error("Illegal transaction");	
 	Transaction *transaction = iterator->second;
 	assert(transaction->state == Transaction::kStateSubmitted);
@@ -258,8 +273,8 @@ void Engine::rollback(TransactionId transaction_id,
 		Async::Callback<void()> callback) {
 	std::unique_lock<std::mutex> lock(p_mutex);
 	
-	auto iterator = p_openTransactions.find(transaction_id);
-	if(iterator == p_openTransactions.end())
+	auto iterator = p_activeTransactions.find(transaction_id);
+	if(iterator == p_activeTransactions.end())
 		throw std::runtime_error("Illegal transaction");	
 	Transaction *transaction = iterator->second;
 	assert(transaction->state == Transaction::kStateOpen
@@ -381,6 +396,9 @@ Engine::ReplayClosure::ReplayClosure(Engine *engine)
 
 void Engine::ReplayClosure::replay() {
 	p_engine->p_writeAhead.replay(ASYNC_MEMBER(this, &ReplayClosure::onEntry));
+
+	for(auto it = p_transactions.begin(); it != p_transactions.end(); ++it)
+		onSubmitted(it->first, it->second);
 }
 void Engine::ReplayClosure::onEntry(Proto::LogEntry &log_entry) {
 	if(log_entry.type() == Proto::LogEntry::kTypeSubmit) {
@@ -407,8 +425,39 @@ void Engine::ReplayClosure::onEntry(Proto::LogEntry &log_entry) {
 
 			transaction->mutations.push_back(std::move(mutation));
 		}
+		
+		onTransaction(transact_id, transaction);
 
 		p_transactions.insert(std::make_pair(transact_id, transaction));
+	}else if(log_entry.type() == Proto::LogEntry::kTypeSubmitCommit) {
+		TransactionId transact_id = log_entry.transaction_id();
+		Transaction *transaction = Transaction::allocate();
+
+		for(int i = 0; i < log_entry.mutations_size(); i++) {
+			const Proto::LogMutation &log_mutation = log_entry.mutations(i);
+
+			Mutation mutation;
+			if(log_mutation.type() == Proto::LogMutation::kTypeInsert) {
+				int storage = p_engine->getStorage(log_mutation.storage_name());
+				mutation.type = Mutation::kTypeInsert;
+				mutation.storageIndex = storage;
+				mutation.documentId = log_mutation.document_id();
+				mutation.buffer = log_mutation.buffer();
+			}else if(log_mutation.type() == Proto::LogMutation::kTypeModify) {
+				int storage = p_engine->getStorage(log_mutation.storage_name());
+				mutation.type = Mutation::kTypeInsert;
+				mutation.storageIndex = storage;
+				mutation.documentId = log_mutation.document_id();
+				mutation.buffer = log_mutation.buffer();
+			}else throw std::logic_error("Illegal log mutation type");
+
+			transaction->mutations.push_back(std::move(mutation));
+		}
+		
+		onTransaction(transact_id, transaction);
+		onCommit(transaction, log_entry.sequence_id());
+		
+		transaction->refDecrement();
 	}else if(log_entry.type() == Proto::LogEntry::kTypeCommit) {
 		TransactionId transact_id = log_entry.transaction_id();
 		auto transact_it = p_transactions.find(transact_id);
@@ -416,28 +465,75 @@ void Engine::ReplayClosure::onEntry(Proto::LogEntry &log_entry) {
 			throw std::runtime_error("Illegal transaction");
 		Transaction *transaction = transact_it->second;
 		
-		for(auto it = p_engine->p_storages.begin(); it != p_engine->p_storages.end(); ++it) {
-			StorageDriver *driver = *it;
-			if(driver == nullptr)
-				continue;
-			transaction->refIncrement();
-			driver->sequence(log_entry.sequence_id(), transaction->mutations,
-					ASYNC_MEMBER(transaction, &Transaction::refDecrement));
-		}
-		for(auto it = p_engine->p_views.begin(); it != p_engine->p_views.end(); ++it) {
-			ViewDriver *driver = *it;
-			if(driver == nullptr)
-				continue;
-			transaction->refIncrement();
-			driver->sequence(log_entry.sequence_id(), transaction->mutations,
-					ASYNC_MEMBER(transaction, &Transaction::refDecrement));
-		}
-		
+		onCommit(transaction, log_entry.sequence_id());
+
 		p_transactions.erase(transact_it);
 		transaction->refDecrement();
 	}else throw std::logic_error("Illegal log entry type");
 }
 
+Engine *Engine::ReplayClosure::getEngine() {
+	return p_engine;
+}
+
+// --------------------------------------------------------
+// Engine::ReplayMetaClosure
+// --------------------------------------------------------
+
+Engine::ReplayMetaClosure::ReplayMetaClosure(Engine *engine)
+		: ReplayClosure(engine) { }
+
+void Engine::ReplayMetaClosure::onTransaction(TransactionId id,
+		Transaction *transaction) {
+	Engine *engine = getEngine();
+	if(engine->p_nextTransactId < id + 1)
+		engine->p_nextTransactId = id + 1;
+}
+
+void Engine::ReplayMetaClosure::onCommit(Transaction *transaction,
+		SequenceId sequence_id) {
+	Engine *engine = getEngine();
+	if(engine->p_currentSequenceId < sequence_id)
+		engine->p_currentSequenceId = sequence_id;
+}
+
+void Engine::ReplayMetaClosure::onSubmitted(TransactionId id,
+		Transaction *transaction) {
+	Engine *engine = getEngine();
+
+	transaction->refIncrement();
+	transaction->state = Transaction::kStateSubmitted;
+	engine->p_activeTransactions.insert(std::make_pair(id, transaction));
+	engine->p_submittedTransactions.push_back(id);
+}
+
+// --------------------------------------------------------
+// Engine::ReplayDataClosure
+// --------------------------------------------------------
+
+Engine::ReplayDataClosure::ReplayDataClosure(Engine *engine, Sequenceable *sequenceable)
+		: ReplayClosure(engine), p_sequenceable(sequenceable) { }
+
+void Engine::ReplayDataClosure::onTransaction(TransactionId id,
+		Transaction *transaction) {
+	for(auto it = transaction->mutations.begin();
+			it != transaction->mutations.end(); ++it)
+		p_sequenceable->reinspect(*it);
+}
+
+void Engine::ReplayDataClosure::onCommit(Transaction *transaction,
+		SequenceId sequence_id) {
+	Engine *engine = getEngine();
+
+	transaction->refIncrement();
+	p_sequenceable->sequence(sequence_id, transaction->mutations,
+			ASYNC_MEMBER(transaction, &Transaction::refDecrement));
+}
+
+void Engine::ReplayDataClosure::onSubmitted(TransactionId id,
+		Transaction *transaction) {
+	// ignore non-commited transactions
+}
 
 // --------------------------------------------------------
 // Engine::ProcessQueueClosure
@@ -472,8 +568,8 @@ void Engine::ProcessQueueClosure::process() {
 void Engine::ProcessQueueClosure::processSubmit() {
 	std::unique_lock<std::mutex> lock(p_engine->p_mutex);
 
-	auto transact_it = p_engine->p_openTransactions.find(p_queueItem.trid);
-	if(transact_it == p_engine->p_openTransactions.end())
+	auto transact_it = p_engine->p_activeTransactions.find(p_queueItem.trid);
+	if(transact_it == p_engine->p_activeTransactions.end())
 		throw std::runtime_error("Illegal transaction");
 	p_transaction = transact_it->second;
 
@@ -481,7 +577,7 @@ void Engine::ProcessQueueClosure::processSubmit() {
 
 	for(auto other_it = p_engine->p_submittedTransactions.begin();
 			other_it != p_engine->p_submittedTransactions.end(); ++other_it) {
-		Transaction *other = p_engine->p_openTransactions.at(*other_it);
+		Transaction *other = p_engine->p_activeTransactions.at(*other_it);
 
 		// check conflicts: other's mutation <-> tranasction's constraint
 		for(auto other_mutation_it = other->mutations.begin();
@@ -577,9 +673,9 @@ void Engine::ProcessQueueClosure::submitComplete() {
 void Engine::ProcessQueueClosure::submitFailure(SubmitError error) {
 	std::unique_lock<std::mutex> lock(p_engine->p_mutex);
 
-	auto iterator = p_engine->p_openTransactions.find(p_queueItem.trid);
-	assert(iterator != p_engine->p_openTransactions.end());
-	p_engine->p_openTransactions.erase(iterator);
+	auto iterator = p_engine->p_activeTransactions.find(p_queueItem.trid);
+	assert(iterator != p_engine->p_activeTransactions.end());
+	p_engine->p_activeTransactions.erase(iterator);
 
 	p_transaction->refDecrement();
 	
@@ -597,8 +693,8 @@ void Engine::ProcessQueueClosure::submitFailure(SubmitError error) {
 void Engine::ProcessQueueClosure::processCommit() {
 	std::unique_lock<std::mutex> lock(p_engine->p_mutex);
 
-	auto transact_it = p_engine->p_openTransactions.find(p_queueItem.trid);
-	if(transact_it == p_engine->p_openTransactions.end())
+	auto transact_it = p_engine->p_activeTransactions.find(p_queueItem.trid);
+	if(transact_it == p_engine->p_activeTransactions.end())
 		throw std::runtime_error("Illegal transaction");
 	p_transaction = transact_it->second;
 	
@@ -632,9 +728,9 @@ void Engine::ProcessQueueClosure::commitComplete() {
 	std::unique_lock<std::mutex> lock(p_engine->p_mutex);
 	
 	// commit always frees the transaction
-	auto open_iterator = p_engine->p_openTransactions.find(p_queueItem.trid);
-	assert(open_iterator != p_engine->p_openTransactions.end());
-	p_engine->p_openTransactions.erase(open_iterator);
+	auto open_iterator = p_engine->p_activeTransactions.find(p_queueItem.trid);
+	assert(open_iterator != p_engine->p_activeTransactions.end());
+	p_engine->p_activeTransactions.erase(open_iterator);
 
 	auto submit_iterator = std::find(p_engine->p_submittedTransactions.begin(),
 			p_engine->p_submittedTransactions.end(), p_queueItem.trid);
@@ -655,11 +751,11 @@ void Engine::ProcessQueueClosure::commitComplete() {
 void Engine::ProcessQueueClosure::processRollback() {
 	std::unique_lock<std::mutex> lock(p_engine->p_mutex);
 	
-	auto open_iterator = p_engine->p_openTransactions.find(p_queueItem.trid);
-	assert(open_iterator != p_engine->p_openTransactions.end());
+	auto open_iterator = p_engine->p_activeTransactions.find(p_queueItem.trid);
+	assert(open_iterator != p_engine->p_activeTransactions.end());
 	p_transaction = open_iterator->second;
 
-	p_engine->p_openTransactions.erase(open_iterator);
+	p_engine->p_activeTransactions.erase(open_iterator);
 
 	if(p_transaction->state == Transaction::kStateSubmitted) {
 		auto submit_iterator = std::find(p_engine->p_submittedTransactions.begin(),

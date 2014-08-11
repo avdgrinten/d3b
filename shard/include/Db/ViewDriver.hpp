@@ -28,7 +28,7 @@ enum QueryError {
 	kQuerySuccess = 1
 };
 
-class ViewDriver {
+class ViewDriver : public Sequenceable {
 public:
 	class Factory {
 	public:
@@ -51,10 +51,6 @@ public:
 
 	virtual void createView(const Proto::ViewConfig &config) = 0;
 	virtual void loadView() = 0;
-
-	virtual void sequence(SequenceId sequence_id,
-			std::vector<Mutation> &mutations,
-			Async::Callback<void()> callback) = 0;
 
 	virtual void query(QueryRequest *request,
 			Async::Callback<void(QueryData &)> report,

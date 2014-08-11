@@ -121,6 +121,8 @@ public:
 		void writeSync(const size_type size, const void *buffer);
 		void pwriteSync(const off_type position, const size_type size, const void *buffer);
 		void preadSync(const off_type position, const size_type size, void *buffer);
+		void seekTo(off_type position);
+		void seekEnd();
 		void fsyncSync();
 		void fdatasyncSync();
 		void closeSync();

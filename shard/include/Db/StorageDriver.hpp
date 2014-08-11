@@ -25,7 +25,7 @@ enum FetchError {
 	kFetchDocumentNotFound = 2
 };
 
-class StorageDriver {
+class StorageDriver : public Sequenceable {
 public:
 	class Factory {
 	public:
@@ -50,11 +50,6 @@ public:
 	// returns an unused and unique document id.
 	// must never return the same value more than once
 	virtual DocumentId allocate() = 0;
-
-	/* commits a transaction to the storage */
-	virtual void sequence(SequenceId sequence_id,
-			std::vector<Mutation> &mutations,
-			Async::Callback<void()> callback) = 0;
 
 	/* processes a query */
 	virtual void fetch(FetchRequest *fetch,

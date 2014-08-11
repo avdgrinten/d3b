@@ -52,6 +52,13 @@ DocumentId FlexStorage::allocate() {
 	return ++p_lastDocumentId;
 }
 
+void FlexStorage::reinspect(Mutation &mutation) {
+	if(mutation.type == Mutation::kTypeInsert) {
+		if(p_lastDocumentId < mutation.documentId)
+			p_lastDocumentId = mutation.documentId;
+	}
+}
+
 void FlexStorage::processInsert(SequenceId sequence_id,
 		Mutation &mutation, Async::Callback<void(Error)> callback) {
 	auto closure = new InsertClosure(this, mutation.documentId,

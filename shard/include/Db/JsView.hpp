@@ -22,6 +22,8 @@ public:
 	virtual void createView(const Proto::ViewConfig &config);
 	virtual void loadView();
 	
+	virtual void reinspect(Mutation &mutation);
+	
 protected:
 	virtual void processInsert(SequenceId sequence_id,
 			Mutation &mutation, Async::Callback<void(Error)> callback);

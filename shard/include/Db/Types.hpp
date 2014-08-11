@@ -29,5 +29,18 @@ struct Constraint {
 	bool matchSequenceId;
 };
 
+class Sequenceable {
+public:
+	// inspect a mutation that is replayed.
+	// the primary use of this function is that storages
+	// can make sure that no document id is allocated twice,
+	// even if the server crashed
+	virtual void reinspect(Mutation &mutation) = 0;
+
+	virtual void sequence(SequenceId sequence_id,
+			std::vector<Mutation> &mutations,
+			Async::Callback<void()> callback) = 0;
+};
+
 }
 

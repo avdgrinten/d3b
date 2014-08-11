@@ -63,6 +63,15 @@ void Linux::File::preadSync(Linux::off_type offset,
 		throw std::runtime_error("pread() failed");
 }
 
+void Linux::File::seekTo(Linux::off_type position) {
+	if(lseek(p_fileFd, position, SEEK_SET) == (off_t)(-1))
+		throw std::runtime_error("lseek() failed");
+}
+void Linux::File::seekEnd() {
+	if(lseek(p_fileFd, 0, SEEK_END) == (off_t)(-1))
+		throw std::runtime_error("lseek() failed");
+}
+
 Linux::size_type Linux::File::lengthSync() {
 	struct stat result;
 	if(fstat(p_fileFd, &result) == -1)

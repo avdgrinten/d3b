@@ -93,6 +93,10 @@ void JsView::loadView() {
 	processQueue();
 }
 
+void JsView::reinspect(Mutation &mutation) {
+	// we don't have to do anything here
+}
+
 void JsView::processInsert(SequenceId sequence_id,
 		Mutation &mutation, Async::Callback<void(Error)> callback) {
 	if(mutation.storageIndex != p_storage) {

@@ -112,11 +112,11 @@ private:
 		
 		void refIncrement();
 		void refDecrement();
-		
-		State state;
 
 		std::vector<Mutation> mutations;
 		std::vector<Constraint> constraints;
+		
+		State state;
 	private:
 		Transaction() : p_refCount(1) { }
 
@@ -141,7 +141,7 @@ private:
 
 	TransactionId p_nextTransactId;
 	SequenceId p_currentSequenceId;
-	std::unordered_map<TransactionId, Transaction *> p_openTransactions;
+	std::unordered_map<TransactionId, Transaction *> p_activeTransactions;
 	std::vector<TransactionId> p_submittedTransactions;
 	std::mutex p_mutex;
 
@@ -189,13 +189,52 @@ private:
 		ReplayClosure(Engine *engine);
 		
 		void replay();
-
+		Engine *getEngine();
+	
+	protected:
+		// called for each transaction, even if it was rolled back
+		virtual void onTransaction(TransactionId id,
+				Transaction *transaction) = 0;
+		// called for transactions that have been submitted and comitted
+		virtual void onCommit(Transaction *transaction,
+				SequenceId sequence_id) = 0;
+		// called for transaction that have been submitted but not committed or rolled back
+		virtual void onSubmitted(TransactionId id, Transaction *transaction) = 0;
+		
 	private:
 		void onEntry(Proto::LogEntry &entry);
 
 		Engine *p_engine;
 
 		std::unordered_map<TransactionId, Transaction *> p_transactions;
+	};
+	
+	class ReplayMetaClosure : public ReplayClosure {
+	public:
+		ReplayMetaClosure(Engine *engine);
+
+	protected:
+		virtual void onTransaction(TransactionId id,
+				Transaction *transaction);
+		virtual void onCommit(Transaction *transaction,
+				SequenceId sequence_id);
+		virtual void onSubmitted(TransactionId id, Transaction *transaction);
+	};
+
+	class ReplayDataClosure : public ReplayClosure {
+	public:
+		ReplayDataClosure(Engine *engine,
+				Sequenceable *sequenceable);
+
+	protected:
+		virtual void onTransaction(TransactionId id,
+				Transaction *transaction);
+		virtual void onCommit(Transaction *transaction,
+				SequenceId sequence_id);
+		virtual void onSubmitted(TransactionId id, Transaction *transaction);
+	
+	private:
+		Sequenceable *p_sequenceable;
 	};
 };
 

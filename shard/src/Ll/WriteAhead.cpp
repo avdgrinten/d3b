@@ -30,9 +30,11 @@ void Ll::WriteAhead::createLog() {
 void Ll::WriteAhead::loadLog() {
 	std::string file_name = p_path + "/" + p_identifier + ".wal";
 	p_file->openSync(file_name, Linux::kFileRead | Linux::kFileWrite);
+	p_file->seekEnd();
 }
 
 void Ll::WriteAhead::replay(Async::Callback<void(Db::Proto::LogEntry &)> on_entry) {
+	p_file->seekTo(0);
 	Linux::size_type position = 0;
 	Linux::size_type length = p_file->lengthSync();
 	while(position < length) {
