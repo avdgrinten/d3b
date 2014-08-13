@@ -82,7 +82,8 @@ function insert(client, opts, callback) {
 	var req = client.request();
 	req.on('response', function(opcode, resp) {
 		if(opcode == d3b.ServerResponses.kSrFin) {
-			var result = { sequenceId: parseInt(resp.sequenceId) };
+			var result = { sequenceId: parseInt(resp.sequenceId),
+				documentId: resp.mutations[0].documentId };
 			callback(resp.error, result);
 			req.fin();
 		}else throw new Error("Unexpected response " + opcode);

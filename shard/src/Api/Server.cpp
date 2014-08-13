@@ -175,6 +175,8 @@ void Server::Connection::processMessage() {
 			postResponse(Proto::kSrFin, p_curPacket.seqNumber, response);
 			return;
 		}
+		
+		Proto::SrFin response;
 	
 		for(int i = 0; i < request.mutations_size(); i++) {
 			const Proto::Mutation &pb_mutation = request.mutations(i);
@@ -182,6 +184,9 @@ void Server::Connection::processMessage() {
 			Db::Mutation mutation;
 			parseMutation(mutation, pb_mutation);
 			engine->updateMutation(request.transaction_id(), mutation);
+
+			Proto::SrFin::MutationInfo *info = response.add_mutations();
+			info->set_document_id(mutation.documentId);
 		}
 		
 		for(int i = 0; i < request.constraints_size(); i++) {
@@ -192,7 +197,6 @@ void Server::Connection::processMessage() {
 			engine->updateConstraint(request.transaction_id(), constraint);
 		}
 
-		Proto::SrFin response;
 		response.set_error(Proto::kCodeSuccess);
 		postResponse(Proto::kSrFin, p_curPacket.seqNumber, response);
 	}else if(p_curPacket.opcode == Proto::kCqApply) {
@@ -429,6 +433,7 @@ void Server::ShortTransactClosure::execute(size_t packet_size, const void *packe
 		Db::Mutation mutation;
 		p_connection->parseMutation(mutation, pb_mutation);
 		p_engine->updateMutation(p_transactionId, mutation);
+		p_mutations.push_back(std::move(mutation));
 	}
 	
 	for(int i = 0; i < request.constraints_size(); i++) {
@@ -437,6 +442,7 @@ void Server::ShortTransactClosure::execute(size_t packet_size, const void *packe
 		Db::Constraint constraint;
 		p_connection->parseConstraint(constraint, pb_constraint);
 		p_engine->updateConstraint(p_transactionId, constraint);
+		p_constraints.push_back(std::move(constraint));
 	}
 
 	p_engine->submitCommit(p_transactionId,
@@ -447,6 +453,12 @@ void Server::ShortTransactClosure::onSubmitCommit(std::pair<Db::SubmitError, Db:
 		Proto::SrFin response;
 		response.set_error(Proto::kCodeSuccess);
 		response.set_sequence_id(result.second);
+
+		for(auto it = p_mutations.begin(); it != p_mutations.end(); ++it) {
+			Proto::SrFin::MutationInfo *info = response.add_mutations();
+			info->set_document_id(it->documentId);
+		}
+
 		p_connection->postResponse(Proto::kSrFin, p_responseId, response);
 		
 		delete this;

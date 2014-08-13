@@ -143,11 +143,18 @@ enum ServerResponses {
 }
 
 message SrFin {
+	message MutationInfo {
+		optional int64 document_id = 1;
+	}
+
 	optional ErrorCode error = 1;
+
 	// transaction id after creating a transaction
 	optional int64 transaction_id = 2;
 	// sequence id after committing a transaction
 	optional int64 sequence_id = 3;
+
+	repeated MutationInfo mutations = 4;
 }
 
 message SrRows {

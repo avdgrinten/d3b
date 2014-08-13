@@ -48,6 +48,7 @@ class CqUploadExtern;
 class CqDownloadExtern;
 class CqShutdown;
 class SrFin;
+class SrFin_MutationInfo;
 class SrRows;
 class SrBlob;
 
@@ -1420,6 +1421,75 @@ class CqShutdown : public ::google::protobuf::MessageLite {
 };
 // -------------------------------------------------------------------
 
+class SrFin_MutationInfo : public ::google::protobuf::MessageLite {
+ public:
+  SrFin_MutationInfo();
+  virtual ~SrFin_MutationInfo();
+  
+  SrFin_MutationInfo(const SrFin_MutationInfo& from);
+  
+  inline SrFin_MutationInfo& operator=(const SrFin_MutationInfo& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  
+  static const SrFin_MutationInfo& default_instance();
+  
+  void Swap(SrFin_MutationInfo* other);
+  
+  // implements Message ----------------------------------------------
+  
+  SrFin_MutationInfo* New() const;
+  void CheckTypeAndMergeFrom(const ::google::protobuf::MessageLite& from);
+  void CopyFrom(const SrFin_MutationInfo& from);
+  void MergeFrom(const SrFin_MutationInfo& from);
+  void Clear();
+  bool IsInitialized() const;
+  
+  int ByteSize() const;
+  bool MergePartialFromCodedStream(
+      ::google::protobuf::io::CodedInputStream* input);
+  void SerializeWithCachedSizes(
+      ::google::protobuf::io::CodedOutputStream* output) const;
+  int GetCachedSize() const { return _cached_size_; }
+  private:
+  void SharedCtor();
+  void SharedDtor();
+  void SetCachedSize(int size) const;
+  public:
+  
+  ::std::string GetTypeName() const;
+  
+  // nested types ----------------------------------------------------
+  
+  // accessors -------------------------------------------------------
+  
+  // optional int64 document_id = 1;
+  inline bool has_document_id() const;
+  inline void clear_document_id();
+  static const int kDocumentIdFieldNumber = 1;
+  inline ::google::protobuf::int64 document_id() const;
+  inline void set_document_id(::google::protobuf::int64 value);
+  
+  // @@protoc_insertion_point(class_scope:Api.Proto.SrFin.MutationInfo)
+ private:
+  inline void set_has_document_id();
+  inline void clear_has_document_id();
+  
+  ::google::protobuf::int64 document_id_;
+  
+  mutable int _cached_size_;
+  ::google::protobuf::uint32 _has_bits_[(1 + 31) / 32];
+  
+  friend void  protobuf_AddDesc_proto_2fApi_2eproto();
+  friend void protobuf_AssignDesc_proto_2fApi_2eproto();
+  friend void protobuf_ShutdownFile_proto_2fApi_2eproto();
+  
+  void InitAsDefaultInstance();
+  static SrFin_MutationInfo* default_instance_;
+};
+// -------------------------------------------------------------------
+
 class SrFin : public ::google::protobuf::MessageLite {
  public:
   SrFin();
@@ -1461,6 +1531,8 @@ class SrFin : public ::google::protobuf::MessageLite {
   
   // nested types ----------------------------------------------------
   
+  typedef SrFin_MutationInfo MutationInfo;
+  
   // accessors -------------------------------------------------------
   
   // optional .Api.Proto.ErrorCode error = 1;
@@ -1484,6 +1556,18 @@ class SrFin : public ::google::protobuf::MessageLite {
   inline ::google::protobuf::int64 sequence_id() const;
   inline void set_sequence_id(::google::protobuf::int64 value);
   
+  // repeated .Api.Proto.SrFin.MutationInfo mutations = 4;
+  inline int mutations_size() const;
+  inline void clear_mutations();
+  static const int kMutationsFieldNumber = 4;
+  inline const ::Api::Proto::SrFin_MutationInfo& mutations(int index) const;
+  inline ::Api::Proto::SrFin_MutationInfo* mutable_mutations(int index);
+  inline ::Api::Proto::SrFin_MutationInfo* add_mutations();
+  inline const ::google::protobuf::RepeatedPtrField< ::Api::Proto::SrFin_MutationInfo >&
+      mutations() const;
+  inline ::google::protobuf::RepeatedPtrField< ::Api::Proto::SrFin_MutationInfo >*
+      mutable_mutations();
+  
   // @@protoc_insertion_point(class_scope:Api.Proto.SrFin)
  private:
   inline void set_has_error();
@@ -1495,10 +1579,11 @@ class SrFin : public ::google::protobuf::MessageLite {
   
   ::google::protobuf::int64 transaction_id_;
   ::google::protobuf::int64 sequence_id_;
+  ::google::protobuf::RepeatedPtrField< ::Api::Proto::SrFin_MutationInfo > mutations_;
   int error_;
   
   mutable int _cached_size_;
-  ::google::protobuf::uint32 _has_bits_[(3 + 31) / 32];
+  ::google::protobuf::uint32 _has_bits_[(4 + 31) / 32];
   
   friend void  protobuf_AddDesc_proto_2fApi_2eproto();
   friend void protobuf_AssignDesc_proto_2fApi_2eproto();
@@ -3056,6 +3141,32 @@ inline ::std::string* CqDownloadExtern::release_file_name() {
 
 // -------------------------------------------------------------------
 
+// SrFin_MutationInfo
+
+// optional int64 document_id = 1;
+inline bool SrFin_MutationInfo::has_document_id() const {
+  return (_has_bits_[0] & 0x00000001u) != 0;
+}
+inline void SrFin_MutationInfo::set_has_document_id() {
+  _has_bits_[0] |= 0x00000001u;
+}
+inline void SrFin_MutationInfo::clear_has_document_id() {
+  _has_bits_[0] &= ~0x00000001u;
+}
+inline void SrFin_MutationInfo::clear_document_id() {
+  document_id_ = GOOGLE_LONGLONG(0);
+  clear_has_document_id();
+}
+inline ::google::protobuf::int64 SrFin_MutationInfo::document_id() const {
+  return document_id_;
+}
+inline void SrFin_MutationInfo::set_document_id(::google::protobuf::int64 value) {
+  set_has_document_id();
+  document_id_ = value;
+}
+
+// -------------------------------------------------------------------
+
 // SrFin
 
 // optional .Api.Proto.ErrorCode error = 1;
@@ -3123,6 +3234,31 @@ inline ::google::protobuf::int64 SrFin::sequence_id() const {
 inline void SrFin::set_sequence_id(::google::protobuf::int64 value) {
   set_has_sequence_id();
   sequence_id_ = value;
+}
+
+// repeated .Api.Proto.SrFin.MutationInfo mutations = 4;
+inline int SrFin::mutations_size() const {
+  return mutations_.size();
+}
+inline void SrFin::clear_mutations() {
+  mutations_.Clear();
+}
+inline const ::Api::Proto::SrFin_MutationInfo& SrFin::mutations(int index) const {
+  return mutations_.Get(index);
+}
+inline ::Api::Proto::SrFin_MutationInfo* SrFin::mutable_mutations(int index) {
+  return mutations_.Mutable(index);
+}
+inline ::Api::Proto::SrFin_MutationInfo* SrFin::add_mutations() {
+  return mutations_.Add();
+}
+inline const ::google::protobuf::RepeatedPtrField< ::Api::Proto::SrFin_MutationInfo >&
+SrFin::mutations() const {
+  return mutations_;
+}
+inline ::google::protobuf::RepeatedPtrField< ::Api::Proto::SrFin_MutationInfo >*
+SrFin::mutable_mutations() {
+  return &mutations_;
 }
 
 // -------------------------------------------------------------------

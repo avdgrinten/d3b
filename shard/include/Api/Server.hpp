@@ -117,6 +117,8 @@ private:
 		ResponseId p_responseId;
 
 		Db::TransactionId p_transactionId;
+		std::vector<Db::Mutation> p_mutations;
+		std::vector<Db::Constraint> p_constraints;
 	};
 	
 	class ApplyClosure {

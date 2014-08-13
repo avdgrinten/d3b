@@ -29,6 +29,7 @@ void protobuf_ShutdownFile_proto_2fApi_2eproto() {
   delete CqDownloadExtern::default_instance_;
   delete CqShutdown::default_instance_;
   delete SrFin::default_instance_;
+  delete SrFin_MutationInfo::default_instance_;
   delete SrRows::default_instance_;
   delete SrBlob::default_instance_;
 }
@@ -55,6 +56,7 @@ void protobuf_AddDesc_proto_2fApi_2eproto() {
   CqDownloadExtern::default_instance_ = new CqDownloadExtern();
   CqShutdown::default_instance_ = new CqShutdown();
   SrFin::default_instance_ = new SrFin();
+  SrFin_MutationInfo::default_instance_ = new SrFin_MutationInfo();
   SrRows::default_instance_ = new SrRows();
   SrBlob::default_instance_ = new SrBlob();
   Mutation::default_instance_->InitAsDefaultInstance();
@@ -72,6 +74,7 @@ void protobuf_AddDesc_proto_2fApi_2eproto() {
   CqDownloadExtern::default_instance_->InitAsDefaultInstance();
   CqShutdown::default_instance_->InitAsDefaultInstance();
   SrFin::default_instance_->InitAsDefaultInstance();
+  SrFin_MutationInfo::default_instance_->InitAsDefaultInstance();
   SrRows::default_instance_->InitAsDefaultInstance();
   SrBlob::default_instance_->InitAsDefaultInstance();
   ::google::protobuf::internal::OnShutdown(&protobuf_ShutdownFile_proto_2fApi_2eproto);
@@ -3173,9 +3176,168 @@ void CqShutdown::Swap(CqShutdown* other) {
 // ===================================================================
 
 #ifndef _MSC_VER
+const int SrFin_MutationInfo::kDocumentIdFieldNumber;
+#endif  // !_MSC_VER
+
+SrFin_MutationInfo::SrFin_MutationInfo()
+  : ::google::protobuf::MessageLite() {
+  SharedCtor();
+}
+
+void SrFin_MutationInfo::InitAsDefaultInstance() {
+}
+
+SrFin_MutationInfo::SrFin_MutationInfo(const SrFin_MutationInfo& from)
+  : ::google::protobuf::MessageLite() {
+  SharedCtor();
+  MergeFrom(from);
+}
+
+void SrFin_MutationInfo::SharedCtor() {
+  _cached_size_ = 0;
+  document_id_ = GOOGLE_LONGLONG(0);
+  ::memset(_has_bits_, 0, sizeof(_has_bits_));
+}
+
+SrFin_MutationInfo::~SrFin_MutationInfo() {
+  SharedDtor();
+}
+
+void SrFin_MutationInfo::SharedDtor() {
+  if (this != default_instance_) {
+  }
+}
+
+void SrFin_MutationInfo::SetCachedSize(int size) const {
+  GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
+  _cached_size_ = size;
+  GOOGLE_SAFE_CONCURRENT_WRITES_END();
+}
+const SrFin_MutationInfo& SrFin_MutationInfo::default_instance() {
+  if (default_instance_ == NULL) protobuf_AddDesc_proto_2fApi_2eproto();  return *default_instance_;
+}
+
+SrFin_MutationInfo* SrFin_MutationInfo::default_instance_ = NULL;
+
+SrFin_MutationInfo* SrFin_MutationInfo::New() const {
+  return new SrFin_MutationInfo;
+}
+
+void SrFin_MutationInfo::Clear() {
+  if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
+    document_id_ = GOOGLE_LONGLONG(0);
+  }
+  ::memset(_has_bits_, 0, sizeof(_has_bits_));
+}
+
+bool SrFin_MutationInfo::MergePartialFromCodedStream(
+    ::google::protobuf::io::CodedInputStream* input) {
+#define DO_(EXPRESSION) if (!(EXPRESSION)) return false
+  ::google::protobuf::uint32 tag;
+  while ((tag = input->ReadTag()) != 0) {
+    switch (::google::protobuf::internal::WireFormatLite::GetTagFieldNumber(tag)) {
+      // optional int64 document_id = 1;
+      case 1: {
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT) {
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   ::google::protobuf::int64, ::google::protobuf::internal::WireFormatLite::TYPE_INT64>(
+                 input, &document_id_)));
+          set_has_document_id();
+        } else {
+          goto handle_uninterpreted;
+        }
+        if (input->ExpectAtEnd()) return true;
+        break;
+      }
+      
+      default: {
+      handle_uninterpreted:
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_END_GROUP) {
+          return true;
+        }
+        DO_(::google::protobuf::internal::WireFormatLite::SkipField(input, tag));
+        break;
+      }
+    }
+  }
+  return true;
+#undef DO_
+}
+
+void SrFin_MutationInfo::SerializeWithCachedSizes(
+    ::google::protobuf::io::CodedOutputStream* output) const {
+  // optional int64 document_id = 1;
+  if (has_document_id()) {
+    ::google::protobuf::internal::WireFormatLite::WriteInt64(1, this->document_id(), output);
+  }
+  
+}
+
+int SrFin_MutationInfo::ByteSize() const {
+  int total_size = 0;
+  
+  if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
+    // optional int64 document_id = 1;
+    if (has_document_id()) {
+      total_size += 1 +
+        ::google::protobuf::internal::WireFormatLite::Int64Size(
+          this->document_id());
+    }
+    
+  }
+  GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
+  _cached_size_ = total_size;
+  GOOGLE_SAFE_CONCURRENT_WRITES_END();
+  return total_size;
+}
+
+void SrFin_MutationInfo::CheckTypeAndMergeFrom(
+    const ::google::protobuf::MessageLite& from) {
+  MergeFrom(*::google::protobuf::down_cast<const SrFin_MutationInfo*>(&from));
+}
+
+void SrFin_MutationInfo::MergeFrom(const SrFin_MutationInfo& from) {
+  GOOGLE_CHECK_NE(&from, this);
+  if (from._has_bits_[0 / 32] & (0xffu << (0 % 32))) {
+    if (from.has_document_id()) {
+      set_document_id(from.document_id());
+    }
+  }
+}
+
+void SrFin_MutationInfo::CopyFrom(const SrFin_MutationInfo& from) {
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+bool SrFin_MutationInfo::IsInitialized() const {
+  
+  return true;
+}
+
+void SrFin_MutationInfo::Swap(SrFin_MutationInfo* other) {
+  if (other != this) {
+    std::swap(document_id_, other->document_id_);
+    std::swap(_has_bits_[0], other->_has_bits_[0]);
+    std::swap(_cached_size_, other->_cached_size_);
+  }
+}
+
+::std::string SrFin_MutationInfo::GetTypeName() const {
+  return "Api.Proto.SrFin.MutationInfo";
+}
+
+
+// -------------------------------------------------------------------
+
+#ifndef _MSC_VER
 const int SrFin::kErrorFieldNumber;
 const int SrFin::kTransactionIdFieldNumber;
 const int SrFin::kSequenceIdFieldNumber;
+const int SrFin::kMutationsFieldNumber;
 #endif  // !_MSC_VER
 
 SrFin::SrFin()
@@ -3230,6 +3392,7 @@ void SrFin::Clear() {
     transaction_id_ = GOOGLE_LONGLONG(0);
     sequence_id_ = GOOGLE_LONGLONG(0);
   }
+  mutations_.Clear();
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
 }
 
@@ -3285,6 +3448,21 @@ bool SrFin::MergePartialFromCodedStream(
         } else {
           goto handle_uninterpreted;
         }
+        if (input->ExpectTag(34)) goto parse_mutations;
+        break;
+      }
+      
+      // repeated .Api.Proto.SrFin.MutationInfo mutations = 4;
+      case 4: {
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_LENGTH_DELIMITED) {
+         parse_mutations:
+          DO_(::google::protobuf::internal::WireFormatLite::ReadMessageNoVirtual(
+                input, add_mutations()));
+        } else {
+          goto handle_uninterpreted;
+        }
+        if (input->ExpectTag(34)) goto parse_mutations;
         if (input->ExpectAtEnd()) return true;
         break;
       }
@@ -3322,6 +3500,12 @@ void SrFin::SerializeWithCachedSizes(
     ::google::protobuf::internal::WireFormatLite::WriteInt64(3, this->sequence_id(), output);
   }
   
+  // repeated .Api.Proto.SrFin.MutationInfo mutations = 4;
+  for (int i = 0; i < this->mutations_size(); i++) {
+    ::google::protobuf::internal::WireFormatLite::WriteMessage(
+      4, this->mutations(i), output);
+  }
+  
 }
 
 int SrFin::ByteSize() const {
@@ -3349,6 +3533,14 @@ int SrFin::ByteSize() const {
     }
     
   }
+  // repeated .Api.Proto.SrFin.MutationInfo mutations = 4;
+  total_size += 1 * this->mutations_size();
+  for (int i = 0; i < this->mutations_size(); i++) {
+    total_size +=
+      ::google::protobuf::internal::WireFormatLite::MessageSizeNoVirtual(
+        this->mutations(i));
+  }
+  
   GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
   _cached_size_ = total_size;
   GOOGLE_SAFE_CONCURRENT_WRITES_END();
@@ -3362,6 +3554,7 @@ void SrFin::CheckTypeAndMergeFrom(
 
 void SrFin::MergeFrom(const SrFin& from) {
   GOOGLE_CHECK_NE(&from, this);
+  mutations_.MergeFrom(from.mutations_);
   if (from._has_bits_[0 / 32] & (0xffu << (0 % 32))) {
     if (from.has_error()) {
       set_error(from.error());
@@ -3391,6 +3584,7 @@ void SrFin::Swap(SrFin* other) {
     std::swap(error_, other->error_);
     std::swap(transaction_id_, other->transaction_id_);
     std::swap(sequence_id_, other->sequence_id_);
+    mutations_.Swap(&other->mutations_);
     std::swap(_has_bits_[0], other->_has_bits_[0]);
     std::swap(_cached_size_, other->_cached_size_);
   }
