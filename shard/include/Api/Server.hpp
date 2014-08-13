@@ -83,6 +83,24 @@ private:
 	Ll::TlsServer p_tlsServer;
 
 	Async::Callback<void()> p_shutdownCallback;
+	
+	class FetchClosure {
+	public:
+		FetchClosure(Db::Engine *engine, Connection *connection,
+				ResponseId response_id);
+		
+		void execute(size_t packet_size, const void *packet_buffer);
+
+	private:
+		void onData(Db::FetchData &data);
+		void complete(Db::FetchError error);
+
+		Db::Engine *p_engine;
+		Connection *p_connection;
+		ResponseId p_responseId;
+
+		Db::FetchRequest p_request;
+	};
 
 	class QueryClosure {
 	public:
@@ -99,7 +117,7 @@ private:
 		Connection *p_connection;
 		ResponseId p_responseId;
 
-		Db::QueryRequest p_query;
+		Db::QueryRequest p_request;
 	};
 
 	class ShortTransactClosure {

@@ -13,6 +13,8 @@ testInsert: function(test) {
 		data.push('item #' + i);
 	}
 
+	var document_ids = [ ];
+
 	async.series([
 		function(callback) {
 			instance = new common.D3bInstance();
@@ -25,46 +27,38 @@ testInsert: function(test) {
 			});
 		},
 		function(callback) {
-			var file = require('fs').readFileSync('tests/views/simple-view.js');
-			d3bUtil.uploadExtern(client, { fileName: 'simple-view.js',
-					buffer: file }, function() {
-				callback();
-			});
-		},
-		function(callback) {
 			d3bUtil.createStorage(client, { driver: 'FlexStorage',
 					identifier: 'test-storage' }, function() {
 				callback();
 			});
 		},
 		function(callback) {
-			d3bUtil.createView(client, { driver: 'JsView',
-					identifier: 'test-view', baseStorage: 'test-storage',
-					scriptFile: 'simple-view.js' }, function() {
-				callback();
-			});
-		},
-		function(callback) {
 			async.each(data, function(item, callback) {
 				d3bUtil.insert(client, { storageName: 'test-storage',
-						buffer: item }, function(error) {
+						buffer: item }, function(error, result) {
 					test.equal(error, 'kCodeSuccess');
+					document_ids.push(result.documentId);
 					callback();
 				});
 			}, callback);
 		},
 		function(callback) {
-			var retrieved = [ ];
-			d3bUtil.query(client, { viewName: 'test-view' },
-				function(row) {
-					retrieved.push(JSON.parse(row).buffer);
-				}, function(error) {
-					test.equal(error, 'kCodeSuccess');
-					test.equal(retrieved.length, data.length);
-					for(var i = 0; i < data.length; i++)
-						test.equal(retrieved[i], data[i]);
-					callback();
-				});
+			var retrieved = new Array(document_ids.length);
+			async.times(document_ids.length, function(i, callback) {
+				d3bUtil.fetch(client, { storageName: 'test-storage',
+						documentId: document_ids[i] },
+					function(data) {
+						retrieved[i] = data.buffer;
+					}, function(error) {
+						test.equal(error, 'kCodeSuccess');
+						callback();
+					});
+			}, function() {
+				test.equal(retrieved.length, data.length);
+				for(var i = 0; i < data.length; i++)
+					test.equal(retrieved[i], data[i]);
+				callback();
+			});
 		},
 		function(callback) {
 			client.close(callback);

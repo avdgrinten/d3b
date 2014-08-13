@@ -109,6 +109,23 @@ function modify(client, opts, callback) {
 			documentId: opts.id, mustExist: true } ] });
 }
 
+function fetch(client, opts, on_data, callback) {
+	var req = client.request();
+	req.on('response', function(opcode, resp) {
+		if(opcode == d3b.ServerResponses.kSrFin) {
+			callback(resp.error);
+			req.fin();
+		}else if(opcode == d3b.ServerResponses.kSrBlob) {
+			on_data(resp);
+		}else throw new Error("Unexpected response " + opcode);
+	});
+	var message = { storageName: opts.storageName,
+			documentId: opts.documentId };
+	if(opts.sequenceId)
+		message.sequenceId = opts.sequenceId;
+	req.send(d3b.ClientRequests.kCqFetch, message);
+}
+
 function query(client, opts, row_handler, callback) {
 	var req = client.request();
 	req.on('response', function(opcode, resp) {
@@ -176,6 +193,7 @@ module.exports.uploadExtern = uploadExtern;
 module.exports.downloadExtern = downloadExtern;
 module.exports.insert = insert;
 module.exports.modify = modify;
+module.exports.fetch = fetch;
 module.exports.query = query;
 module.exports.transaction = transaction;
 module.exports.update = update;

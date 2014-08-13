@@ -35,6 +35,7 @@ void protobuf_ShutdownFile_proto_2fApi_2eproto();
 
 class Mutation;
 class Constraint;
+class CqFetch;
 class CqQuery;
 class CqShortTransact;
 class CqTransaction;
@@ -101,11 +102,12 @@ const ErrorCode ErrorCode_MAX = kCodeIllegalView;
 const int ErrorCode_ARRAYSIZE = ErrorCode_MAX + 1;
 
 enum ClientRequests {
-  kCqQuery = 1,
-  kCqShortTransact = 2,
-  kCqTransaction = 3,
-  kCqUpdate = 4,
-  kCqApply = 5,
+  kCqFetch = 1,
+  kCqQuery = 2,
+  kCqShortTransact = 3,
+  kCqTransaction = 4,
+  kCqUpdate = 5,
+  kCqApply = 6,
   kCqCreateStorage = 256,
   kCqCreateView = 257,
   kCqUnlinkStorage = 258,
@@ -115,7 +117,7 @@ enum ClientRequests {
   kCqShutdown = 262
 };
 bool ClientRequests_IsValid(int value);
-const ClientRequests ClientRequests_MIN = kCqQuery;
+const ClientRequests ClientRequests_MIN = kCqFetch;
 const ClientRequests ClientRequests_MAX = kCqShutdown;
 const int ClientRequests_ARRAYSIZE = ClientRequests_MAX + 1;
 
@@ -385,6 +387,99 @@ class Constraint : public ::google::protobuf::MessageLite {
   
   void InitAsDefaultInstance();
   static Constraint* default_instance_;
+};
+// -------------------------------------------------------------------
+
+class CqFetch : public ::google::protobuf::MessageLite {
+ public:
+  CqFetch();
+  virtual ~CqFetch();
+  
+  CqFetch(const CqFetch& from);
+  
+  inline CqFetch& operator=(const CqFetch& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  
+  static const CqFetch& default_instance();
+  
+  void Swap(CqFetch* other);
+  
+  // implements Message ----------------------------------------------
+  
+  CqFetch* New() const;
+  void CheckTypeAndMergeFrom(const ::google::protobuf::MessageLite& from);
+  void CopyFrom(const CqFetch& from);
+  void MergeFrom(const CqFetch& from);
+  void Clear();
+  bool IsInitialized() const;
+  
+  int ByteSize() const;
+  bool MergePartialFromCodedStream(
+      ::google::protobuf::io::CodedInputStream* input);
+  void SerializeWithCachedSizes(
+      ::google::protobuf::io::CodedOutputStream* output) const;
+  int GetCachedSize() const { return _cached_size_; }
+  private:
+  void SharedCtor();
+  void SharedDtor();
+  void SetCachedSize(int size) const;
+  public:
+  
+  ::std::string GetTypeName() const;
+  
+  // nested types ----------------------------------------------------
+  
+  // accessors -------------------------------------------------------
+  
+  // optional string storage_name = 1;
+  inline bool has_storage_name() const;
+  inline void clear_storage_name();
+  static const int kStorageNameFieldNumber = 1;
+  inline const ::std::string& storage_name() const;
+  inline void set_storage_name(const ::std::string& value);
+  inline void set_storage_name(const char* value);
+  inline void set_storage_name(const char* value, size_t size);
+  inline ::std::string* mutable_storage_name();
+  inline ::std::string* release_storage_name();
+  
+  // optional int64 sequence_id = 2;
+  inline bool has_sequence_id() const;
+  inline void clear_sequence_id();
+  static const int kSequenceIdFieldNumber = 2;
+  inline ::google::protobuf::int64 sequence_id() const;
+  inline void set_sequence_id(::google::protobuf::int64 value);
+  
+  // optional int64 document_id = 3;
+  inline bool has_document_id() const;
+  inline void clear_document_id();
+  static const int kDocumentIdFieldNumber = 3;
+  inline ::google::protobuf::int64 document_id() const;
+  inline void set_document_id(::google::protobuf::int64 value);
+  
+  // @@protoc_insertion_point(class_scope:Api.Proto.CqFetch)
+ private:
+  inline void set_has_storage_name();
+  inline void clear_has_storage_name();
+  inline void set_has_sequence_id();
+  inline void clear_has_sequence_id();
+  inline void set_has_document_id();
+  inline void clear_has_document_id();
+  
+  ::std::string* storage_name_;
+  ::google::protobuf::int64 sequence_id_;
+  ::google::protobuf::int64 document_id_;
+  
+  mutable int _cached_size_;
+  ::google::protobuf::uint32 _has_bits_[(3 + 31) / 32];
+  
+  friend void  protobuf_AddDesc_proto_2fApi_2eproto();
+  friend void protobuf_AssignDesc_proto_2fApi_2eproto();
+  friend void protobuf_ShutdownFile_proto_2fApi_2eproto();
+  
+  void InitAsDefaultInstance();
+  static CqFetch* default_instance_;
 };
 // -------------------------------------------------------------------
 
@@ -2080,6 +2175,112 @@ inline bool Constraint::match_sequence_id() const {
 inline void Constraint::set_match_sequence_id(bool value) {
   set_has_match_sequence_id();
   match_sequence_id_ = value;
+}
+
+// -------------------------------------------------------------------
+
+// CqFetch
+
+// optional string storage_name = 1;
+inline bool CqFetch::has_storage_name() const {
+  return (_has_bits_[0] & 0x00000001u) != 0;
+}
+inline void CqFetch::set_has_storage_name() {
+  _has_bits_[0] |= 0x00000001u;
+}
+inline void CqFetch::clear_has_storage_name() {
+  _has_bits_[0] &= ~0x00000001u;
+}
+inline void CqFetch::clear_storage_name() {
+  if (storage_name_ != &::google::protobuf::internal::kEmptyString) {
+    storage_name_->clear();
+  }
+  clear_has_storage_name();
+}
+inline const ::std::string& CqFetch::storage_name() const {
+  return *storage_name_;
+}
+inline void CqFetch::set_storage_name(const ::std::string& value) {
+  set_has_storage_name();
+  if (storage_name_ == &::google::protobuf::internal::kEmptyString) {
+    storage_name_ = new ::std::string;
+  }
+  storage_name_->assign(value);
+}
+inline void CqFetch::set_storage_name(const char* value) {
+  set_has_storage_name();
+  if (storage_name_ == &::google::protobuf::internal::kEmptyString) {
+    storage_name_ = new ::std::string;
+  }
+  storage_name_->assign(value);
+}
+inline void CqFetch::set_storage_name(const char* value, size_t size) {
+  set_has_storage_name();
+  if (storage_name_ == &::google::protobuf::internal::kEmptyString) {
+    storage_name_ = new ::std::string;
+  }
+  storage_name_->assign(reinterpret_cast<const char*>(value), size);
+}
+inline ::std::string* CqFetch::mutable_storage_name() {
+  set_has_storage_name();
+  if (storage_name_ == &::google::protobuf::internal::kEmptyString) {
+    storage_name_ = new ::std::string;
+  }
+  return storage_name_;
+}
+inline ::std::string* CqFetch::release_storage_name() {
+  clear_has_storage_name();
+  if (storage_name_ == &::google::protobuf::internal::kEmptyString) {
+    return NULL;
+  } else {
+    ::std::string* temp = storage_name_;
+    storage_name_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
+    return temp;
+  }
+}
+
+// optional int64 sequence_id = 2;
+inline bool CqFetch::has_sequence_id() const {
+  return (_has_bits_[0] & 0x00000002u) != 0;
+}
+inline void CqFetch::set_has_sequence_id() {
+  _has_bits_[0] |= 0x00000002u;
+}
+inline void CqFetch::clear_has_sequence_id() {
+  _has_bits_[0] &= ~0x00000002u;
+}
+inline void CqFetch::clear_sequence_id() {
+  sequence_id_ = GOOGLE_LONGLONG(0);
+  clear_has_sequence_id();
+}
+inline ::google::protobuf::int64 CqFetch::sequence_id() const {
+  return sequence_id_;
+}
+inline void CqFetch::set_sequence_id(::google::protobuf::int64 value) {
+  set_has_sequence_id();
+  sequence_id_ = value;
+}
+
+// optional int64 document_id = 3;
+inline bool CqFetch::has_document_id() const {
+  return (_has_bits_[0] & 0x00000004u) != 0;
+}
+inline void CqFetch::set_has_document_id() {
+  _has_bits_[0] |= 0x00000004u;
+}
+inline void CqFetch::clear_has_document_id() {
+  _has_bits_[0] &= ~0x00000004u;
+}
+inline void CqFetch::clear_document_id() {
+  document_id_ = GOOGLE_LONGLONG(0);
+  clear_has_document_id();
+}
+inline ::google::protobuf::int64 CqFetch::document_id() const {
+  return document_id_;
+}
+inline void CqFetch::set_document_id(::google::protobuf::int64 value) {
+  set_has_document_id();
+  document_id_ = value;
 }
 
 // -------------------------------------------------------------------

@@ -51,11 +51,12 @@ message Constraint {
 // -----------------------------------------------------------
 
 enum ClientRequests {
-	kCqQuery = 1;
-	kCqShortTransact = 2;
-	kCqTransaction = 3;
-	kCqUpdate = 4;
-	kCqApply = 5;
+	kCqFetch = 1;
+	kCqQuery = 2;
+	kCqShortTransact = 3;
+	kCqTransaction = 4;
+	kCqUpdate = 5;
+	kCqApply = 6;
 
 	kCqCreateStorage = 256;
 	kCqCreateView = 257;
@@ -65,6 +66,12 @@ enum ClientRequests {
 	kCqUploadExtern = 260;
 	kCqDownloadExtern = 261;
 	kCqShutdown = 262;
+}
+
+message CqFetch {
+	optional string storage_name = 1;
+	optional int64 sequence_id = 2;
+	optional int64 document_id = 3;
 }
 
 message CqQuery {

@@ -11,11 +11,12 @@ var dirname = require('path').dirname(module.filename);
 var schema = new protobuf.Schema(fs.readFileSync(dirname + '/Api.desc'));
 
 var ClientRequests = {
-	kCqQuery: 1,
-	kCqShortTransact: 2,
-	kCqTransaction: 3,
-	kCqUpdate: 4,
-	kCqApply: 5,
+	kCqFetch: 1,
+	kCqQuery: 2,
+	kCqShortTransact: 3,
+	kCqTransaction: 4,
+	kCqUpdate: 5,
+	kCqApply: 6,
 
 	kCqCreateStorage: 256,
 	kCqCreateView: 257,
@@ -93,6 +94,8 @@ Client.prototype.p_onMessage = function() {
 Client.prototype.p_send = function(opcode, seq_number, request) {
 	var msg;
 	switch(opcode) {
+	case ClientRequests.kCqFetch:
+		msg = schema['Api.Proto.CqFetch']; break;
 	case ClientRequests.kCqQuery:
 		msg = schema['Api.Proto.CqQuery']; break;
 	case ClientRequests.kCqShortTransact:

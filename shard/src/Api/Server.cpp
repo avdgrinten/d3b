@@ -146,7 +146,10 @@ void Server::Connection::processMessage() {
 	//std::cout << "Message: " << p_curPacket.opcode << std::endl;
 
 	Db::Engine *engine = p_server->getEngine();
-	if(p_curPacket.opcode == Proto::kCqQuery) {
+	if(p_curPacket.opcode == Proto::kCqFetch) {
+		auto closure = new FetchClosure(engine, this, p_curPacket.seqNumber);
+		closure->execute(p_curPacket.length, p_bodyBuffer);
+	}else if(p_curPacket.opcode == Proto::kCqQuery) {
 		auto closure = new QueryClosure(engine, this, p_curPacket.seqNumber);
 		closure->execute(p_curPacket.length, p_bodyBuffer);
 	}else if(p_curPacket.opcode == Proto::kCqShortTransact) {
@@ -352,6 +355,50 @@ void Server::p_onConnect(Linux::SockStream *stream) {
 }
 
 // --------------------------------------------------------
+// FetchClosure
+// --------------------------------------------------------
+
+Server::FetchClosure::FetchClosure(Db::Engine *engine, Connection *connection,
+		ResponseId response_id)
+	: p_engine(engine), p_connection(connection), p_responseId(response_id) { }
+
+void Server::FetchClosure::execute(size_t packet_size, const void *packet_buffer) {
+	Proto::CqFetch request;
+	if(!request.ParseFromArray(packet_buffer, packet_size)) {
+		Proto::SrFin response;
+		response.set_error(Proto::kCodeParseError);
+		p_connection->postResponse(Proto::kSrFin, p_responseId, response);
+		
+		delete this;
+		return;
+	}
+	
+	p_request.storageIndex = p_engine->getStorage(request.storage_name());
+	p_request.documentId = request.document_id();
+	if(request.has_sequence_id()) {
+		p_request.sequenceId = request.sequence_id();
+	}else{
+		p_request.sequenceId = p_engine->currentSequenceId();
+	}
+	p_engine->fetch(&p_request, ASYNC_MEMBER(this, &FetchClosure::onData),
+			ASYNC_MEMBER(this, &FetchClosure::complete));
+}
+void Server::FetchClosure::onData(Db::FetchData &data) {
+	Proto::SrBlob response;
+	response.set_buffer(data.buffer);
+	p_connection->postResponse(Proto::kSrBlob, p_responseId, response);
+}
+void Server::FetchClosure::complete(Db::FetchError error) {
+	if(error == Db::kFetchSuccess) {
+		Proto::SrFin response;
+		response.set_error(Proto::kCodeSuccess);
+		p_connection->postResponse(Proto::kSrFin, p_responseId, response);
+	}else throw std::logic_error("Unexpected error during fetch");
+
+	delete this;
+}
+
+// --------------------------------------------------------
 // QueryClosure
 // --------------------------------------------------------
 
@@ -370,24 +417,24 @@ void Server::QueryClosure::execute(size_t packet_size, const void *packet_buffer
 		return;
 	}
 	
-	p_query.viewIndex = p_engine->getView(request.view_name());
+	p_request.viewIndex = p_engine->getView(request.view_name());
 	if(request.has_sequence_id()) {
-		p_query.sequenceId = request.sequence_id();
+		p_request.sequenceId = request.sequence_id();
 	}else{
-		p_query.sequenceId = p_engine->currentSequenceId();
+		p_request.sequenceId = p_engine->currentSequenceId();
 	}
 	if(request.has_from_key()) {
-		p_query.useFromKey = true;
-		p_query.fromKey = request.from_key();
+		p_request.useFromKey = true;
+		p_request.fromKey = request.from_key();
 	}
 	if(request.has_to_key()) {
-		p_query.useFromKey = true;
-		p_query.fromKey = request.to_key();
+		p_request.useFromKey = true;
+		p_request.fromKey = request.to_key();
 	}
 	if(request.has_limit())
-		p_query.limit = request.limit();
+		p_request.limit = request.limit();
 
-	p_engine->query(&p_query, ASYNC_MEMBER(this, &QueryClosure::onData),
+	p_engine->query(&p_request, ASYNC_MEMBER(this, &QueryClosure::onData),
 			ASYNC_MEMBER(this, &QueryClosure::complete));
 }
 void Server::QueryClosure::onData(Db::QueryData &rows) {

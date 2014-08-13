@@ -16,6 +16,7 @@ namespace Proto {
 void protobuf_ShutdownFile_proto_2fApi_2eproto() {
   delete Mutation::default_instance_;
   delete Constraint::default_instance_;
+  delete CqFetch::default_instance_;
   delete CqQuery::default_instance_;
   delete CqShortTransact::default_instance_;
   delete CqTransaction::default_instance_;
@@ -43,6 +44,7 @@ void protobuf_AddDesc_proto_2fApi_2eproto() {
   ::Db::Proto::protobuf_AddDesc_proto_2fConfig_2eproto();
   Mutation::default_instance_ = new Mutation();
   Constraint::default_instance_ = new Constraint();
+  CqFetch::default_instance_ = new CqFetch();
   CqQuery::default_instance_ = new CqQuery();
   CqShortTransact::default_instance_ = new CqShortTransact();
   CqTransaction::default_instance_ = new CqTransaction();
@@ -61,6 +63,7 @@ void protobuf_AddDesc_proto_2fApi_2eproto() {
   SrBlob::default_instance_ = new SrBlob();
   Mutation::default_instance_->InitAsDefaultInstance();
   Constraint::default_instance_->InitAsDefaultInstance();
+  CqFetch::default_instance_->InitAsDefaultInstance();
   CqQuery::default_instance_->InitAsDefaultInstance();
   CqShortTransact::default_instance_->InitAsDefaultInstance();
   CqTransaction::default_instance_->InitAsDefaultInstance();
@@ -112,6 +115,7 @@ bool ClientRequests_IsValid(int value) {
     case 3:
     case 4:
     case 5:
+    case 6:
     case 256:
     case 257:
     case 258:
@@ -786,6 +790,240 @@ void Constraint::Swap(Constraint* other) {
 
 ::std::string Constraint::GetTypeName() const {
   return "Api.Proto.Constraint";
+}
+
+
+// ===================================================================
+
+#ifndef _MSC_VER
+const int CqFetch::kStorageNameFieldNumber;
+const int CqFetch::kSequenceIdFieldNumber;
+const int CqFetch::kDocumentIdFieldNumber;
+#endif  // !_MSC_VER
+
+CqFetch::CqFetch()
+  : ::google::protobuf::MessageLite() {
+  SharedCtor();
+}
+
+void CqFetch::InitAsDefaultInstance() {
+}
+
+CqFetch::CqFetch(const CqFetch& from)
+  : ::google::protobuf::MessageLite() {
+  SharedCtor();
+  MergeFrom(from);
+}
+
+void CqFetch::SharedCtor() {
+  _cached_size_ = 0;
+  storage_name_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
+  sequence_id_ = GOOGLE_LONGLONG(0);
+  document_id_ = GOOGLE_LONGLONG(0);
+  ::memset(_has_bits_, 0, sizeof(_has_bits_));
+}
+
+CqFetch::~CqFetch() {
+  SharedDtor();
+}
+
+void CqFetch::SharedDtor() {
+  if (storage_name_ != &::google::protobuf::internal::kEmptyString) {
+    delete storage_name_;
+  }
+  if (this != default_instance_) {
+  }
+}
+
+void CqFetch::SetCachedSize(int size) const {
+  GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
+  _cached_size_ = size;
+  GOOGLE_SAFE_CONCURRENT_WRITES_END();
+}
+const CqFetch& CqFetch::default_instance() {
+  if (default_instance_ == NULL) protobuf_AddDesc_proto_2fApi_2eproto();  return *default_instance_;
+}
+
+CqFetch* CqFetch::default_instance_ = NULL;
+
+CqFetch* CqFetch::New() const {
+  return new CqFetch;
+}
+
+void CqFetch::Clear() {
+  if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
+    if (has_storage_name()) {
+      if (storage_name_ != &::google::protobuf::internal::kEmptyString) {
+        storage_name_->clear();
+      }
+    }
+    sequence_id_ = GOOGLE_LONGLONG(0);
+    document_id_ = GOOGLE_LONGLONG(0);
+  }
+  ::memset(_has_bits_, 0, sizeof(_has_bits_));
+}
+
+bool CqFetch::MergePartialFromCodedStream(
+    ::google::protobuf::io::CodedInputStream* input) {
+#define DO_(EXPRESSION) if (!(EXPRESSION)) return false
+  ::google::protobuf::uint32 tag;
+  while ((tag = input->ReadTag()) != 0) {
+    switch (::google::protobuf::internal::WireFormatLite::GetTagFieldNumber(tag)) {
+      // optional string storage_name = 1;
+      case 1: {
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_LENGTH_DELIMITED) {
+          DO_(::google::protobuf::internal::WireFormatLite::ReadString(
+                input, this->mutable_storage_name()));
+        } else {
+          goto handle_uninterpreted;
+        }
+        if (input->ExpectTag(16)) goto parse_sequence_id;
+        break;
+      }
+      
+      // optional int64 sequence_id = 2;
+      case 2: {
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT) {
+         parse_sequence_id:
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   ::google::protobuf::int64, ::google::protobuf::internal::WireFormatLite::TYPE_INT64>(
+                 input, &sequence_id_)));
+          set_has_sequence_id();
+        } else {
+          goto handle_uninterpreted;
+        }
+        if (input->ExpectTag(24)) goto parse_document_id;
+        break;
+      }
+      
+      // optional int64 document_id = 3;
+      case 3: {
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT) {
+         parse_document_id:
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   ::google::protobuf::int64, ::google::protobuf::internal::WireFormatLite::TYPE_INT64>(
+                 input, &document_id_)));
+          set_has_document_id();
+        } else {
+          goto handle_uninterpreted;
+        }
+        if (input->ExpectAtEnd()) return true;
+        break;
+      }
+      
+      default: {
+      handle_uninterpreted:
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_END_GROUP) {
+          return true;
+        }
+        DO_(::google::protobuf::internal::WireFormatLite::SkipField(input, tag));
+        break;
+      }
+    }
+  }
+  return true;
+#undef DO_
+}
+
+void CqFetch::SerializeWithCachedSizes(
+    ::google::protobuf::io::CodedOutputStream* output) const {
+  // optional string storage_name = 1;
+  if (has_storage_name()) {
+    ::google::protobuf::internal::WireFormatLite::WriteString(
+      1, this->storage_name(), output);
+  }
+  
+  // optional int64 sequence_id = 2;
+  if (has_sequence_id()) {
+    ::google::protobuf::internal::WireFormatLite::WriteInt64(2, this->sequence_id(), output);
+  }
+  
+  // optional int64 document_id = 3;
+  if (has_document_id()) {
+    ::google::protobuf::internal::WireFormatLite::WriteInt64(3, this->document_id(), output);
+  }
+  
+}
+
+int CqFetch::ByteSize() const {
+  int total_size = 0;
+  
+  if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
+    // optional string storage_name = 1;
+    if (has_storage_name()) {
+      total_size += 1 +
+        ::google::protobuf::internal::WireFormatLite::StringSize(
+          this->storage_name());
+    }
+    
+    // optional int64 sequence_id = 2;
+    if (has_sequence_id()) {
+      total_size += 1 +
+        ::google::protobuf::internal::WireFormatLite::Int64Size(
+          this->sequence_id());
+    }
+    
+    // optional int64 document_id = 3;
+    if (has_document_id()) {
+      total_size += 1 +
+        ::google::protobuf::internal::WireFormatLite::Int64Size(
+          this->document_id());
+    }
+    
+  }
+  GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
+  _cached_size_ = total_size;
+  GOOGLE_SAFE_CONCURRENT_WRITES_END();
+  return total_size;
+}
+
+void CqFetch::CheckTypeAndMergeFrom(
+    const ::google::protobuf::MessageLite& from) {
+  MergeFrom(*::google::protobuf::down_cast<const CqFetch*>(&from));
+}
+
+void CqFetch::MergeFrom(const CqFetch& from) {
+  GOOGLE_CHECK_NE(&from, this);
+  if (from._has_bits_[0 / 32] & (0xffu << (0 % 32))) {
+    if (from.has_storage_name()) {
+      set_storage_name(from.storage_name());
+    }
+    if (from.has_sequence_id()) {
+      set_sequence_id(from.sequence_id());
+    }
+    if (from.has_document_id()) {
+      set_document_id(from.document_id());
+    }
+  }
+}
+
+void CqFetch::CopyFrom(const CqFetch& from) {
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+bool CqFetch::IsInitialized() const {
+  
+  return true;
+}
+
+void CqFetch::Swap(CqFetch* other) {
+  if (other != this) {
+    std::swap(storage_name_, other->storage_name_);
+    std::swap(sequence_id_, other->sequence_id_);
+    std::swap(document_id_, other->document_id_);
+    std::swap(_has_bits_[0], other->_has_bits_[0]);
+    std::swap(_cached_size_, other->_cached_size_);
+  }
+}
+
+::std::string CqFetch::GetTypeName() const {
+  return "Api.Proto.CqFetch";
 }
 
 
