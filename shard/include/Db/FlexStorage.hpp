@@ -118,8 +118,6 @@ private:
 		Async::Callback<void(FetchError)> p_callback;
 
 		FetchData p_fetchData;
-		size_t p_fetchLength;
-		char *p_fetchBuffer;
 
 		Ll::RandomAccessFile::ReadClosure p_dataRead;
 		Btree<Index>::FindClosure p_btreeFind;

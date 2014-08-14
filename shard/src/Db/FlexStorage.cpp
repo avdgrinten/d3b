@@ -211,19 +211,16 @@ void FlexStorage::FetchClosure::onSeek() {
 	p_btreeIterate.getValue(&ref_buffer);
 
 	size_t offset = OS::unpackLe64(ref_buffer + Reference::kOffset);
-	p_fetchLength = OS::unpackLe64(ref_buffer + Reference::kLength);
+	size_t length = OS::unpackLe64(ref_buffer + Reference::kLength);
 	
 	p_fetchData.documentId = p_documentId;
 	p_fetchData.sequenceId = index.sequenceId;
+	p_fetchData.buffer.resize(length);
 
-	p_fetchBuffer = new char[p_fetchLength];
-	p_dataRead.read(offset, p_fetchLength, p_fetchBuffer,
+	p_dataRead.read(offset, length, &p_fetchData.buffer[0],
 			ASYNC_MEMBER(this, &FetchClosure::onDataRead));
 }
 void FlexStorage::FetchClosure::onDataRead() {
-	p_fetchData.buffer = std::string(p_fetchBuffer, p_fetchLength);
-	delete[] p_fetchBuffer;
-
 	p_onData(p_fetchData);
 
 	p_callback(kFetchSuccess);
