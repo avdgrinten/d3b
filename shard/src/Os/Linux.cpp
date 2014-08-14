@@ -303,10 +303,10 @@ std::string readFileSync(const std::string &path) {
 	std::unique_ptr<Linux::File> file = osIntf->createFile();
 	file->openSync(path, Linux::FileMode::read);
 	Linux::size_type length = file->lengthSync();
-	char *buffer = new char[length];
-	file->preadSync(0, length, buffer);
+	std::string buffer(length, 0);
+	file->preadSync(0, length, &buffer[0]);
 	file->closeSync();
-	return std::string(buffer, length);
+	return buffer;
 }
 void writeFileSync(const std::string &path, const std::string buffer) {
 	std::unique_ptr<Linux::File> file = osIntf->createFile();
