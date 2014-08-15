@@ -64,7 +64,6 @@ private:
 	std::atomic<DocumentId> p_lastDocumentId;
 	size_t p_dataPointer;
 	
-	PageCache p_dataCache;
 	Btree<Index> p_indexTree;
 	Ll::RandomAccessFile p_dataFile;
 

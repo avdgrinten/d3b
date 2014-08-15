@@ -18,10 +18,9 @@ namespace Db {
 
 FlexStorage::FlexStorage(Engine *engine)
 		: QueuedStorageDriver(engine), p_lastDocumentId(0), p_dataPointer(0),
-			p_dataCache(engine->getCacheHost(), 4096, engine->getIoPool()),
 			p_indexTree("index", 4096, Index::kStructSize, Reference::kStructSize,
 				engine->getCacheHost(), engine->getIoPool()),
-			p_dataFile(&p_dataCache) {
+			p_dataFile("data", engine->getCacheHost(), engine->getIoPool()) {
 	p_indexTree.setWriteKey(ASYNC_MEMBER(this, &FlexStorage::writeIndex));
 	p_indexTree.setReadKey(ASYNC_MEMBER(this, &FlexStorage::readIndex));
 }
@@ -30,8 +29,8 @@ void FlexStorage::createStorage() {
 	p_indexTree.setPath(this->getPath());
 	p_indexTree.createTree();
 
-	std::string data_path = p_path + "/data.bin";
-	p_dataCache.open(data_path);
+	p_dataFile.setPath(p_path);
+	p_dataFile.createFile();
 	
 	processQueue();
 }
@@ -41,9 +40,9 @@ void FlexStorage::loadStorage() {
 	//NOTE: to test the durability implementation we always delete the data on load!
 	p_indexTree.createTree();
 
-	std::string data_path = p_path + "/data.bin";
+	p_dataFile.setPath(p_path);
 	//NOTE: to test the durability implementation we always delete the data on load!
-	p_dataCache.open(data_path);
+	p_dataFile.createFile();
 	
 	processQueue();
 }

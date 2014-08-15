@@ -26,8 +26,7 @@ namespace Db {
 
 JsView::JsView(Engine *engine)
 	: QueuedViewDriver(engine),
-		p_keyCache(engine->getCacheHost(), 4096, engine->getIoPool()),
-		p_keyFile(&p_keyCache),
+		p_keyFile("keys", engine->getCacheHost(), engine->getIoPool()),
 		p_orderTree("order", 4096, KeyRef::kStructSize, Link::kStructSize,
 			engine->getCacheHost(), engine->getIoPool()),
 		p_keyPointer(0) {
@@ -60,7 +59,8 @@ void JsView::createView(const Proto::ViewConfig &config) {
 	for(int i = 0; i < 5; i++)
 		p_idleInstances.push(new JsInstance(p_path + "/../../extern/" + p_scriptFile));
 	
-	p_keyCache.open(getPath() + "/keys.bin");
+	p_keyFile.setPath(getPath());
+	p_keyFile.createFile();
 
 	p_orderTree.setPath(this->getPath());
 	p_orderTree.createTree();
@@ -83,8 +83,9 @@ void JsView::loadView() {
 	for(int i = 0; i < 5; i++)
 		p_idleInstances.push(new JsInstance(p_path + "/../../extern/" + p_scriptFile));
 
+	p_keyFile.setPath(getPath());
 	//NOTE: to test the durability implementation we always delete the data on load!
-	p_keyCache.open(getPath() + "/keys.bin");
+	p_keyFile.createFile();
 
 	p_orderTree.setPath(this->getPath());
 	//NOTE: to test the durability implementation we always delete the data on load!

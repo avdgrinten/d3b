@@ -9,7 +9,12 @@ namespace Ll {
 // implements a random access interface on top of a PageCache
 class RandomAccessFile {
 public:
-	RandomAccessFile(PageCache *page_cache);
+	RandomAccessFile(const std::string &name,
+			CacheHost *cache_host, TaskPool *io_pool);
+
+	void setPath(const std::string &path);
+	
+	void createFile();
 
 	class ReadClosure {
 	public:
@@ -51,7 +56,9 @@ public:
 	};
 
 private:
-	PageCache *p_pageCache;
+	PageCache p_pageCache;
+	std::string p_path;
+	std::string p_name;
 };
 
 } // namespace Ll

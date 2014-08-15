@@ -72,7 +72,6 @@ private:
 	std::string p_storageName;
 
 	int p_storage;
-	PageCache p_keyCache;
 	Ll::RandomAccessFile p_keyFile;
 	Btree<KeyRef> p_orderTree;
 	std::stack<JsInstance *> p_idleInstances;
