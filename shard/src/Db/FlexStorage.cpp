@@ -26,7 +26,7 @@ FlexStorage::FlexStorage(Engine *engine)
 }
 
 void FlexStorage::createStorage() {
-	p_indexTree.setPath(this->getPath());
+	p_indexTree.setPath(getPath());
 	p_indexTree.createTree();
 
 	p_dataFile.setPath(p_path);
@@ -36,7 +36,7 @@ void FlexStorage::createStorage() {
 }
 
 void FlexStorage::loadStorage() {
-	p_indexTree.setPath(this->getPath());
+	p_indexTree.setPath(getPath());
 	//NOTE: to test the durability implementation we always delete the data on load!
 	p_indexTree.createTree();
 

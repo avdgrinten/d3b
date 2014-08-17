@@ -62,7 +62,7 @@ void JsView::createView(const Proto::ViewConfig &config) {
 	p_keyFile.setPath(getPath());
 	p_keyFile.createFile();
 
-	p_orderTree.setPath(this->getPath());
+	p_orderTree.setPath(getPath());
 	p_orderTree.createTree();
 
 	processQueue();
@@ -87,7 +87,7 @@ void JsView::loadView() {
 	//NOTE: to test the durability implementation we always delete the data on load!
 	p_keyFile.createFile();
 
-	p_orderTree.setPath(this->getPath());
+	p_orderTree.setPath(getPath());
 	//NOTE: to test the durability implementation we always delete the data on load!
 	p_orderTree.createTree();
 
