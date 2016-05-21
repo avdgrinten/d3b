@@ -1,3 +1,6 @@
 
-node_modules
+natives_blob.bin
+snapshot_blob.bin
+server.crt
+server.key
 
