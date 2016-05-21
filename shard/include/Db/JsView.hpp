@@ -119,8 +119,8 @@ private:
 	private:
 		v8::Locker p_locker;
 		v8::Isolate::Scope p_isolateScope;
-		v8::Context::Scope p_contextScope;
 		v8::HandleScope p_handleScope;
+		v8::Context::Scope p_contextScope;
 	};
 
 	class QueryClosure {

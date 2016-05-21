@@ -5,6 +5,8 @@
 #include <boost/program_options.hpp>
 
 #include <botan/init.h>
+#include <v8.h>
+#include <libplatform/libplatform.h>
 
 #include "Async.hpp"
 #include "Os/Linux.hpp"
@@ -31,6 +33,11 @@ void shutdown() {
 }
 
 int main(int argc, char **argv) {
+	v8::V8::InitializeICU();
+	v8::V8::InitializeExternalStartupData(".");
+	v8::V8::InitializePlatform(v8::platform::CreateDefaultPlatform());
+	v8::V8::Initialize();
+
 	OS::LocalAsyncHost::set(new OS::LocalAsyncHost());
 	LocalTaskQueue::set(new LocalTaskQueue(OS::LocalAsyncHost::get()));
 	LocalTaskQueue::get()->process();

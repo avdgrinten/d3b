@@ -175,7 +175,26 @@ ViewDriver *JsView::Factory::newDriver(Engine *engine) {
 
 JsView::JsInstance::JsInstance(const std::string &script_path)
 		: p_enableLog(false) {
+
+	struct ArrayBufferAllocator : public v8::ArrayBuffer::Allocator {
+		void *Allocate(size_t length) override {
+			auto pointer = AllocateUninitialized(length);
+			if(pointer)
+				memset(pointer, 0, length);
+			return pointer;
+		}
+
+		void *AllocateUninitialized(size_t length) override {
+			return malloc(length);
+		}
+
+		void Free(void *data, size_t length) override {
+			free(data);
+		}
+	};
+
 	v8::Isolate::CreateParams params;
+	params.array_buffer_allocator = new ArrayBufferAllocator();
 	p_isolate = v8::Isolate::New(params);
 
 	v8::Locker locker(p_isolate);
@@ -325,8 +344,9 @@ void JsView::JsInstance::jsHook(const v8::FunctionCallbackInfo<v8::Value> &info)
 // --------------------------------------------------------
 
 JsView::JsScope::JsScope(JsInstance &instance)
-	: p_locker(instance.p_isolate), p_isolateScope(instance.p_isolate),
-		p_contextScope(instance.p_context.Get(instance.p_isolate)), p_handleScope(instance.p_isolate) { }
+: p_locker(instance.p_isolate), p_isolateScope(instance.p_isolate),
+		p_handleScope(instance.p_isolate),
+		p_contextScope(instance.p_context.Get(instance.p_isolate)) { }
 
 // --------------------------------------------------------
 // JsView::InsertClosure

@@ -3,6 +3,7 @@ const assert = require('assert');
 
 const d3b = require('./d3b');
 const api = require('./Api_pb.js');
+const cfg = require('./proto/Config_pb.js');
 
 const kMutateInsert = Symbol();
 const kMutateModify = Symbol();
@@ -21,34 +22,42 @@ function viewToNode(view) {
 	return Buffer.from(view, view.byteOffset, view.byteLength);
 };
 
-function createStorage(client, opts, callback) {
-	let req = new api.CqCreateStorage();
-	req.setDriver(opts.driver);
-	req.setIdentifier(opts.identifier);
-
+function createStorage(client, opts) {
 	return new Promise((resolve, reject) => {
-		let exchange = client.exchange((opcode, resp) => {
+		let req = new api.CqCreateStorage();
+		req.setDriver(opts.driver);
+		req.setIdentifier(opts.identifier);
+
+		let exchange = client.exchange((opcode, data) => {
 			if(opcode == d3b.ServerResponses.kSrFin) {
 				resolve();
 				exchange.fin();
 			}else throw new Error("Unexpected response " + opcode);
 		});
+
 		exchange.send(d3b.ClientRequests.kCqCreateStorage, req);
 	});
 }
 
-function createView(client, opts, callback) {
-	var req = client.request();
-	req.on('response', function(opcode, resp) {
-		if(opcode == d3b.ServerResponses.kSrFin) {
-			callback(null);
-			req.fin();
-		}else throw new Error("Unexpected response " + opcode);
+function createView(client, opts) {
+	return new Promise((resolve, reject) => {
+		let config = new cfg.ViewConfig();
+		config.setBaseStorage(opts.baseStorage);
+		config.setScriptFile(opts.scriptFile);
+
+		let req = new api.CqCreateView();
+		req.setDriver(opts.driver);
+		req.setIdentifier(opts.identifier);
+		req.setConfig(config);
+
+		var exchange = client.exchange((opcode, data) => {
+			if(opcode == d3b.ServerResponses.kSrFin) {
+				resolve();
+				exchange.fin();
+			}else throw new Error("Unexpected response " + opcode);
+		});
+		exchange.send(d3b.ClientRequests.kCqCreateView, req);
 	});
-	req.send(d3b.ClientRequests.kCqCreateView, {
-		driver: opts.driver, identifier: opts.identifier,
-		config: { baseStorage: opts.baseStorage,
-			scriptFile: opts.scriptFile } });
 }
 
 function unlinkStorage(client, opts, callback) {
@@ -59,6 +68,7 @@ function unlinkStorage(client, opts, callback) {
 			req.fin();
 		}else throw new Error("Unexpected response " + opcode);
 	});
+
 	req.send(d3b.ClientRequests.kCqUnlinkStorage, {
 		identifier: opts.identifier });
 }
@@ -71,6 +81,7 @@ function unlinkView(client, opts, callback) {
 			req.fin();
 		}else throw new Error("Unexpected response " + opcode);
 	});
+
 	req.send(d3b.ClientRequests.kCqUnlinkView, {
 		identifier: opts.identifier });
 }
@@ -87,6 +98,7 @@ function uploadExtern(client, opts) {
 				exchange.fin();
 			}else throw new Error("Unexpected response " + opcode);
 		});
+
 		exchange.send(d3b.ClientRequests.kCqUploadExtern, req);
 	});
 }
@@ -134,6 +146,7 @@ function insert(client, opts) {
 				exchange.fin();
 			}else throw new Error("Unexpected response " + opcode);
 		});
+
 		exchange.send(d3b.ClientRequests.kCqShortTransact, req);
 	});
 }
@@ -154,7 +167,7 @@ function modify(client, opts, callback) {
 			documentId: opts.id, mustExist: true } ] });
 }
 
-function fetch(client, opts, on_data, callback) {
+function fetch(client, opts) {
 	let result;
 
 	return new Promise((resolve, reject) => {
@@ -177,24 +190,35 @@ function fetch(client, opts, on_data, callback) {
 				exchange.fin();
 			}else throw new Error("Unexpected response " + opcode);
 		});
+
 		exchange.send(d3b.ClientRequests.kCqFetch, req);
 	});
 }
 
-function query(client, opts, row_handler, callback) {
-	var req = client.request();
-	req.on('response', function(opcode, resp) {
-		if(opcode == d3b.ServerResponses.kSrFin) {
-			callback(resp.error);
-			req.fin();
-		}else if(opcode == d3b.ServerResponses.kSrRows) {
-			resp.rowData.forEach(row_handler);
-		}else throw new Error("Unexpected response " + opcode);
+function query(client, opts, handler) {
+	return new Promise((resolve, reject) => {
+		let req = new api.CqQuery();
+		req.setViewName(opts.viewName);
+		if(opts.sequenceId)
+			req.setSequenceId(opts.sequenceId);
+
+		let exchange = client.exchange((opcode, data) => {
+			if(opcode == d3b.ServerResponses.kSrRows) {
+				data.getRowDataList().forEach(entry => {
+					handler(viewToNode(entry));
+				});
+			}else if(opcode == d3b.ServerResponses.kSrFin) {
+				if(data.getError() == api.ErrorCode.KCODESUCCESS) {
+					resolve();
+				}else{
+					reject(new Error("d3b error code " + data.getError()));
+				}
+				exchange.fin();
+			}else throw new Error("Unexpected response " + opcode);
+		});
+
+		exchange.send(d3b.ClientRequests.kCqQuery, req);
 	});
-	var message = { viewName: opts.viewName };
-	if(opts.sequenceId)
-		message.sequenceId = opts.sequenceId;
-	req.send(d3b.ClientRequests.kCqQuery, message);
 }
 
 function transaction(client, opts) {
@@ -211,6 +235,7 @@ function transaction(client, opts) {
 				exchange.fin();
 			}else throw new Error("Unexpected response " + opcode);
 		});
+
 		exchange.send(d3b.ClientRequests.kCqTransaction, req);
 	});
 }
@@ -259,6 +284,7 @@ function update(client, opts) {
 				exchange.fin();
 			}else throw new Error("Unexpected response " + opcode);
 		});
+
 		exchange.send(d3b.ClientRequests.kCqUpdate, req);
 	});
 }
@@ -292,6 +318,7 @@ function apply(client, opts) {
 				exchange.fin();
 			}else throw new Error("Unexpected response " + opcode);
 		});
+
 		exchange.send(d3b.ClientRequests.kCqApply, req);
 	});
 }
