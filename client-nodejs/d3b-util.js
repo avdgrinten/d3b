@@ -4,6 +4,13 @@ const assert = require('assert');
 const d3b = require('./d3b');
 const api = require('./Api_pb.js');
 
+const kMutateInsert = Symbol();
+const kMutateModify = Symbol();
+
+const kApplySubmit = Symbol();
+const kApplyCommit = Symbol();
+const kApplyRollback = Symbol();
+
 function nodeToView(node_buffer) {
 	assert(Buffer.isBuffer(node_buffer));
 	return new Uint8Array(node_buffer.buffer,
@@ -190,48 +197,116 @@ function query(client, opts, row_handler, callback) {
 	req.send(d3b.ClientRequests.kCqQuery, message);
 }
 
-function transaction(client, opts, callback) {
-	var req = client.request();
-	req.on('response', function(opcode, resp) {
-		if(opcode == d3b.ServerResponses.kSrFin) {
-			callback(resp.error, resp.transactionId);
-			req.fin();
-		}else throw new Error("Unexpected response " + opcode);
+function transaction(client, opts) {
+	return new Promise((resolve, reject) => {
+		let req = new api.CqTransaction();
+
+		var exchange = client.exchange(function(opcode, data) {
+			if(opcode == d3b.ServerResponses.kSrFin) {
+				if(data.getError() == api.ErrorCode.KCODESUCCESS) {
+					resolve(data.getTransactionId());
+				}else{
+					reject(new Error("d3b error code " + data.getError()));
+				}
+				exchange.fin();
+			}else throw new Error("Unexpected response " + opcode);
+		});
+		exchange.send(d3b.ClientRequests.kCqTransaction, req);
 	});
-	var message = { };
-	req.send(d3b.ClientRequests.kCqTransaction, message);
 }
 
-function update(client, opts, callback) {
-	var req = client.request();
-	req.on('response', function(opcode, resp) {
-		if(opcode == d3b.ServerResponses.kSrFin) {
-			callback(resp.error);
-			req.fin();
-		}else throw new Error("Unexpected response " + opcode);
+function update(client, opts) {
+	return new Promise((resolve, reject) => {
+		let req = new api.CqUpdate();
+		req.setTransactionId(opts.transactionId);
+
+		if(opts.mutations)
+			req.setMutationsList(opts.mutations.map(entry => {
+				let mutation = new api.Mutation();
+				
+				switch(entry.type) {
+				case kMutateInsert:
+					mutation.setType(api.Mutation.Type.KTYPEINSERT);
+					break;
+				case kMutateModify:
+					mutation.setType(api.Mutation.Type.KTYPEMODIFY);
+					break;
+				default:
+					throw new Error("Unexpected mutation type");
+				}
+
+				mutation.setStorageName(entry.storageName);
+				mutation.setBuffer(nodeToView(entry.buffer));
+				if(entry.documentId)
+					mutation.setDocumentId(entry.documentId);
+
+				return mutation;
+			}));
+
+		assert(!req.constraints);
+	/*	if(req.constraints)
+			req.setMutationsList(opts.constraints.map(entry => {
+				let constraint = new api.Constraint();
+			});*/
+
+		var exchange = client.exchange(function(opcode, data) {
+			if(opcode == d3b.ServerResponses.kSrFin) {
+				if(data.getError() == api.ErrorCode.KCODESUCCESS) {
+					resolve();
+				}else{
+					reject(new Error("d3b error code " + data.getError()));
+				}
+				exchange.fin();
+			}else throw new Error("Unexpected response " + opcode);
+		});
+		exchange.send(d3b.ClientRequests.kCqUpdate, req);
 	});
-	var message = { transactionId: opts.transactionId,
-			mutations: opts.mutations,
-			constraints: opts.constraints };
-	req.send(d3b.ClientRequests.kCqUpdate, message);
 }
 
-function apply(client, opts, callback) {
-	var req = client.request();
-	req.on('response', function(opcode, resp) {
-		if(opcode == d3b.ServerResponses.kSrFin) {
-			callback(resp.error);
-			req.fin();
-		}else throw new Error("Unexpected response " + opcode);
+function apply(client, opts) {
+	return new Promise((resolve, reject) => {
+		let req = new api.CqApply();
+		req.setTransactionId(opts.transactionId);
+
+		switch(opts.type) {
+		case kApplySubmit:
+			req.setType(api.CqApply.Type.KTYPESUBMIT);
+			break;
+		case kApplyCommit:
+			req.setType(api.CqApply.Type.KTYPECOMMIT);
+			break;
+		case kApplyRollback:
+			req.setType(api.CqApply.Type.KTYPEROLLBACK);
+			break;
+		default:
+			throw new Error("Unexpected apply type");
+		}
+
+		var exchange = client.exchange(function(opcode, data) {
+			if(opcode == d3b.ServerResponses.kSrFin) {
+				if(data.getError() == api.ErrorCode.KCODESUCCESS) {
+					resolve();
+				}else{
+					reject(new Error("d3b error code " + data.getError()));
+				}
+				exchange.fin();
+			}else throw new Error("Unexpected response " + opcode);
+		});
+		exchange.send(d3b.ClientRequests.kCqApply, req);
 	});
-	var message = { transactionId: opts.transactionId, type: opts.type };
-	req.send(d3b.ClientRequests.kCqApply, message);
 }
 
 function shutdown(client) {
 	var req = client.request();
 	req.send(d3b.ClientRequests.kCqShutdown, { });
 }
+
+module.exports.kMutateInsert = kMutateInsert;
+module.exports.kMutateModify = kMutateModify;
+
+module.exports.kApplySubmit = kApplySubmit;
+module.exports.kApplyCommit = kApplyCommit;
+module.exports.kApplyRollback = kApplyRollback;
 
 module.exports.createStorage = createStorage;
 module.exports.createView = createView;
