@@ -96,19 +96,19 @@ private:
 		v8::Local<v8::Value> report(v8::Handle<v8::Value> document);
 
 	private:
-		static v8::Handle<v8::Value> jsLog(const v8::Arguments &args);
-		static v8::Handle<v8::Value> jsHook(const v8::Arguments &args);
+		static void jsLog(const v8::FunctionCallbackInfo<v8::Value> &info);
+		static void jsHook(const v8::FunctionCallbackInfo<v8::Value> &info);
 		
 		v8::Isolate *p_isolate;
-		v8::Persistent<v8::Context> p_context;
+		v8::Global<v8::Context> p_context;
 		
-		v8::Persistent<v8::Function> p_hookExtractDoc;
-		v8::Persistent<v8::Function> p_hookExtractKey;
-		v8::Persistent<v8::Function> p_hookKeyOf;
-		v8::Persistent<v8::Function> p_hookCompare;
-		v8::Persistent<v8::Function> p_hookSerializeKey;
-		v8::Persistent<v8::Function> p_hookDeserializeKey;
-		v8::Persistent<v8::Function> p_hookReport;
+		v8::Global<v8::Function> p_hookExtractDoc;
+		v8::Global<v8::Function> p_hookExtractKey;
+		v8::Global<v8::Function> p_hookKeyOf;
+		v8::Global<v8::Function> p_hookCompare;
+		v8::Global<v8::Function> p_hookSerializeKey;
+		v8::Global<v8::Function> p_hookDeserializeKey;
+		v8::Global<v8::Function> p_hookReport;
 		bool p_enableLog;
 	};
 
@@ -152,8 +152,8 @@ private:
 		char *p_compareBuffer;
 		int32_t p_compareLength;
 		Async::Callback<void(int)> p_compareCallback;
-		v8::Persistent<v8::Value> p_beginKey;
-		v8::Persistent<v8::Value> p_endKey;
+		v8::Global<v8::Value> p_beginKey;
+		v8::Global<v8::Value> p_endKey;
 		SequenceId p_expectedSequenceId;
 		FetchRequest p_fetch;
 		QueryData p_queryData;
@@ -190,7 +190,7 @@ private:
 		char *p_compareBuffer;
 		int32_t p_compareLength;
 		Async::Callback<void(int)> p_compareCallback;
-		v8::Persistent<v8::Value> p_newKey;
+		v8::Global<v8::Value> p_newKey;
 		char p_linkBuffer[Link::kStructSize];
 		KeyRef p_insertKey;
 		

@@ -3,12 +3,12 @@
 
 var events = require('events');
 var fs = require('fs');
-var protobuf = require('protobuf');
 var net = require('net');
 var tls = require('tls');
 
+var api = require('./Api_pb.js');
+
 var dirname = require('path').dirname(module.filename);
-var schema = new protobuf.Schema(fs.readFileSync(dirname + '/Api.desc'));
 
 var ClientRequests = {
 	kCqFetch: 1,
@@ -72,70 +72,44 @@ Client.prototype.close = function(callback) {
 
 Client.prototype.p_onMessage = function() {
 //	console.log("msg");
-	var msg;
+	var Message;
 	switch(this.packetOpcode) {
-	case ServerResponses.kSrFin: msg = schema['Api.Proto.SrFin']; break;
-	case ServerResponses.kSrRows: msg = schema['Api.Proto.SrRows']; break;
-	case ServerResponses.kSrBlob: msg = schema['Api.Proto.SrBlob']; break;
-	case ServerResponses.kSrShortTransact: msg = schema['Api.Proto.SrShortTransact']; break;
+	case ServerResponses.kSrFin: Message = api.SrFin; break;
+	case ServerResponses.kSrRows: Message = api.SrRows; break;
+	case ServerResponses.kSrBlob: Message = api.SrBlob; break;
+	case ServerResponses.kSrShortTransact: Message = api.SrShortTransact; break;
 	default: throw new Error("p_onMessage(): Illegal opcode");
 	}
-	var response = msg.parse(this.bodyBuffer);
+	
+	var array_buffer = new ArrayBuffer(this.bodyBuffer.length);
+	var view = new Uint8Array(array_buffer);
+	for (var i = 0; i < this.bodyBuffer.length; ++i)
+		view[i] = this.bodyBuffer[i];
+	
+	var resp = Message.deserializeBinary(array_buffer);
 	
 	if(this.debug)
 		console.log('[' + this.packetSeqNumber + '] < ' + this.packetOpcode
-			+ ' ' + JSON.stringify(response));
+			+ ' ' + JSON.stringify(resp));
 
 	if(this.packetSeqNumber in this.activeRequests) {
 		var request = this.activeRequests[this.packetSeqNumber];
-		request.emit('response', this.packetOpcode, response);
-	}else console.log("Lost response: " + JSON.stringify(response));
+		request.emit('response', this.packetOpcode, resp);
+	}else console.log("Lost response: " + JSON.stringify(resp));
 }
 Client.prototype.p_send = function(opcode, seq_number, request) {
-	var msg;
-	switch(opcode) {
-	case ClientRequests.kCqFetch:
-		msg = schema['Api.Proto.CqFetch']; break;
-	case ClientRequests.kCqQuery:
-		msg = schema['Api.Proto.CqQuery']; break;
-	case ClientRequests.kCqShortTransact:
-		msg = schema['Api.Proto.CqShortTransact']; break;
-	case ClientRequests.kCqTransaction:
-		msg = schema['Api.Proto.CqTransaction']; break;
-	case ClientRequests.kCqUpdate:
-		msg = schema['Api.Proto.CqUpdate']; break;
-	case ClientRequests.kCqApply:
-		msg = schema['Api.Proto.CqApply']; break;
-	case ClientRequests.kCqCreateStorage:
-		msg = schema['Api.Proto.CqCreateStorage']; break;
-	case ClientRequests.kCqCreateView:
-		msg = schema['Api.Proto.CqCreateView']; break;
-	case ClientRequests.kCqUnlinkStorage:
-		msg = schema['Api.Proto.CqUnlinkStorage']; break;
-	case ClientRequests.kCqUnlinkView:
-		msg = schema['Api.Proto.CqUnlinkView']; break;
-	case ClientRequests.kCqUploadExtern:
-		msg = schema['Api.Proto.CqUploadExtern']; break;
-	case ClientRequests.kCqDownloadExtern:
-		msg = schema['Api.Proto.CqDownloadExtern']; break;
-	case ClientRequests.kCqShutdown:
-		msg = schema['Api.Proto.CqShutdown']; break;
-	default: throw new Error("p_send(): Illegal opcode");
-	}
-	
 	if(this.debug)
-		console.log('[' + seq_number + '] < ' + opcode
-			+ ' ' + JSON.stringify(request));
+		console.log('[' + seq_number + '] < ' + opcode + ' ' + request);
 	
-	var buffer = msg.serialize(request);
+	var serialized = request.serializeBinary();
 
 	var header = new Buffer(12);
 	header.writeUInt32LE(opcode, 0);
-	header.writeUInt32LE(buffer.length, 4);
+	header.writeUInt32LE(serialized.length, 4);
 	header.writeUInt32LE(seq_number, 8);
 
 	this.p_socket.write(header);
-	this.p_socket.write(buffer);
+	this.p_socket.write(Buffer.from(serialized));
 }
 Client.prototype.p_onPartial = function(buffer) {
 //	console.log("recv");

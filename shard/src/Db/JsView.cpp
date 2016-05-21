@@ -175,22 +175,25 @@ ViewDriver *JsView::Factory::newDriver(Engine *engine) {
 
 JsView::JsInstance::JsInstance(const std::string &script_path)
 		: p_enableLog(false) {
-	p_isolate = v8::Isolate::New();
+	v8::Isolate::CreateParams params;
+	p_isolate = v8::Isolate::New(params);
 
 	v8::Locker locker(p_isolate);
 	v8::Isolate::Scope isolate_scope(p_isolate);
-	v8::HandleScope handle_scope;
+	v8::HandleScope handle_scope(p_isolate);
 	
 	// setup the global object and create a context
 	v8::Local<v8::ObjectTemplate> global = v8::ObjectTemplate::New();
 
-	v8::Local<v8::External> js_this = v8::External::New(this);
-	global->Set(v8::String::New("log"), v8::FunctionTemplate::New(&JsInstance::jsLog, js_this));
-	global->Set(v8::String::New("hook"), v8::FunctionTemplate::New(&JsInstance::jsHook, js_this));
+	v8::Local<v8::External> js_this = v8::External::New(p_isolate, this);
+	global->Set(v8::String::NewFromUtf8(p_isolate, "log", v8::NewStringType::kNormal).ToLocalChecked(),
+		v8::FunctionTemplate::New(p_isolate, &JsInstance::jsLog, js_this));
+	global->Set(v8::String::NewFromUtf8(p_isolate, "hook", v8::NewStringType::kNormal).ToLocalChecked(),
+		v8::FunctionTemplate::New(p_isolate, &JsInstance::jsHook, js_this));
 	
-	p_context = v8::Context::New(NULL, global);
+	p_context = v8::Global<v8::Context>(p_isolate, v8::Context::New(p_isolate, nullptr, global));
 
-	v8::Context::Scope context_scope(p_context);
+	v8::Context::Scope context_scope(p_context.Get(p_isolate));
 	
 	// load the view script from a file
 	std::unique_ptr<Linux::File> file = osIntf->createFile();
@@ -201,7 +204,8 @@ JsView::JsInstance::JsInstance(const std::string &script_path)
 	file->preadSync(0, length, buffer);
 	file->closeSync();
 	
-	v8::Local<v8::String> source = v8::String::New(buffer, length);
+	v8::Local<v8::String> source = v8::String::NewFromUtf8(p_isolate,
+		buffer, v8::NewStringType::kNormal, length).ToLocalChecked();
 	delete[] buffer;
 	
 	// compile the view script and run it
@@ -219,9 +223,10 @@ JsView::JsInstance::JsInstance(const std::string &script_path)
 v8::Local<v8::Value> JsView::JsInstance::extractDoc(DocumentId id,
 		const void *buffer, Linux::size_type length) {
 	std::array<v8::Handle<v8::Value>, 2> args;
-	args[0] = v8::Number::New(id);
-	args[1] = v8::String::New((char*)buffer, length);
-	auto result = p_hookExtractDoc->Call(p_context->Global(),
+	args[0] = v8::Number::New(p_isolate, id);
+	args[1] = v8::String::NewFromUtf8(p_isolate,
+			(char*)buffer, v8::NewStringType::kNormal, length).ToLocalChecked();
+	auto result = p_hookExtractDoc.Get(p_isolate)->Call(p_context.Get(p_isolate)->Global(),
 			args.size(), args.data());
 	return result;
 }
@@ -229,8 +234,9 @@ v8::Local<v8::Value> JsView::JsInstance::extractDoc(DocumentId id,
 v8::Local<v8::Value> JsView::JsInstance::extractKey(const void *buffer,
 		Linux::size_type length) {
 	std::array<v8::Handle<v8::Value>, 1> args;
-	args[0] = v8::String::New((char*)buffer, length);
-	auto result = p_hookExtractKey->Call(p_context->Global(),
+	args[0] = v8::String::NewFromUtf8(p_isolate,
+			(char*)buffer, v8::NewStringType::kNormal, length).ToLocalChecked();
+	auto result = p_hookExtractKey.Get(p_isolate)->Call(p_context.Get(p_isolate)->Global(),
 			args.size(), args.data());
 	return result;
 }
@@ -238,7 +244,7 @@ v8::Local<v8::Value> JsView::JsInstance::extractKey(const void *buffer,
 v8::Local<v8::Value> JsView::JsInstance::keyOf(v8::Handle<v8::Value> document) {
 	std::array<v8::Handle<v8::Value>, 1> args;
 	args[0] = document;
-	auto result = p_hookKeyOf->Call(p_context->Global(),
+	auto result = p_hookKeyOf.Get(p_isolate)->Call(p_context.Get(p_isolate)->Global(),
 			args.size(), args.data());
 	return result;
 }
@@ -248,7 +254,7 @@ v8::Local<v8::Value> JsView::JsInstance::compare(v8::Handle<v8::Value> a,
 	std::array<v8::Handle<v8::Value>, 2> args;
 	args[0] = a;
 	args[1] = b;
-	auto result = p_hookCompare->Call(p_context->Global(),
+	auto result = p_hookCompare.Get(p_isolate)->Call(p_context.Get(p_isolate)->Global(),
 			args.size(), args.data());
 	return result;
 }
@@ -256,7 +262,7 @@ v8::Local<v8::Value> JsView::JsInstance::compare(v8::Handle<v8::Value> a,
 v8::Local<v8::Value> JsView::JsInstance::serializeKey(v8::Handle<v8::Value> key) {
 	std::array<v8::Handle<v8::Value>, 1> args;
 	args[0] = key;
-	auto result = p_hookSerializeKey->Call(p_context->Global(),
+	auto result = p_hookSerializeKey.Get(p_isolate)->Call(p_context.Get(p_isolate)->Global(),
 			args.size(), args.data());
 	return result;
 }
@@ -264,7 +270,7 @@ v8::Local<v8::Value> JsView::JsInstance::serializeKey(v8::Handle<v8::Value> key)
 v8::Local<v8::Value> JsView::JsInstance::deserializeKey(v8::Handle<v8::Value> buffer) {
 	std::array<v8::Handle<v8::Value>, 1> args;
 	args[0] = buffer;
-	auto result = p_hookDeserializeKey->Call(p_context->Global(),
+	auto result = p_hookDeserializeKey.Get(p_isolate)->Call(p_context.Get(p_isolate)->Global(),
 			args.size(), args.data());
 	return result;
 }
@@ -272,48 +278,46 @@ v8::Local<v8::Value> JsView::JsInstance::deserializeKey(v8::Handle<v8::Value> bu
 v8::Local<v8::Value> JsView::JsInstance::report(v8::Handle<v8::Value> document) {
 	std::array<v8::Handle<v8::Value>, 1> args;
 	args[0] = document;
-	auto result = p_hookReport->Call(p_context->Global(),
+	auto result = p_hookReport.Get(p_isolate)->Call(p_context.Get(p_isolate)->Global(),
 			args.size(), args.data());
 	return result;
 }
 
-v8::Handle<v8::Value> JsView::JsInstance::jsLog(const v8::Arguments &args) {
-	JsInstance *thisptr = (JsInstance*)v8::External::Unwrap(args.Data());
+void JsView::JsInstance::jsLog(const v8::FunctionCallbackInfo<v8::Value> &info) {
+	JsInstance *thisptr = (JsInstance*)v8::Local<v8::External>::Cast(info.Data())->Value();
 	if(thisptr->p_enableLog) {
-		for(int i = 0; i < args.Length(); i++) {
-			v8::String::Utf8Value utf8(args[i]);
+		for(int i = 0; i < info.Length(); i++) {
+			v8::String::Utf8Value utf8(info[i]);
 			printf("%s", *utf8);
 		}
 		printf("\n");
 	}
-	return v8::Undefined();
 }
 
-v8::Handle<v8::Value> JsView::JsInstance::jsHook(const v8::Arguments &args) {
-	if(args.Length() != 2)
+void JsView::JsInstance::jsHook(const v8::FunctionCallbackInfo<v8::Value> &info) {
+	if(info.Length() != 2)
 		throw std::runtime_error("hook() expects exactly two arguments");
-	JsInstance *thisptr = (JsInstance*)v8::External::Unwrap(args.Data());
+	JsInstance *thisptr = (JsInstance*)v8::Local<v8::External>::Cast(info.Data())->Value();
 
-	auto func = v8::Local<v8::Function>::Cast(args[1]);
+	auto func = v8::Local<v8::Function>::Cast(info[1]);
 
-	v8::String::Utf8Value hook_utf8(args[0]);
+	v8::String::Utf8Value hook_utf8(info[0]);
 	std::string hook_name(*hook_utf8, hook_utf8.length());
 	if(hook_name == "extractDoc") {
-		thisptr->p_hookExtractDoc = v8::Persistent<v8::Function>::New(func);
+		thisptr->p_hookExtractDoc = v8::Global<v8::Function>(thisptr->p_isolate, func);
 	}else if(hook_name == "extractKey") {
-		thisptr->p_hookExtractKey = v8::Persistent<v8::Function>::New(func);
+		thisptr->p_hookExtractKey = v8::Global<v8::Function>(thisptr->p_isolate, func);
 	}else if(hook_name == "keyOf") {
-		thisptr->p_hookKeyOf = v8::Persistent<v8::Function>::New(func);
+		thisptr->p_hookKeyOf = v8::Global<v8::Function>(thisptr->p_isolate, func);
 	}else if(hook_name == "compare") {
-		thisptr->p_hookCompare = v8::Persistent<v8::Function>::New(func);
+		thisptr->p_hookCompare = v8::Global<v8::Function>(thisptr->p_isolate, func);
 	}else if(hook_name == "serializeKey") {
-		thisptr->p_hookSerializeKey = v8::Persistent<v8::Function>::New(func);
+		thisptr->p_hookSerializeKey = v8::Global<v8::Function>(thisptr->p_isolate, func);
 	}else if(hook_name == "deserializeKey") {
-		thisptr->p_hookDeserializeKey = v8::Persistent<v8::Function>::New(func);
+		thisptr->p_hookDeserializeKey = v8::Global<v8::Function>(thisptr->p_isolate, func);
 	}else if(hook_name == "report") {
-		thisptr->p_hookReport = v8::Persistent<v8::Function>::New(func);
+		thisptr->p_hookReport = v8::Global<v8::Function>(thisptr->p_isolate, func);
 	}else throw std::runtime_error("Illegal hook '" + hook_name + "'");
-	return v8::Undefined();
 }
 
 // --------------------------------------------------------
@@ -322,7 +326,7 @@ v8::Handle<v8::Value> JsView::JsInstance::jsHook(const v8::Arguments &args) {
 
 JsView::JsScope::JsScope(JsInstance &instance)
 	: p_locker(instance.p_isolate), p_isolateScope(instance.p_isolate),
-		p_contextScope(instance.p_context), p_handleScope() { }
+		p_contextScope(instance.p_context.Get(instance.p_isolate)), p_handleScope(instance.p_isolate) { }
 
 // --------------------------------------------------------
 // JsView::InsertClosure
@@ -348,9 +352,9 @@ void JsView::InsertClosure::acquireInstance(JsInstance *instance) {
 	
 	v8::Local<v8::Value> extracted = p_instance->extractDoc(p_documentId,
 		p_buffer.data(), p_buffer.length());
-	p_newKey = v8::Persistent<v8::Value>::New(p_instance->keyOf(extracted));
+	p_newKey = v8::Global<v8::Value>(v8::Isolate::GetCurrent(), p_instance->keyOf(extracted));
 
-	v8::Local<v8::Value> ser = p_instance->serializeKey(p_newKey);
+	v8::Local<v8::Value> ser = p_instance->serializeKey(p_newKey.Get(v8::Isolate::GetCurrent()));
 	v8::String::Utf8Value ser_value(ser);	
 	
 	p_insertKey.offset = p_view->p_keyPointer;
@@ -378,10 +382,11 @@ void JsView::InsertClosure::compareToNew(const KeyRef &keyref,
 void JsView::InsertClosure::doCompareToNew() {
 	JsScope scope(*p_instance);
 	
-	v8::Local<v8::Value> ser_a = v8::String::New(p_compareBuffer, p_compareLength);
+	v8::Local<v8::Value> ser_a = v8::String::NewFromUtf8(v8::Isolate::GetCurrent(),
+			p_compareBuffer, v8::NewStringType::kNormal, p_compareLength).ToLocalChecked();
 	delete[] p_compareBuffer;
 	v8::Local<v8::Value> key_a = p_instance->deserializeKey(ser_a);
-	v8::Local<v8::Value> result = p_instance->compare(key_a, p_newKey);
+	v8::Local<v8::Value> result = p_instance->compare(key_a, p_newKey.Get(v8::Isolate::GetCurrent()));
 	p_compareCallback(result->Int32Value());
 }
 void JsView::InsertClosure::onComplete() {
@@ -415,13 +420,13 @@ void JsView::QueryClosure::acquireInstance(JsInstance *instance) {
 	JsScope scope(*p_instance);
 
 	if(p_query->useToKey)
-		p_endKey = v8::Persistent<v8::Value>::New(p_instance->extractKey(p_query->toKey.c_str(),
-				p_query->toKey.size()));
+		p_endKey = v8::Global<v8::Value>(v8::Isolate::GetCurrent(),
+				p_instance->extractKey(p_query->toKey.c_str(), p_query->toKey.size()));
 	
 	Btree<KeyRef>::Ref begin_ref;
 	if(p_query->useFromKey) {
-		p_beginKey = v8::Persistent<v8::Value>::New(p_instance->extractKey(p_query->fromKey.c_str(),
-				p_query->fromKey.size()));
+		p_beginKey = v8::Global<v8::Value>(v8::Isolate::GetCurrent(),
+				p_instance->extractKey(p_query->fromKey.c_str(), p_query->fromKey.size()));
 		p_btreeFind.findNext(ASYNC_MEMBER(this, &QueryClosure::compareToBegin),
 				ASYNC_MEMBER(this, &QueryClosure::onFindBegin));
 	}else{
@@ -442,10 +447,11 @@ void JsView::QueryClosure::compareToBegin(const KeyRef &keyref,
 void JsView::QueryClosure::doCompareToBegin() {
 	JsScope scope(*p_instance);
 
-	v8::Local<v8::Value> ser_a = v8::String::New(p_compareBuffer, p_compareLength);
+	v8::Local<v8::Value> ser_a = v8::String::NewFromUtf8(v8::Isolate::GetCurrent(),
+			p_compareBuffer, v8::NewStringType::kNormal, p_compareLength).ToLocalChecked();
 	delete[] p_compareBuffer;
 	v8::Local<v8::Value> key_a = p_instance->deserializeKey(ser_a);
-	v8::Local<v8::Value> result = p_instance->compare(key_a, p_beginKey);
+	v8::Local<v8::Value> result = p_instance->compare(key_a, p_beginKey.Get(v8::Isolate::GetCurrent()));
 	p_compareCallback(result->Int32Value());
 }
 void JsView::QueryClosure::fetchItem() {

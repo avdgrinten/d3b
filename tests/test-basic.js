@@ -33,7 +33,7 @@ testConnect: function(test) {
 testUpload: function(test) {
 	var instance, client;
 
-	var string = 'Hello world!';
+	var string = Buffer.from('Hello world!');
 	
 	async.series([
 		function(callback) {
@@ -55,7 +55,7 @@ testUpload: function(test) {
 		function(callback) {
 			d3bUtil.downloadExtern(client, { fileName: 'upload.txt' },
 					function(buffer) {
-				test.equal(buffer.toString(), string);
+				test.equal(Buffer.from(buffer).toString(), string.toString());
 			}, callback);
 		},
 		function(callback) {

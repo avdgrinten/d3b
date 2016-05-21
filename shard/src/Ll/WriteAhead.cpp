@@ -1,7 +1,6 @@
 
 #include <cstring>
 #include <iostream>
-#include <openssl/md5.h>
 
 #include "Async.hpp"
 #include "Os/Linux.hpp"

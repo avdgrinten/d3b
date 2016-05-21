@@ -7,6 +7,7 @@
 
 #include <botan/rsa.h>
 #include <botan/x509self.h>
+#include <botan/pkcs8.h>
 
 namespace Ll {
 
