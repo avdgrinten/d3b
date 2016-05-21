@@ -126,7 +126,7 @@ function defaultTest(functor) {
 				Promise.resolve()
 				.then(() => functor(test, client))
 				.catch(error => {
-					test.ok(false, error);
+					test.ok(false, error.stack);
 				})
 				.then(() => {
 					callback();

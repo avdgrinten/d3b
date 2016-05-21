@@ -22,7 +22,8 @@ testUpload: common.defaultTest((test, client) => {
 			fileName: 'upload.txt'
 		})
 		.then(download => {
-			test.equal(Buffer.from(download).toString(), upload.toString());
+			test.ok(upload.equals(download),
+					"Upload/download mismatch");
 		});
 	});
 })

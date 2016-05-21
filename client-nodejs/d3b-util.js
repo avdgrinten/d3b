@@ -4,17 +4,30 @@ const assert = require('assert');
 const d3b = require('./d3b');
 const api = require('./Api_pb.js');
 
+function nodeToView(node_buffer) {
+	assert(Buffer.isBuffer(node_buffer));
+	return new Uint8Array(node_buffer.buffer,
+			node_buffer.byteOffset, node_buffer.byteLength);
+};
+function viewToNode(view) {
+	assert(view instanceof Uint8Array);
+	return Buffer.from(view, view.byteOffset, view.byteLength);
+};
+
 function createStorage(client, opts, callback) {
-	var req = client.request();
-	req.on('response', function(opcode, resp) {
-		if(opcode == d3b.ServerResponses.kSrFin) {
-			callback(null);
-			req.fin();
-		}else throw new Error("Unexpected response " + opcode);
+	let req = new api.CqCreateStorage();
+	req.setDriver(opts.driver);
+	req.setIdentifier(opts.identifier);
+
+	return new Promise((resolve, reject) => {
+		let exchange = client.exchange((opcode, resp) => {
+			if(opcode == d3b.ServerResponses.kSrFin) {
+				resolve();
+				exchange.fin();
+			}else throw new Error("Unexpected response " + opcode);
+		});
+		exchange.send(d3b.ClientRequests.kCqCreateStorage, req);
 	});
-	req.send(d3b.ClientRequests.kCqCreateStorage, {
-		driver: opts.driver, identifier: opts.identifier,
-			config: { } });
 }
 
 function createView(client, opts, callback) {
@@ -57,11 +70,9 @@ function unlinkView(client, opts, callback) {
 
 function uploadExtern(client, opts) {
 	return new Promise((resolve, reject) => {
-		assert(Buffer.isBuffer(opts.buffer));
-
 		var req = new api.CqUploadExtern();
 		req.setFileName(opts.fileName);
-		req.setBuffer(opts.buffer.toString('base64'));
+		req.setBuffer(nodeToView(opts.buffer));
 
 		var exchange = client.exchange((opcode, data) => {
 			if(opcode == d3b.ServerResponses.kSrFin) {
@@ -85,7 +96,7 @@ function downloadExtern(client, opts) {
 				file = data.getBuffer();
 			}else if(opcode == d3b.ServerResponses.kSrFin) {
 				assert(file);
-				resolve(file);
+				resolve(viewToNode(file));
 				exchange.fin();
 			}else throw new Error("Unexpected response " + opcode);
 		});
@@ -93,19 +104,31 @@ function downloadExtern(client, opts) {
 	});
 }
 
-function insert(client, opts, callback) {
-	var req = client.request();
-	req.on('response', function(opcode, resp) {
-		if(opcode == d3b.ServerResponses.kSrFin) {
-			var result = { sequenceId: parseInt(resp.sequenceId),
-				documentId: resp.mutations[0].documentId };
-			callback(resp.error, result);
-			req.fin();
-		}else throw new Error("Unexpected response " + opcode);
+function insert(client, opts) {
+	return new Promise((resolve, reject) => {
+		let mutation = new api.Mutation();
+		mutation.setType(api.Mutation.Type.KTYPEINSERT);
+		mutation.setStorageName(opts.storageName);
+		mutation.setBuffer(nodeToView(opts.buffer));
+
+		let req = new api.CqShortTransact();
+		req.setMutationsList([ mutation ]);
+
+		let exchange = client.exchange((opcode, data) => {
+			if(opcode == d3b.ServerResponses.kSrFin) {
+				if(data.getError() == api.ErrorCode.KCODESUCCESS) {
+					resolve({
+						sequenceId: data.getSequenceId(),
+						documentId: data.getMutationsList()[0].getDocumentId()
+					});
+				}else{
+					reject(new Error("d3b error code " + data.getError()));
+				}
+				exchange.fin();
+			}else throw new Error("Unexpected response " + opcode);
+		});
+		exchange.send(d3b.ClientRequests.kCqShortTransact, req);
 	});
-	req.send(d3b.ClientRequests.kCqShortTransact, {
-		mutations: [ { type: 'kTypeInsert', storageName: opts.storageName,
-			buffer: opts.buffer } ] });
 }
 
 function modify(client, opts, callback) {
@@ -125,20 +148,30 @@ function modify(client, opts, callback) {
 }
 
 function fetch(client, opts, on_data, callback) {
-	var req = client.request();
-	req.on('response', function(opcode, resp) {
-		if(opcode == d3b.ServerResponses.kSrFin) {
-			callback(resp.error);
-			req.fin();
-		}else if(opcode == d3b.ServerResponses.kSrBlob) {
-			on_data(resp);
-		}else throw new Error("Unexpected response " + opcode);
+	let result;
+
+	return new Promise((resolve, reject) => {
+		let req = new api.CqFetch();
+		req.setStorageName(opts.storageName);
+		req.setDocumentId(opts.documentId);
+		if(opts.sequenceId)
+			req.setSequenceId(opts.sequenceId);
+
+		let exchange = client.exchange(function(opcode, data) {
+			if(opcode == d3b.ServerResponses.kSrBlob) {
+				result = data.getBuffer();
+			}else if(opcode == d3b.ServerResponses.kSrFin) {
+				if(data.getError() == api.ErrorCode.KCODESUCCESS) {
+					assert(result);
+					resolve(viewToNode(result));
+				}else{
+					reject(new Error("d3b error code " + data.getError()));
+				}
+				exchange.fin();
+			}else throw new Error("Unexpected response " + opcode);
+		});
+		exchange.send(d3b.ClientRequests.kCqFetch, req);
 	});
-	var message = { storageName: opts.storageName,
-			documentId: opts.documentId };
-	if(opts.sequenceId)
-		message.sequenceId = opts.sequenceId;
-	req.send(d3b.ClientRequests.kCqFetch, message);
 }
 
 function query(client, opts, row_handler, callback) {
