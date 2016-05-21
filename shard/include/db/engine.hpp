@@ -4,8 +4,8 @@
 #include <vector>
 #include <unordered_map>
 
-#include "Ll/PageCache.hpp"
-#include "Ll/WriteAhead.hpp"
+#include "ll/page-cache.hpp"
+#include "ll/write-ahead.hpp"
 
 namespace Db {
 

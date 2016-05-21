@@ -68,7 +68,7 @@ D3bInstance.prototype.start = function(callback) {
 	var self = this;
 	async.series([
 		function(callback) {
-			self.$process = child_process.spawn('shard/shard',
+			self.$process = child_process.spawn('shard/bin/shard',
 				[ '--create', '--path', self.$path ]);
 			self.$process.on('exit', function(code) {
 				callback();
@@ -78,7 +78,7 @@ D3bInstance.prototype.start = function(callback) {
 			var opts = { stdio: 'ignore' };
 			if(showServerOutput)
 				opts.stdio = 'inherit';
-			self.$process = child_process.spawn('shard/shard',
+			self.$process = child_process.spawn('shard/bin/shard',
 				[ '--path', self.$path ], opts);
 			self.$process.on('exit', function() {
 				self.$exited = true;

@@ -1,34 +1,31 @@
 
-#include "Async.hpp"
+#include "async.hpp"
+
+#include "proto/Config.pb.h"
 
 namespace Db {
 
 class Engine;
 
-struct QueryRequest {
-	int viewIndex;
+struct FetchRequest {
+	int storageIndex;
+	DocumentId documentId;
 	SequenceId sequenceId;
-
-	bool useFromKey;
-	bool useToKey;
-	
-	std::string fromKey;
-	std::string toKey;
-	int limit;
-
-	QueryRequest() : useFromKey(false), useToKey(false), limit(-1) { }
 };
 
-struct QueryData {
-	std::vector<std::string> items;
+struct FetchData {
+	DocumentId documentId;
+	SequenceId sequenceId;
+	std::string buffer;
 };
 
-enum QueryError {
-	kQueryNone = 0,
-	kQuerySuccess = 1
+enum FetchError {
+	kFetchNone = 0,
+	kFetchSuccess = 1,
+	kFetchDocumentNotFound = 2
 };
 
-class ViewDriver : public Sequenceable {
+class StorageDriver : public Sequenceable {
 public:
 	class Factory {
 	public:
@@ -36,7 +33,7 @@ public:
 			: p_identifier(identifier) {
 		}
 		
-		virtual ViewDriver *newDriver(Engine *engine) = 0;
+		virtual StorageDriver *newDriver(Engine *engine) = 0;
 		
 		inline std::string getIdentifier() {
 			return p_identifier;
@@ -44,22 +41,25 @@ public:
 	protected:
 		std::string p_identifier;
 	};
+
+	StorageDriver(Engine *engine) : p_engine(engine) { };
+
+	virtual void createStorage() = 0;
+	virtual void loadStorage() = 0;
 	
-	ViewDriver(Engine *engine)
-			: p_engine(engine) {
-	}
+	// returns an unused and unique document id.
+	// must never return the same value more than once
+	virtual DocumentId allocate() = 0;
 
-	virtual void createView(const Proto::ViewConfig &config) = 0;
-	virtual void loadView() = 0;
-
-	virtual void query(QueryRequest *request,
-			Async::Callback<void(QueryData &)> report,
-			Async::Callback<void(QueryError)> callback) = 0;
+	/* processes a query */
+	virtual void fetch(FetchRequest *fetch,
+			Async::Callback<void(FetchData &)> on_data,
+			Async::Callback<void(FetchError)> callback) = 0;
 
 	inline Engine *getEngine() {
 		return p_engine;
 	}
-
+	
 	inline void setIdentifier(const std::string &identifier) {
 		p_identifier = identifier;
 	}
@@ -80,13 +80,13 @@ protected:
 	std::string p_path;
 };
 
-class ViewRegistry {
+class StorageRegistry {
 public:
-	void addDriver(ViewDriver::Factory *factory) {
+	void addDriver(StorageDriver::Factory *factory) {
 		p_drivers.push_back(factory);
 	}
 
-	inline ViewDriver::Factory *getDriver
+	inline StorageDriver::Factory *getDriver
 			(const std::string &identifier) {
 		for(int i = 0; i < p_drivers.size(); ++i)
 			if(p_drivers[i]->getIdentifier() == identifier)
@@ -95,20 +95,20 @@ public:
 	}
 	
 private:
-	std::vector<ViewDriver::Factory*> p_drivers;
+	std::vector<StorageDriver::Factory*> p_drivers;
 };
 
-class QueuedViewDriver : public ViewDriver {
+class QueuedStorageDriver : public StorageDriver {
 public:
-	QueuedViewDriver(Engine *engine);
+	QueuedStorageDriver(Engine *engine);
 
 	virtual void sequence(SequenceId sequence_id,
 			std::vector<Mutation> &mutations,
 			Async::Callback<void()> callback);
 
-	virtual void query(QueryRequest *query,
-			Async::Callback<void(QueryData &)> on_data,
-			Async::Callback<void(QueryError)> callback);
+	virtual void fetch(FetchRequest *fetch,
+			Async::Callback<void(FetchData &)> on_data,
+			Async::Callback<void(FetchError)> callback);
 
 protected:
 	void processQueue();
@@ -120,9 +120,9 @@ protected:
 	virtual void processModify(SequenceId sequence_id,
 			Mutation &mutation, Async::Callback<void(Error)> callback) = 0;
 
-	virtual void processQuery(QueryRequest *query,
-			Async::Callback<void(QueryData &)> on_data,
-			Async::Callback<void(QueryError)> callback) = 0;
+	virtual void processFetch(FetchRequest *fetch,
+			Async::Callback<void(FetchData &)> on_data,
+			Async::Callback<void(FetchError)> callback) = 0;
 
 private:
 	struct SequenceQueueItem {
@@ -130,16 +130,16 @@ private:
 		std::vector<Mutation> *mutations;
 		Async::Callback<void()> callback;
 	};
-	struct QueryQueueItem {
-		QueryRequest *query;
-		Async::Callback<void(QueryData &)> onData;
-		Async::Callback<void(QueryError)> callback;
+	struct FetchQueueItem {
+		FetchRequest *fetch;
+		Async::Callback<void(FetchData &)> onData;
+		Async::Callback<void(FetchError)> callback;
 	};
 	
 	SequenceId p_currentSequenceId;
 
 	std::queue<SequenceQueueItem> p_sequenceQueue;
-	std::queue<QueryQueueItem> p_queryQueue;
+	std::queue<FetchQueueItem> p_fetchQueue;
 	std::unique_ptr<Linux::EventFd> p_eventFd;
 	std::mutex p_mutex;
 	int p_activeRequests;
@@ -147,7 +147,7 @@ private:
 	
 	class ProcessClosure {
 	public:
-		ProcessClosure(QueuedViewDriver *view);
+		ProcessClosure(QueuedStorageDriver *storage);
 
 		void process();
 	
@@ -158,14 +158,14 @@ private:
 		void processSequence();
 		void onSequenceItem(Error error);
 
-		QueuedViewDriver *p_view;
+		QueuedStorageDriver *p_storage;
 
 		SequenceQueueItem p_sequenceItem;
 		int p_index;
 	};
 };
 
-extern ViewRegistry globViewRegistry;
+extern StorageRegistry globStorageRegistry;
 
 };
 

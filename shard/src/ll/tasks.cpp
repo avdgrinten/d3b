@@ -2,10 +2,10 @@
 #include <cassert>
 #include <iostream>
 
-#include "Async.hpp"
-#include "Os/Linux.hpp"
+#include "async.hpp"
+#include "os/linux.hpp"
 
-#include "Ll/Tasks.hpp"
+#include "ll/tasks.hpp"
 
 // --------------------------------------------------------
 // LocalTaskQueue

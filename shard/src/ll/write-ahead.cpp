@@ -2,13 +2,13 @@
 #include <cstring>
 #include <iostream>
 
-#include "Async.hpp"
-#include "Os/Linux.hpp"
+#include "async.hpp"
+#include "os/linux.hpp"
 
 #include "proto/Config.pb.h"
 
-#include "Ll/WriteAhead.hpp"
-#include "Ll/Crypto.hpp"
+#include "ll/write-ahead.hpp"
+#include "ll/crypto.hpp"
 
 Ll::WriteAhead::WriteAhead() {
 	p_file = osIntf->createFile();
