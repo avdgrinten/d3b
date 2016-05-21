@@ -107,5 +107,42 @@ D3bInstance.prototype.connect = function(callback) {
 	client.connect(7963, 'localhost', server_cert);
 };
 
-module.exports.D3bInstance = D3bInstance;
+function defaultTest(functor) {
+	return test => {
+		var instance, client;
+
+		async.series([
+			function(callback) {
+				instance = new D3bInstance();
+				instance.setup(callback);
+			},
+			function(callback) {
+				instance.connect(function(the_client) {
+					client = the_client;
+					callback();
+				});
+			},
+			function(callback) {
+				Promise.resolve()
+				.then(() => functor(test, client))
+				.catch(error => {
+					test.ok(false, error);
+				})
+				.then(() => {
+					callback();
+				});
+			},
+			function(callback) {
+				client.close(callback);
+			},
+			function(callback) {
+				instance.shutdown(callback);
+			}
+		], function() {
+			test.done();
+		});
+	};
+}
+
+module.exports.defaultTest = defaultTest;
 

@@ -1,8 +1,8 @@
 
-var assert = require('assert');
+const assert = require('assert');
 
-var d3b = require('./d3b');
-var api = require('./Api_pb.js');
+const d3b = require('./d3b');
+const api = require('./Api_pb.js');
 
 function createStorage(client, opts, callback) {
 	var req = client.request();
@@ -55,37 +55,42 @@ function unlinkView(client, opts, callback) {
 		identifier: opts.identifier });
 }
 
-function uploadExtern(client, opts, callback) {
-	assert(Buffer.isBuffer(opts.buffer));
+function uploadExtern(client, opts) {
+	return new Promise((resolve, reject) => {
+		assert(Buffer.isBuffer(opts.buffer));
 
-	var req = new api.CqUploadExtern();
-	req.setFileName(opts.fileName);
-	req.setBuffer(opts.buffer.toString('base64'));
+		var req = new api.CqUploadExtern();
+		req.setFileName(opts.fileName);
+		req.setBuffer(opts.buffer.toString('base64'));
 
-	var handle = client.request();
-	handle.on('response', function(opcode, resp) {
-		if(opcode == d3b.ServerResponses.kSrFin) {
-			callback(null);
-			handle.fin();
-		}else throw new Error("Unexpected response " + opcode);
+		var exchange = client.exchange((opcode, data) => {
+			if(opcode == d3b.ServerResponses.kSrFin) {
+				resolve();
+				exchange.fin();
+			}else throw new Error("Unexpected response " + opcode);
+		});
+		exchange.send(d3b.ClientRequests.kCqUploadExtern, req);
 	});
-	handle.send(d3b.ClientRequests.kCqUploadExtern, req);
 }
 
-function downloadExtern(client, opts, data_handler, callback) {
-	var req = new api.CqDownloadExtern();
-	req.setFileName(opts.fileName);
+function downloadExtern(client, opts) {
+	let file;
 
-	var handle = client.request();
-	handle.on('response', function(opcode, resp) {
-		if(opcode == d3b.ServerResponses.kSrFin) {
-			callback(null);
-			handle.fin();
-		}else if(opcode == d3b.ServerResponses.kSrBlob) {
-			data_handler(resp.getBuffer());
-		}else throw new Error("Unexpected response " + opcode);
+	return new Promise((resolve, reject) => {
+		var req = new api.CqDownloadExtern();
+		req.setFileName(opts.fileName);
+
+		var exchange = client.exchange((opcode, data) => {
+			if(opcode == d3b.ServerResponses.kSrBlob) {
+				file = data.getBuffer();
+			}else if(opcode == d3b.ServerResponses.kSrFin) {
+				assert(file);
+				resolve(file);
+				exchange.fin();
+			}else throw new Error("Unexpected response " + opcode);
+		});
+		exchange.send(d3b.ClientRequests.kCqDownloadExtern, req);
 	});
-	handle.send(d3b.ClientRequests.kCqDownloadExtern, req);
 }
 
 function insert(client, opts, callback) {

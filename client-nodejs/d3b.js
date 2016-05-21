@@ -93,8 +93,8 @@ Client.prototype.p_onMessage = function() {
 			+ ' ' + JSON.stringify(resp));
 
 	if(this.packetSeqNumber in this.activeRequests) {
-		var request = this.activeRequests[this.packetSeqNumber];
-		request.emit('response', this.packetOpcode, resp);
+		var exchange = this.activeRequests[this.packetSeqNumber];
+		exchange.handler(this.packetOpcode, resp);
 	}else console.log("Lost response: " + JSON.stringify(resp));
 }
 Client.prototype.p_send = function(opcode, seq_number, request) {
@@ -151,25 +151,23 @@ Client.prototype.p_onPartial = function(buffer) {
 		}
 	}
 };
-Client.prototype.request = function() {
-	return new Request(this);
+Client.prototype.exchange = function(handler) {
+	return new Exchange(this, handler);
 };
 
-function Request(client) {
+function Exchange(client, handler) {
 	this.client = client;
+	this.handler = handler;
 	
 	this.seqNumber = this.client.sequence;
 	this.client.sequence++;
 	this.client.activeRequests[this.seqNumber] = this;
-	
-	events.EventEmitter.call(this);
 }
-require('util').inherits(Request, events.EventEmitter);
 
-Request.prototype.send = function(opcode, request) {
+Exchange.prototype.send = function(opcode, request) {
 	this.client.p_send(opcode, this.seqNumber, request);
 }
-Request.prototype.fin = function() {
+Exchange.prototype.fin = function() {
 	delete this.client.activeRequests[this.seqNumber];
 }
 
