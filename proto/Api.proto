@@ -1,5 +1,6 @@
 
-import "proto/Config.proto";
+syntax = "proto2";
+import "Config.proto";
 
 package Api.Proto;
 option optimize_for = LITE_RUNTIME;

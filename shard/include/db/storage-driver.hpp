@@ -1,7 +1,7 @@
 
 #include "async.hpp"
 
-#include "proto/Config.pb.h"
+#include <Config.pb.h>
 
 namespace Db {
 

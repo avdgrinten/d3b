@@ -14,7 +14,7 @@
 #include "db/view-driver.hpp"
 #include "db/engine.hpp"
 
-#include "proto/Api.pb.h"
+#include <Api.pb.h>
 #include "api/server.hpp"
 
 namespace Api {

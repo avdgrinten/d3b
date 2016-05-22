@@ -5,7 +5,7 @@
 #include "async.hpp"
 #include "os/linux.hpp"
 
-#include "proto/Config.pb.h"
+#include <Config.pb.h>
 
 #include "ll/write-ahead.hpp"
 #include "ll/crypto.hpp"
