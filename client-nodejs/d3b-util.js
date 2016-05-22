@@ -3,7 +3,7 @@ const assert = require('assert');
 
 const d3b = require('./d3b');
 const api = require('./Api_pb.js');
-const cfg = require('./proto/Config_pb.js');
+const cfg = require('./Config_pb.js');
 
 const kMutateInsert = Symbol();
 const kMutateModify = Symbol();

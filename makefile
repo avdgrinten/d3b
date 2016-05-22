@@ -7,7 +7,7 @@ PROTOC ?= protoc
 
 gen: gen-shard gen-client-nodejs
 all: all-shard
-clean: clean-shard
+clean: clean-shard clean-client-nodejs
 
 include shard/dir.makefile
 include client-nodejs/dir.makefile
