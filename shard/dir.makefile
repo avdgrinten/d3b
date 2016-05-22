@@ -12,8 +12,6 @@ DIRS = db ll api os
 
 V8_PATH = $(HOME)/v8
 
-PROTOC ?= protoc
-
 CXXFLAGS += -std=c++14 -pthread -I$d/include -I$d/gen
 CXXFLAGS += -I$(V8_PATH)/include
 
@@ -25,15 +23,15 @@ LIBS += -Wl,--start-group -lv8_base -lv8_libbase -lv8_external_snapshot -lv8_lib
 LIBS += -lbotan-1.11
 LIBS += -ldl
 
-.PHONY: all
-all: $d/bin/shard
+.PHONY: all-$d
+all-$d: $d/bin/shard
 
-.PHONY: gen
-gen: $d/gen/Api.pb.tag $d/gen/Config.pb.tag
+.PHONY: gen-$d
+gen-$d: $d/gen/Api.pb.tag $d/gen/Config.pb.tag
 
-.PHONY: clean
-clean: d := $d
-clean:
+.PHONY: clean-$d
+clean-$d: d := $d
+clean-$d:
 	rm -rf $d/gen/ $d/obj/ $d/bin/
 
 # generate missig directories
