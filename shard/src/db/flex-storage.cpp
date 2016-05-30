@@ -107,8 +107,7 @@ FlexStorage::InsertClosure::InsertClosure(FlexStorage *storage,
 		Async::Callback<void(Error)> callback)
 	: p_storage(storage), p_documentId(document_id),
 		p_sequenceId(sequence_id), p_buffer(buffer),
-		p_callback(callback), p_dataWrite(&storage->p_dataFile),
-		p_btreeInsert(&storage->p_indexTree) { }
+		p_callback(callback), p_dataWrite(&storage->p_dataFile) { }
 
 void FlexStorage::InsertClosure::apply() {
 	size_t data_pointer = p_storage->p_dataPointer;
@@ -124,9 +123,9 @@ void FlexStorage::InsertClosure::apply() {
 			ASYNC_MEMBER(this, &InsertClosure::onDataWrite));
 }
 void FlexStorage::InsertClosure::onDataWrite() {
-	p_btreeInsert.insert(&p_index, p_refBuffer,
-			ASYNC_MEMBER(this, &InsertClosure::compareToInserted),
-			ASYNC_MEMBER(this, &InsertClosure::onIndexInsert));
+	auto action = p_storage->p_indexTree.insert(&p_index, p_refBuffer,
+			ASYNC_MEMBER(this, &InsertClosure::compareToInserted));
+	libchain::run(action, ASYNC_MEMBER(this, &InsertClosure::onIndexInsert));
 }
 void FlexStorage::InsertClosure::compareToInserted(const Index &other,
 		Async::Callback<void(int)> callback) {

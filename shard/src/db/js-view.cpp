@@ -357,9 +357,7 @@ JsView::InsertClosure::InsertClosure(JsView *view, DocumentId document_id,
 		Async::Callback<void(Error)> callback)
 	: p_view(view), p_documentId(document_id),
 		p_sequenceId(sequence_id), p_buffer(buffer), p_callback(callback),
-		p_keyWrite(&view->p_keyFile), p_keyRead(&view->p_keyFile),
-		p_btreeInsert(&view->p_orderTree) {
-}
+		p_keyWrite(&view->p_keyFile), p_keyRead(&view->p_keyFile) { }
 
 void JsView::InsertClosure::apply() {
 	p_view->grabInstance(ASYNC_MEMBER(this, &InsertClosure::acquireInstance));
@@ -387,9 +385,9 @@ void JsView::InsertClosure::afterWriteKey() {
 	OS::packLe64(p_linkBuffer + Link::kDocumentId, p_documentId);
 	OS::packLe64(p_linkBuffer + Link::kSequenceId, p_sequenceId);
 
-	p_btreeInsert.insert(&p_insertKey, p_linkBuffer,
-		ASYNC_MEMBER(this, &InsertClosure::compareToNew),
-		ASYNC_MEMBER(this, &InsertClosure::onComplete));
+	auto action = p_view->p_orderTree.insert(&p_insertKey, p_linkBuffer,
+		ASYNC_MEMBER(this, &InsertClosure::compareToNew));
+	libchain::run(action, ASYNC_MEMBER(this, &InsertClosure::onComplete));
 }
 void JsView::InsertClosure::compareToNew(const KeyRef &keyref,
 		Async::Callback<void(int)> callback) {

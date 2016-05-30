@@ -4,12 +4,14 @@
 
 #include <cstring>
 
+#include <libchain/all.hpp>
+
 #include "ll/page-cache.hpp"
 
 template<typename KeyType>
 class Btree {
 public:
-	typedef int32_t blknum_type;
+	typedef int32_t BlkIndexType;
 
 	typedef Async::Callback<void(void *, const KeyType &)> WriteKeyCallback;
 	typedef Async::Callback<KeyType(const void*)> ReadKeyCallback;
@@ -17,9 +19,9 @@ public:
 	typedef Async::Callback<int(const KeyType &, const KeyType &)> BinaryCompareCallback;
 
 	Btree(std::string name,
-			Linux::size_type block_size,
-			Linux::size_type key_size,
-			Linux::size_type val_size,
+			size_t block_size,
+			size_t key_size,
+			size_t val_size,
 			CacheHost *cache_host,
 			TaskPool *io_pool);
 
@@ -42,12 +44,12 @@ public:
 		}
 		
 	private:
-		Ref(blknum_type block, blknum_type entry)
+		Ref(BlkIndexType block, BlkIndexType entry)
 				: block(block), entry(entry) {
 		}
 		
-		blknum_type block;
-		blknum_type entry;
+		BlkIndexType block;
+		BlkIndexType entry;
 	};
 
 	// FIXME: IterateClosure should properly deallocate memory
@@ -76,8 +78,8 @@ public:
 		Btree *p_tree;
 		Async::Callback<void()> p_callback;
 
-		blknum_type p_block;
-		blknum_type p_entry;
+		BlkIndexType p_block;
+		BlkIndexType p_entry;
 		char *p_buffer;
 	};
 
@@ -112,8 +114,8 @@ public:
 		UnaryCompareCallback p_compare;
 		Async::Callback<void(int)> p_callback;
 		
-		blknum_type p_entryCount;
-		blknum_type p_entryIndex;
+		BlkIndexType p_entryCount;
+		BlkIndexType p_entryIndex;
 		char *p_blockBuffer;
 	};
 
@@ -121,8 +123,8 @@ public:
 	public:
 		SplitClosure(Btree *tree) : p_tree(tree) { }
 
-		void split(blknum_type block_num, char *block_buf,
-				char *parent_buf, blknum_type block_index,
+		void split(BlkIndexType block_num, char *block_buf,
+				char *parent_buf, BlkIndexType block_index,
 				Async::Callback<void()> on_complete);
 	
 	private:
@@ -137,51 +139,156 @@ public:
 		Btree *p_tree;
 		Async::Callback<void()> p_onComplete;
 		
-		blknum_type p_blockNumber;
-		blknum_type p_blockIndex;
-		blknum_type p_leftSize;
-		blknum_type p_rightSize;
-		blknum_type p_splitNumber;
-		blknum_type p_rightLinkNumber;
-		blknum_type p_newRootNumber;
+		BlkIndexType p_blockNumber;
+		BlkIndexType p_blockIndex;
+		BlkIndexType p_leftSize;
+		BlkIndexType p_rightSize;
+		BlkIndexType p_splitNumber;
+		BlkIndexType p_rightLinkNumber;
+		BlkIndexType p_newRootNumber;
 		char *p_blockBuffer;
 		char *p_parentBuffer;
 		KeyType p_splitKey;
 	};
 
-	class InsertClosure {
-	public:
-		InsertClosure(Btree *tree) : p_tree(tree),
-				p_splitClosure(tree), p_searchClosure(tree) { }
+	template<typename UnaryCompare>
+	auto insert(KeyType *key, void *value, UnaryCompare compare) {
+		struct Context {
+			Context(Btree *self, KeyType *key, void *value, UnaryCompare compare)
+			: self(self), key(key), value(value), compare(compare),
+					splitClosure(self), searchClosure(self) { }
 
-		void insert(KeyType *key, void *value,
-				UnaryCompareCallback compare,
-				Async::Callback<void()> on_complete);
+			Btree *self;
+			KeyType *key;
+			void *value;
+			UnaryCompare compare;
 
-	private:
-		void onReadRoot(char *buffer);
-		void onSplitRoot();
-		void descend();
-		void onFoundChild(int index);
-		void onReadChild(char *buffer);
-		void onSplitChild();
-		void insertIntoNode(int index);
-
-		Btree *p_tree;
-		KeyType *p_keyPtr;
-		void *p_valuePtr;
-		UnaryCompareCallback p_compare;
-		Async::Callback<void()> p_onComplete;
-	
-		blknum_type p_blockNumber;
-		blknum_type p_childNumber;
-		blknum_type p_childIndex;
-		char *p_blockBuffer;
-		char *p_childBuffer;
+			BlkIndexType blockNumber;
+			char *blockBuffer;
 		
-		SplitClosure p_splitClosure;
-		SearchNodeClosure p_searchClosure;
-	};
+			BlkIndexType childNumber;
+			char *childBuffer;
+			BlkIndexType childIndex;
+
+			SplitClosure splitClosure;
+			SearchNodeClosure searchClosure;
+		};
+
+		return libchain::contextify([] (auto &c) {
+			auto read_root = libchain::sequence()
+			& libchain::await<void(char *)>([&c] (auto callback) {
+				c.blockNumber = c.self->p_curFileHead.rootBlock;
+				c.self->p_pageCache.readPage(c.blockNumber,
+						Async::transition(callback));
+			})
+			& libchain::apply([&c] (char *buffer) {
+				c.blockBuffer = buffer;
+			}, libchain::nullary);
+
+			auto maybe_split_root = libchain::sequence()
+			& read_root
+			& libchain::apply([&c] () -> bool {
+				return c.self->blockIsFull(c.blockNumber, c.blockBuffer);
+			}, libchain::unary)
+			& libchain::branch(
+				libchain::sequence()
+				& libchain::await<void()>([&c] (auto callback) {
+					c.splitClosure.split(c.blockNumber, c.blockBuffer, nullptr, 0,
+							Async::transition(callback));
+				})
+				& libchain::apply([&c] () {
+					c.self->p_pageCache.writePage(c.blockNumber);
+					c.self->p_pageCache.releasePage(c.blockNumber);
+				}, libchain::nullary)
+				& read_root,
+
+				libchain::apply([&c] () { }, libchain::nullary)
+			)
+			& libchain::apply([&c] () {
+				assert(!c.self->blockIsFull(c.blockNumber, c.blockBuffer));
+			}, libchain::nullary);
+
+			auto insert_or_descend = libchain::sequence()
+			& libchain::apply([&c] () -> bool {
+				int flags = c.self->p_headGetFlags(c.blockBuffer);
+				if((flags & 1) != 0) {
+					assert(c.self->p_leafGetEntCount(c.blockBuffer) < c.self->p_entsPerLeaf());
+				}else{
+					assert(c.self->p_innerGetEntCount(c.blockBuffer) < c.self->p_entsPerInner());
+				}
+				return (flags & 1) != 0;
+			}, libchain::unary)
+			& libchain::branch(
+				libchain::sequence()
+				& libchain::await<void(int)>([&c] (auto callback) {
+					c.searchClosure.prevInLeaf(c.blockBuffer, c.compare,
+							Async::transition(callback));
+				})
+				& libchain::apply([&c] (int index) {
+					if(index >= 0) {
+						c.self->p_insertAtLeaf(c.blockBuffer, index + 1, *c.key, c.value);
+					}else{
+						c.self->p_insertAtLeaf(c.blockBuffer, 0, *c.key, c.value);
+					}
+					c.self->p_pageCache.writePage(c.blockNumber);
+					c.self->p_pageCache.releasePage(c.blockNumber);
+				}, libchain::nullary)
+				& libchain::apply([&c] () -> bool {
+					return false;
+				}, libchain::unary),
+
+				libchain::sequence()
+				& libchain::await<void(int)>([&c] (auto callback) {
+					c.searchClosure.prevInInner(c.blockBuffer, c.compare,
+							Async::transition(callback));
+				})
+				& libchain::await<void(char *)>([&c] (auto callback, int index) {
+					c.childIndex = index;
+
+					char *ref_ptr = c.blockBuffer + (c.childIndex >= 0
+							? c.self->p_refOffInner(c.childIndex) : c.self->p_lrefOffInner());
+					
+					c.childNumber = OS::fromLeU32(*((BlkIndexType*)ref_ptr));
+					c.self->p_pageCache.readPage(c.childNumber,
+							Async::transition(callback));
+				})
+				& libchain::apply([&c] (char *buffer) {
+					c.childBuffer = buffer;
+
+					// check if we have to split the child
+					return c.self->blockIsFull(c.childNumber, c.childBuffer);
+				}, libchain::unary)
+				& libchain::branch(
+					libchain::sequence()
+					& libchain::await<void()>([&c] (auto callback) {
+						c.splitClosure.split(c.childNumber, c.childBuffer,
+								c.blockBuffer, c.childIndex,
+								Async::transition(callback));
+					})
+					& libchain::apply([&c] () {
+						c.self->p_pageCache.writePage(c.blockNumber);
+						c.self->p_pageCache.writePage(c.childNumber);
+						c.self->p_pageCache.releasePage(c.childNumber);
+					}, libchain::nullary),
+
+					libchain::apply([&c] () {
+						c.self->p_pageCache.releasePage(c.blockNumber);
+						c.blockBuffer = c.childBuffer;
+						c.blockNumber = c.childNumber;
+					}, libchain::nullary)
+				)
+				& libchain::apply([&c] () -> bool {
+					return true;
+				}, libchain::unary)
+			);
+
+			return libchain::sequence()
+			& maybe_split_root
+			& libchain::repeat(
+				insert_or_descend
+			);
+		}, Context(this, key, value, compare));
+	}
 
 	class FindClosure {
 	public:
@@ -210,7 +317,7 @@ public:
 		UnaryCompareCallback p_compare;
 		Async::Callback<void(Ref)> p_onComplete;
 
-		blknum_type p_blockNumber;
+		BlkIndexType p_blockNumber;
 		char *p_blockBuffer;
 
 		SearchNodeClosure p_searchClosure;
@@ -281,22 +388,22 @@ public:
 private:
 	typedef uint32_t flags_type;
 	struct FileHead {
-		blknum_type rootBlock;
-		blknum_type numBlocks;
-		blknum_type depth;
+		BlkIndexType rootBlock;
+		BlkIndexType numBlocks;
+		BlkIndexType depth;
 	};
 	struct BlockHead {
 		flags_type flags;
 	};
 	struct InnerHead {
 		BlockHead blockHead;
-		blknum_type entCount2;
+		BlkIndexType entCount2;
 	};
 	struct LeafHead {
 		BlockHead blockHead;
-		blknum_type entCount2;
-		blknum_type leftLink2;
-		blknum_type rightLink2;
+		BlkIndexType entCount2;
+		BlkIndexType leftLink2;
+		BlkIndexType rightLink2;
 	};
 
 	BinaryCompareCallback p_compare;
@@ -307,83 +414,83 @@ private:
 	std::string p_name;
 	PageCache p_pageCache;
 	
-	Linux::size_type p_blockSize;
-	Linux::size_type p_keySize;
-	Linux::size_type p_valSize;
+	size_t p_blockSize;
+	size_t p_keySize;
+	size_t p_valSize;
 
 	FileHead p_curFileHead;
 
-	Linux::size_type p_entsPerInner() {
-		return (p_blockSize - sizeof(InnerHead) - sizeof(blknum_type))
-			/ (p_keySize + sizeof(blknum_type));
+	size_t p_entsPerInner() {
+		return (p_blockSize - sizeof(InnerHead) - sizeof(BlkIndexType))
+			/ (p_keySize + sizeof(BlkIndexType));
 	}
-	Linux::size_type p_entsPerLeaf() {
+	size_t p_entsPerLeaf() {
 		return (p_blockSize - sizeof(LeafHead))
 			/ (p_keySize + p_valSize);
 	}
 
 	// size of an entry in an inner node
 	// entries consist of key + reference to child block
-	Linux::size_type p_entSizeInner() {
-		return p_keySize + sizeof(blknum_type);
+	size_t p_entSizeInner() {
+		return p_keySize + sizeof(BlkIndexType);
 	}
 	// offset of an entry in an inner node
-	Linux::size_type p_entOffInner(int i) {
-		return sizeof(InnerHead) + sizeof(blknum_type)
+	size_t p_entOffInner(int i) {
+		return sizeof(InnerHead) + sizeof(BlkIndexType)
 				+ p_entSizeInner() * i;
 	}
 	// offset of the leftmost child reference
 	// it does not belong to an entry and thus must be special cased
-	Linux::size_type p_lrefOffInner() {
+	size_t p_lrefOffInner() {
 		return sizeof(InnerHead);
 	}
-	Linux::size_type p_keyOffInner(int i) {
+	size_t p_keyOffInner(int i) {
 		return p_entOffInner(i);
 	}
-	Linux::size_type p_refOffInner(int i) {
+	size_t p_refOffInner(int i) {
 		return p_entOffInner(i) + p_keySize;
 	}
 
-	Linux::size_type p_entSizeLeaf() {
+	size_t p_entSizeLeaf() {
 		return p_keySize + p_valSize;
 	}
-	Linux::size_type p_entOffLeaf(int i) {
+	size_t p_entOffLeaf(int i) {
 		return sizeof(LeafHead) + p_entSizeLeaf() * i;
 	}
-	Linux::size_type p_valOffLeaf(int i) {
+	size_t p_valOffLeaf(int i) {
 		return p_entOffLeaf(i);
 	}
-	Linux::size_type p_keyOffLeaf(int i) {
+	size_t p_keyOffLeaf(int i) {
 		return p_entOffLeaf(i) + p_valSize;
 	}
 	
 	flags_type p_headGetFlags(char *block_buf);
 	void p_headSetFlags(char *block_buf, flags_type flags);
 
-	blknum_type p_innerGetEntCount(char *block_buf);
-	void p_innerSetEntCount(char *block_buf, blknum_type ent_count);
+	BlkIndexType p_innerGetEntCount(char *block_buf);
+	void p_innerSetEntCount(char *block_buf, BlkIndexType ent_count);
 	
-	blknum_type p_leafGetEntCount(char *block_buf);
-	void p_leafSetEntCount(char *block_buf, blknum_type ent_count);
-	blknum_type p_leafGetLeftLink(char *block_buf);
-	void p_leafSetLeftLink(char *block_buf, blknum_type link);
-	blknum_type p_leafGetRightLink(char *block_buf);
-	void p_leafSetRightLink(char *block_buf, blknum_type link);
+	BlkIndexType p_leafGetEntCount(char *block_buf);
+	void p_leafSetEntCount(char *block_buf, BlkIndexType ent_count);
+	BlkIndexType p_leafGetLeftLink(char *block_buf);
+	void p_leafSetLeftLink(char *block_buf, BlkIndexType link);
+	BlkIndexType p_leafGetRightLink(char *block_buf);
+	void p_leafSetRightLink(char *block_buf, BlkIndexType link);
 
-	void p_insertAtLeaf(char *block, blknum_type i,
+	void p_insertAtLeaf(char *block, BlkIndexType i,
 			const KeyType &key, void *value);
 	void p_insertAtInnerR(char *block, int i,
-			const KeyType &key, blknum_type ref);
+			const KeyType &key, BlkIndexType ref);
 	
-	blknum_type p_allocBlock() {	
-		blknum_type number = p_curFileHead.numBlocks;
+	BlkIndexType p_allocBlock() {	
+		BlkIndexType number = p_curFileHead.numBlocks;
 		p_curFileHead.numBlocks++;
 		return number;
 	}
 
-	bool blockIsFull(blknum_type block_num, char *block_buf);
+	bool blockIsFull(BlkIndexType block_num, char *block_buf);
 
-	void p_blockIntegrity(blknum_type block_num,
+	void p_blockIntegrity(BlkIndexType block_num,
 			KeyType min, KeyType max);
 	
 	//FIXME: write file head on close
@@ -401,8 +508,8 @@ private:
 };
 
 template<typename KeyType>
-Btree<KeyType>::Btree(std::string name, Linux::size_type block_size,
-		Linux::size_type key_size, Linux::size_type val_size,
+Btree<KeyType>::Btree(std::string name, size_t block_size,
+		size_t key_size, size_t val_size,
 		CacheHost *cache_host, TaskPool *io_pool)
 	: p_name(name), p_pageCache(cache_host, block_size, io_pool), p_blockSize(block_size),
 		p_keySize(key_size), p_valSize(val_size) {
@@ -459,7 +566,7 @@ void Btree<KeyType>::IterateClosure::forward(Async::Callback<void()> callback) {
 	assert(p_block > 0 && p_entry < p_tree->p_leafGetEntCount(p_buffer));
 	p_entry++;
 
-	blknum_type right_link = p_tree->p_leafGetRightLink(p_buffer);
+	BlkIndexType right_link = p_tree->p_leafGetRightLink(p_buffer);
 	if(p_entry == p_tree->p_leafGetEntCount(p_buffer)) {
 		if(right_link != 0) {
 			p_tree->p_pageCache.releasePage(p_block);
@@ -508,106 +615,6 @@ void Btree<KeyType>::IterateClosure::setValue(void *value) {
  * ------------------------------------------------------------------------- */
 
 template<typename KeyType>
-void Btree<KeyType>::InsertClosure::insert(KeyType *key, void *value,
-		UnaryCompareCallback compare,
-		Async::Callback<void()> on_complete) {
-	p_keyPtr = key;
-	p_valuePtr = value;
-	p_compare = compare;
-	p_onComplete = on_complete;
-
-	p_blockNumber = p_tree->p_curFileHead.rootBlock;
-	p_tree->p_pageCache.readPage(p_blockNumber,
-			ASYNC_MEMBER(this, &InsertClosure::onReadRoot));
-}
-template<typename KeyType>
-void Btree<KeyType>::InsertClosure::onReadRoot(char *buffer) {
-	p_blockBuffer = buffer;
-
-	/* check if we have to split the root */
-	if(p_tree->blockIsFull(p_blockNumber, p_blockBuffer)) {
-		p_splitClosure.split(p_blockNumber, p_blockBuffer, nullptr, 0,
-				ASYNC_MEMBER(this, &InsertClosure::onSplitRoot));
-	}else{
-		descend();
-	}
-}
-template<typename KeyType>
-void Btree<KeyType>::InsertClosure::onSplitRoot() {
-	p_tree->p_pageCache.writePage(p_blockNumber);
-	p_tree->p_pageCache.releasePage(p_blockNumber);
-
-	p_blockNumber = p_tree->p_curFileHead.rootBlock;
-	p_tree->p_pageCache.readPage(p_blockNumber,
-			ASYNC_MEMBER(this, &InsertClosure::onReadRoot));
-}
-template<typename KeyType>
-void Btree<KeyType>::InsertClosure::descend() {
-	int flags = p_tree->p_headGetFlags(p_blockBuffer);
-	if((flags & 1) != 0) {
-		assert(p_tree->p_leafGetEntCount(p_blockBuffer) < p_tree->p_entsPerLeaf());
-	}else{
-		assert(p_tree->p_innerGetEntCount(p_blockBuffer) < p_tree->p_entsPerInner());
-	}
-	if((flags & 1) != 0) {
-		p_searchClosure.prevInLeaf(p_blockBuffer, p_compare,
-				ASYNC_MEMBER(this, &InsertClosure::insertIntoNode));
-		return;
-	}
-	
-	p_searchClosure.prevInInner(p_blockBuffer, p_compare,
-			ASYNC_MEMBER(this, &InsertClosure::onFoundChild));
-}
-template<typename KeyType>
-void Btree<KeyType>::InsertClosure::onFoundChild(int index) {
-	p_childIndex = index;
-
-	char *ref_ptr = p_blockBuffer + (p_childIndex >= 0
-			? p_tree->p_refOffInner(p_childIndex) : p_tree->p_lrefOffInner());
-	
-	p_childNumber = OS::fromLeU32(*((blknum_type*)ref_ptr));
-	p_tree->p_pageCache.readPage(p_childNumber,
-			ASYNC_MEMBER(this, &InsertClosure::onReadChild));
-}
-template<typename KeyType>
-void Btree<KeyType>::InsertClosure::onReadChild(char *buffer) {
-	p_childBuffer = buffer;
-
-	/* check if we have to split the child */
-	if(p_tree->blockIsFull(p_childNumber, p_childBuffer)) {
-		p_splitClosure.split(p_childNumber, p_childBuffer,
-				p_blockBuffer, p_childIndex,
-				ASYNC_MEMBER(this, &InsertClosure::onSplitChild));
-	}else{
-		p_tree->p_pageCache.releasePage(p_blockNumber);
-		p_blockBuffer = p_childBuffer;
-		p_blockNumber = p_childNumber;
-		
-		descend();
-	}
-}
-template<typename KeyType>
-void Btree<KeyType>::InsertClosure::onSplitChild() {
-	p_tree->p_pageCache.writePage(p_blockNumber);
-	p_tree->p_pageCache.writePage(p_childNumber);
-	p_tree->p_pageCache.releasePage(p_childNumber);
-
-	descend();
-}
-template<typename KeyType>
-void Btree<KeyType>::InsertClosure::insertIntoNode(int index) {
-	if(index >= 0) {
-		p_tree->p_insertAtLeaf(p_blockBuffer, index + 1, *p_keyPtr, p_valuePtr);
-	}else{
-		p_tree->p_insertAtLeaf(p_blockBuffer, 0, *p_keyPtr, p_valuePtr);
-	}
-	p_tree->p_pageCache.writePage(p_blockNumber);
-	p_tree->p_pageCache.releasePage(p_blockNumber);
-
-	p_onComplete();
-}
-
-template<typename KeyType>
 void Btree<KeyType>::FindClosure::findFirst(Async::Callback<void(Ref)> on_complete) {
 	p_onComplete = on_complete;
 
@@ -644,7 +651,7 @@ void Btree<KeyType>::FindClosure::findFirstOnRead(char *buffer) {
 	}
 	
 	char *ref_ptr = p_blockBuffer + p_tree->p_lrefOffInner();
-	blknum_type child_number = OS::fromLeU32(*((blknum_type*)ref_ptr));
+	BlkIndexType child_number = OS::fromLeU32(*((BlkIndexType*)ref_ptr));
 	p_tree->p_pageCache.releasePage(p_blockNumber);
 	p_blockNumber = child_number;
 
@@ -682,19 +689,19 @@ void Btree<KeyType>::FindClosure::findNextOnRead(char *buffer) {
 template<typename KeyType>
 void Btree<KeyType>::FindClosure::findNextOnFoundChild(int index) {
 	if(index == -1) {
-		blknum_type ent_count = p_tree->p_innerGetEntCount(p_blockBuffer);
+		BlkIndexType ent_count = p_tree->p_innerGetEntCount(p_blockBuffer);
 		char *ref_ptr = p_blockBuffer + p_tree->p_refOffInner(ent_count - 1);
-		blknum_type child_num = OS::fromLeU32(*((blknum_type*)ref_ptr));
+		BlkIndexType child_num = OS::fromLeU32(*((BlkIndexType*)ref_ptr));
 		p_tree->p_pageCache.releasePage(p_blockNumber);
 		p_blockNumber = child_num;
 	}else if(index == 0) {
 		char *ref_ptr = p_blockBuffer + p_tree->p_lrefOffInner();
-		blknum_type child_num = OS::fromLeU32(*((blknum_type*)ref_ptr));
+		BlkIndexType child_num = OS::fromLeU32(*((BlkIndexType*)ref_ptr));
 		p_tree->p_pageCache.releasePage(p_blockNumber);
 		p_blockNumber = child_num;
 	}else{
 		char *ref_ptr = p_blockBuffer + p_tree->p_refOffInner(index - 1);
-		blknum_type child_num = OS::fromLeU32(*((blknum_type*)ref_ptr));
+		BlkIndexType child_num = OS::fromLeU32(*((BlkIndexType*)ref_ptr));
 		p_blockNumber = child_num;
 	}
 
@@ -743,12 +750,12 @@ template<typename KeyType>
 void Btree<KeyType>::FindClosure::findPrevOnFoundChild(int index) {
 	if(index == -1) {
 		char *ref_ptr = p_blockBuffer + p_tree->p_lrefOffInner();
-		blknum_type child_num = OS::fromLeU32(*((blknum_type*)ref_ptr));
+		BlkIndexType child_num = OS::fromLeU32(*((BlkIndexType*)ref_ptr));
 		p_tree->p_pageCache.releasePage(p_blockNumber);
 		p_blockNumber = child_num;
 	}else{
 		char *ref_ptr = p_blockBuffer + p_tree->p_refOffInner(index);
-		blknum_type child_num = OS::fromLeU32(*((blknum_type*)ref_ptr));
+		BlkIndexType child_num = OS::fromLeU32(*((BlkIndexType*)ref_ptr));
 		p_tree->p_pageCache.releasePage(p_blockNumber);
 		p_blockNumber = child_num;
 	}
@@ -758,7 +765,7 @@ void Btree<KeyType>::FindClosure::findPrevOnFoundChild(int index) {
 template<typename KeyType>
 void Btree<KeyType>::FindClosure::findPrevInLeaf(int index) {
 	if(index == -1) {
-		blknum_type left_link = p_tree->p_leafGetLeftLink(p_blockBuffer);
+		BlkIndexType left_link = p_tree->p_leafGetLeftLink(p_blockBuffer);
 		if(left_link != 0) {
 			p_tree->p_pageCache.releasePage(p_blockNumber);
 			p_blockNumber = left_link;
@@ -777,7 +784,7 @@ template<typename KeyType>
 void Btree<KeyType>::FindClosure::findPrevReadLeft(char *buffer) {
 	p_blockBuffer = buffer;
 
-	blknum_type ent_count = p_tree->p_leafGetEntCount(p_blockBuffer);
+	BlkIndexType ent_count = p_tree->p_leafGetEntCount(p_blockBuffer);
 	assert(ent_count > 0);
 
 	p_tree->p_pageCache.releasePage(p_blockNumber);
@@ -789,7 +796,7 @@ void Btree<KeyType>::FindClosure::findPrevReadLeft(char *buffer) {
  * ------------------------------------------------------------------------- */
 
 template<typename KeyType>
-bool Btree<KeyType>::blockIsFull(blknum_type block_num, char *block_buf) {
+bool Btree<KeyType>::blockIsFull(BlkIndexType block_num, char *block_buf) {
 	flags_type flags = OS::fromLeU32(*((flags_type*)block_buf));
 	if((flags & 1) != 0) {
 		if(p_leafGetEntCount(block_buf) >= p_entsPerLeaf() - 1) {
@@ -804,8 +811,8 @@ bool Btree<KeyType>::blockIsFull(blknum_type block_num, char *block_buf) {
 }
 
 template<typename KeyType>
-void Btree<KeyType>::SplitClosure::split(blknum_type block_num, char *block_buf,
-		char *parent_buf, blknum_type block_index,
+void Btree<KeyType>::SplitClosure::split(BlkIndexType block_num, char *block_buf,
+		char *parent_buf, BlkIndexType block_index,
 		Async::Callback<void()> on_complete) {
 	p_blockNumber = block_num;
 	p_blockBuffer = block_buf;
@@ -832,7 +839,7 @@ void Btree<KeyType>::SplitClosure::splitLeaf() {
 //	std::cout << "split leaf" << std::endl;
 	p_splitNumber = p_tree->p_allocBlock();
 
-	blknum_type ent_count = p_tree->p_leafGetEntCount(p_blockBuffer);
+	BlkIndexType ent_count = p_tree->p_leafGetEntCount(p_blockBuffer);
 	p_rightLinkNumber = p_tree->p_leafGetRightLink(p_blockBuffer);
 	p_leftSize = ent_count / 2;
 	p_rightSize = ent_count - p_leftSize;
@@ -885,7 +892,7 @@ void Btree<KeyType>::SplitClosure::splitInner() {
 
 	/* note: p_leftSize + p_rightSize = ent_count - 1
 		because one of the keys moves to the parent node */
-	blknum_type ent_count = p_tree->p_innerGetEntCount(p_blockBuffer);
+	BlkIndexType ent_count = p_tree->p_innerGetEntCount(p_blockBuffer);
 	p_leftSize = ent_count / 2;
 	p_rightSize = ent_count - p_leftSize - 1;
 	assert(p_leftSize > 0 && p_rightSize > 0
@@ -905,7 +912,7 @@ void Btree<KeyType>::SplitClosure::splitInnerOnInitialize(char *split_block) {
 	/* setup the leftmost child reference of the new block */
 	char *block_rref = p_blockBuffer + p_tree->p_refOffInner(p_leftSize);
 	char *split_lref = split_block + p_tree->p_lrefOffInner();
-	*(blknum_type*)split_lref = *(blknum_type*)block_rref;
+	*(BlkIndexType*)split_lref = *(BlkIndexType*)block_rref;
 	p_splitKey = p_tree->p_readKey(p_blockBuffer + p_tree->p_keyOffInner(p_leftSize));
 
 	/* setup the remaining entries of the new block */
@@ -922,7 +929,7 @@ void Btree<KeyType>::SplitClosure::splitInnerOnInitialize(char *split_block) {
 template<typename KeyType>
 void Btree<KeyType>::SplitClosure::fixParent() {
 	if(p_parentBuffer != nullptr) {
-		blknum_type parent_count = p_tree->p_innerGetEntCount(p_parentBuffer);
+		BlkIndexType parent_count = p_tree->p_innerGetEntCount(p_parentBuffer);
 		assert(parent_count < p_tree->p_entsPerInner());
 
 		p_tree->p_insertAtInnerR(p_parentBuffer, p_blockIndex + 1, p_splitKey, p_splitNumber);
@@ -944,8 +951,8 @@ void Btree<KeyType>::SplitClosure::fixParentOnInitialize(char *new_root_buffer) 
 	
 	char *lref = new_root_buffer + p_tree->p_lrefOffInner();
 	char *ref0 = new_root_buffer + p_tree->p_refOffInner(0);
-	*((blknum_type*)lref) = OS::toLeU32(p_blockNumber);
-	*((blknum_type*)ref0) = OS::toLeU32(p_splitNumber);
+	*((BlkIndexType*)lref) = OS::toLeU32(p_blockNumber);
+	*((BlkIndexType*)ref0) = OS::toLeU32(p_splitNumber);
 	p_tree->p_writeKey(new_root_buffer + p_tree->p_keyOffInner(0), p_splitKey);
 
 	p_tree->p_pageCache.writePage(p_newRootNumber);
@@ -1094,9 +1101,9 @@ void Btree<KeyType>::SearchNodeClosure::nextInInnerCheck(int result) {
 }
 
 template<typename KeyType>
-void Btree<KeyType>::p_insertAtLeaf(char *block, blknum_type i,
+void Btree<KeyType>::p_insertAtLeaf(char *block, BlkIndexType i,
 		const KeyType &key, void *value) {
-	blknum_type ent_count = p_leafGetEntCount(block);
+	BlkIndexType ent_count = p_leafGetEntCount(block);
 	std::memmove(block + p_entOffLeaf(i + 1), block + p_entOffLeaf(i),
 		(ent_count - i) * p_entSizeLeaf());
 	p_writeKey(block + p_keyOffLeaf(i), key);
@@ -1105,13 +1112,13 @@ void Btree<KeyType>::p_insertAtLeaf(char *block, blknum_type i,
 }
 template<typename KeyType>
 void Btree<KeyType>::p_insertAtInnerR(char *block, int i,
-		const KeyType &key, blknum_type ref) {
-	blknum_type ent_count = p_innerGetEntCount(block);
+		const KeyType &key, BlkIndexType ref) {
+	BlkIndexType ent_count = p_innerGetEntCount(block);
 	std::memmove(block + p_entOffInner(i + 1), block + p_entOffInner(i),
 		(ent_count - i) * p_entSizeInner());
 	p_writeKey(block + p_keyOffInner(i), key);
 	char *refi = block + p_refOffInner(i);
-	*((blknum_type*)refi) = ref;
+	*((BlkIndexType*)refi) = ref;
 	p_innerSetEntCount(block, ent_count + 1);
 }
 
@@ -1120,7 +1127,7 @@ void Btree<KeyType>::p_insertAtInnerR(char *block, int i,
  * ------------------------------------------------------------------------- */
 
 template<typename KeyType>
-void Btree<KeyType>::p_blockIntegrity(blknum_type block_num,
+void Btree<KeyType>::p_blockIntegrity(BlkIndexType block_num,
 		KeyType min, KeyType max) {
 	char *block_buf = new char[p_blockSize];
 	//FIXME: use async read instead
@@ -1128,7 +1135,7 @@ void Btree<KeyType>::p_blockIntegrity(blknum_type block_num,
 	
 	flags_type flags = OS::fromLeU32(*(flags_type*)block_buf);
 	if((flags & 1) != 0) {
-		blknum_type ent_count = p_innerGetEntCount(block_buf);
+		BlkIndexType ent_count = p_innerGetEntCount(block_buf);
 		KeyType prev_key = min;
 		for(int i = 0; i < ent_count; i++) {
 			KeyType key = p_readKey(block_buf + p_keyOffLeaf(i));
@@ -1141,7 +1148,7 @@ void Btree<KeyType>::p_blockIntegrity(blknum_type block_num,
 			throw std::logic_error(std::string("Integrity violated!"
 					" (1.2), block: ") + std::to_string(block_num));
 	}else{
-		blknum_type ent_count = p_innerGetEntCount(block_buf);
+		BlkIndexType ent_count = p_innerGetEntCount(block_buf);
 		KeyType prev_key = min;
 		for(int i = 0; i < ent_count; i++) {
 			KeyType key = p_readKey(block_buf + p_keyOffInner(i));
@@ -1155,14 +1162,14 @@ void Btree<KeyType>::p_blockIntegrity(blknum_type block_num,
 					" (2.2), block: ") + std::to_string(block_num));
 		
 		char *lref = block_buf + p_lrefOffInner();
-		p_blockIntegrity(*(blknum_type*)lref, min,
+		p_blockIntegrity(*(BlkIndexType*)lref, min,
 				p_readKey(block_buf + p_keyOffInner(0)));
 		for(int i = 0; i < ent_count; i++) {
 			KeyType ckey = p_readKey(block_buf + p_keyOffInner(i));
 			KeyType nkey = (i == ent_count - 1 ? max
 				: p_readKey(block_buf + p_keyOffInner(i + 1)));
 			char *refi = block_buf + p_refOffInner(i);
-			p_blockIntegrity(*(blknum_type*)refi, ckey, nkey);
+			p_blockIntegrity(*(BlkIndexType*)refi, ckey, nkey);
 		}
 	}
 }
@@ -1185,49 +1192,49 @@ void Btree<KeyType>::p_headSetFlags(char *block_buf,
 }
 
 template<typename KeyType>
-typename Btree<KeyType>::blknum_type Btree<KeyType>::p_innerGetEntCount(char *block_buf) {
+typename Btree<KeyType>::BlkIndexType Btree<KeyType>::p_innerGetEntCount(char *block_buf) {
 	InnerHead *head = (InnerHead*)block_buf;
 	return OS::fromLeU32(head->entCount2);
 }
 template<typename KeyType>
 void Btree<KeyType>::p_innerSetEntCount(char *block_buf,
-		typename Btree<KeyType>::blknum_type ent_count) {
+		typename Btree<KeyType>::BlkIndexType ent_count) {
 	InnerHead *head = (InnerHead*)block_buf;
 	head->entCount2 = OS::toLeU32(ent_count);
 }
 
 template<typename KeyType>
-typename Btree<KeyType>::blknum_type Btree<KeyType>::p_leafGetEntCount(char *block_buf) {
+typename Btree<KeyType>::BlkIndexType Btree<KeyType>::p_leafGetEntCount(char *block_buf) {
 	LeafHead *head = (LeafHead*)block_buf;
 	return OS::fromLeU32(head->entCount2);
 }
 template<typename KeyType>
 void Btree<KeyType>::p_leafSetEntCount(char *block_buf,
-		typename Btree<KeyType>::blknum_type ent_count) {
+		typename Btree<KeyType>::BlkIndexType ent_count) {
 	LeafHead *head = (LeafHead*)block_buf;
 	head->entCount2 = OS::toLeU32(ent_count);
 }
 
 template<typename KeyType>
-typename Btree<KeyType>::blknum_type Btree<KeyType>::p_leafGetLeftLink(char *block_buf) {
+typename Btree<KeyType>::BlkIndexType Btree<KeyType>::p_leafGetLeftLink(char *block_buf) {
 	LeafHead *head = (LeafHead*)block_buf;
 	return OS::fromLeU32(head->leftLink2);
 }
 template<typename KeyType>
 void Btree<KeyType>::p_leafSetLeftLink(char *block_buf,
-		typename Btree<KeyType>::blknum_type ent_count) {
+		typename Btree<KeyType>::BlkIndexType ent_count) {
 	LeafHead *head = (LeafHead*)block_buf;
 	head->leftLink2 = OS::toLeU32(ent_count);
 }
 
 template<typename KeyType>
-typename Btree<KeyType>::blknum_type Btree<KeyType>::p_leafGetRightLink(char *block_buf) {
+typename Btree<KeyType>::BlkIndexType Btree<KeyType>::p_leafGetRightLink(char *block_buf) {
 	LeafHead *head = (LeafHead*)block_buf;
 	return OS::fromLeU32(head->rightLink2);
 }
 template<typename KeyType>
 void Btree<KeyType>::p_leafSetRightLink(char *block_buf,
-		typename Btree<KeyType>::blknum_type ent_count) {
+		typename Btree<KeyType>::BlkIndexType ent_count) {
 	LeafHead *head = (LeafHead*)block_buf;
 	head->rightLink2 = OS::toLeU32(ent_count);
 }

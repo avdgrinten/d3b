@@ -91,7 +91,6 @@ private:
 		char p_refBuffer[Reference::kStructSize];
 		
 		Ll::RandomAccessFile::WriteClosure p_dataWrite;
-		Btree<Index>::InsertClosure p_btreeInsert;
 	};
 
 	class FetchClosure {

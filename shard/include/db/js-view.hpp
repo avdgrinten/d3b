@@ -196,7 +196,6 @@ private:
 		
 		Ll::RandomAccessFile::WriteClosure p_keyWrite;
 		Ll::RandomAccessFile::ReadClosure p_keyRead;
-		Btree<KeyRef>::InsertClosure p_btreeInsert;
 	};
 };
 
