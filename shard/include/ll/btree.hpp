@@ -175,112 +175,115 @@ public:
 			SearchNodeClosure searchClosure;
 		};
 
-		return libchain::contextify([] (auto &c) {
+		return libchain::contextify([] (auto c) {
 			auto read_block = libchain::sequence()
-			& libchain::apply([&c] () -> bool {
-				return c.parentNumber == -1;
-			}, libchain::unary)
-			& libchain::branch(
+			+ libchain::apply([c] () -> bool {
+				return c->parentNumber == -1;
+			})
+			+ libchain::branch(
 				// we are at the root of the tree
-				libchain::apply([&c] () {
-					c.currentNumber = c.self->p_curFileHead.rootBlock;
-				}, libchain::nullary),
+				libchain::apply([c] () {
+					c->currentNumber = c->self->p_curFileHead.rootBlock;
+				}),
 
 				// determine the indexInParent and read the block number
 				libchain::sequence()
-				& libchain::await<void(int)>([&c] (auto callback) {
-					assert(!(c.self->p_headGetFlags(c.parentBuffer) & BlockHead::kFlagIsLeaf));
+				+ libchain::await<void(int)>([c] (auto callback) {
+					assert(!(c->self->p_headGetFlags(c->parentBuffer) & BlockHead::kFlagIsLeaf));
 					
-					c.searchClosure.prevInInner(c.parentBuffer, c.compare,
+					c->searchClosure.prevInInner(c->parentBuffer, c->compare,
 							Async::transition(callback));
 				})
-				& libchain::apply([&c] (int index) {
-					c.indexInParent = index;
+				+ libchain::apply([c] (int index) {
+					c->indexInParent = index;
 
-					char *ref_ptr = c.parentBuffer + (c.indexInParent >= 0
-							? c.self->p_refOffInner(c.indexInParent) : c.self->p_lrefOffInner());
+					char *ref_ptr = c->parentBuffer + (c->indexInParent >= 0
+							? c->self->p_refOffInner(c->indexInParent)
+							: c->self->p_lrefOffInner());
 					
-					c.currentNumber = OS::fromLeU32(*((BlkIndexType*)ref_ptr));
-				}, libchain::nullary)
+					c->currentNumber = OS::fromLeU32(*((BlkIndexType*)ref_ptr));
+				})
 			)
-			& libchain::await<void(char *)>([&c] (auto callback) {
-				c.self->p_pageCache.readPage(c.currentNumber,
+			+ libchain::await<void(char *)>([c] (auto callback) {
+				c->self->p_pageCache.readPage(c->currentNumber,
 						Async::transition(callback));
 			})
-			& libchain::apply([&c] (char *buffer) {
-				c.currentBuffer = buffer;
-			}, libchain::nullary);
+			+ libchain::apply([c] (char *buffer) {
+				c->currentBuffer = buffer;
+			});
 
 			auto maybe_split_block = libchain::sequence()
-			& read_block
-			& libchain::apply([&c] () -> bool {
-				return c.self->blockIsFull(c.currentBuffer);
-			}, libchain::unary)
-			& libchain::branch(
+			+ read_block
+			+ libchain::apply([c] () -> bool {
+				return c->self->blockIsFull(c->currentBuffer);
+			})
+			+ libchain::branch(
 				// the current block is full: split it
 				libchain::sequence()
-				& libchain::await<void()>([&c] (auto callback) {
-					c.splitClosure.split(c.currentNumber, c.currentBuffer,
-							c.parentBuffer, c.indexInParent,
+				+ libchain::await<void()>([c] (auto callback) {
+					c->splitClosure.split(c->currentNumber, c->currentBuffer,
+							c->parentBuffer, c->indexInParent,
 							Async::transition(callback));
 				})
-				& libchain::apply([&c] () {
-					if(c.parentNumber != -1)
-						c.self->p_pageCache.writePage(c.parentNumber);
-					c.self->p_pageCache.writePage(c.currentNumber);
-					c.self->p_pageCache.releasePage(c.currentNumber);
-				}, libchain::nullary)
+				+ libchain::apply([c] () {
+					if(c->parentNumber != -1)
+						c->self->p_pageCache.writePage(c->parentNumber);
+					c->self->p_pageCache.writePage(c->currentNumber);
+					c->self->p_pageCache.releasePage(c->currentNumber);
+				})
 				// the correct block might have changed; re-read it
-				& read_block
-				& libchain::apply([&c] () {
-					assert(!c.self->blockIsFull(c.currentBuffer));
-				}, libchain::nullary),
+				+ read_block
+				+ libchain::apply([c] () {
+					assert(!c->self->blockIsFull(c->currentBuffer));
+				}),
 
-				libchain::apply([&c] () { }, libchain::nullary)
+				libchain::apply([c] () { })
 			);
 
 			auto insert_or_descend = libchain::sequence()
-			& maybe_split_block
-			& libchain::apply([&c] () -> bool {
-				int flags = c.self->p_headGetFlags(c.currentBuffer);
+			+ maybe_split_block
+			+ libchain::apply([c] () -> bool {
+				int flags = c->self->p_headGetFlags(c->currentBuffer);
 				// TODO: remove those assertions
 				if(flags & BlockHead::kFlagIsLeaf) {
-					assert(c.self->p_leafGetEntCount(c.currentBuffer) < c.self->p_entsPerLeaf());
+					assert(c->self->p_leafGetEntCount(c->currentBuffer)
+							< c->self->p_entsPerLeaf());
 				}else{
-					assert(c.self->p_innerGetEntCount(c.currentBuffer) < c.self->p_entsPerInner());
+					assert(c->self->p_innerGetEntCount(c->currentBuffer)
+							< c->self->p_entsPerInner());
 				}
 				return flags & BlockHead::kFlagIsLeaf;
-			}, libchain::unary)
-			& libchain::branch(
+			})
+			+ libchain::branch(
 				// it is a leaf: insert an entry here
 				libchain::sequence()
-				& libchain::await<void(int)>([&c] (auto callback) {
-					c.searchClosure.prevInLeaf(c.currentBuffer, c.compare,
+				+ libchain::await<void(int)>([c] (auto callback) {
+					c->searchClosure.prevInLeaf(c->currentBuffer, c->compare,
 							Async::transition(callback));
 				})
-				& libchain::apply([&c] (int index) -> bool {
+				+ libchain::apply([c] (int index) -> bool {
 					if(index >= 0) {
-						c.self->p_insertAtLeaf(c.currentBuffer, index + 1, *c.key, c.value);
+						c->self->p_insertAtLeaf(c->currentBuffer, index + 1, *c->key, c->value);
 					}else{
-						c.self->p_insertAtLeaf(c.currentBuffer, 0, *c.key, c.value);
+						c->self->p_insertAtLeaf(c->currentBuffer, 0, *c->key, c->value);
 					}
-					if(c.parentNumber != -1)
-						c.self->p_pageCache.releasePage(c.parentNumber);
-					c.self->p_pageCache.writePage(c.currentNumber);
-					c.self->p_pageCache.releasePage(c.currentNumber);
+					if(c->parentNumber != -1)
+						c->self->p_pageCache.releasePage(c->parentNumber);
+					c->self->p_pageCache.writePage(c->currentNumber);
+					c->self->p_pageCache.releasePage(c->currentNumber);
 					
 					return false;
-				}, libchain::unary),
+				}),
 
 				// it is an inner block: descent to the next block
-				libchain::apply([&c] () -> bool {
-					if(c.parentNumber != -1)
-						c.self->p_pageCache.releasePage(c.parentNumber);
-					c.parentBuffer = c.currentBuffer;
-					c.parentNumber = c.currentNumber;
+				libchain::apply([c] () -> bool {
+					if(c->parentNumber != -1)
+						c->self->p_pageCache.releasePage(c->parentNumber);
+					c->parentBuffer = c->currentBuffer;
+					c->parentNumber = c->currentNumber;
 
 					return true;
-				}, libchain::unary)
+				})
 			);
 
 			return libchain::repeat(insert_or_descend);
