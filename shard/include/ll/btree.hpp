@@ -156,6 +156,7 @@ public:
 		struct Context {
 			Context(Btree *self, KeyType *key, void *value, UnaryCompare compare)
 			: self(self), key(key), value(value), compare(compare),
+					parentNumber(-1), parentBuffer(nullptr), indexInParent(0),
 					splitClosure(self), searchClosure(self) { }
 
 			Btree *self;
@@ -163,130 +164,126 @@ public:
 			void *value;
 			UnaryCompare compare;
 
-			BlkIndexType blockNumber;
-			char *blockBuffer;
+			BlkIndexType parentNumber;
+			char *parentBuffer;
 		
-			BlkIndexType childNumber;
-			char *childBuffer;
-			BlkIndexType childIndex;
+			BlkIndexType indexInParent;
+			BlkIndexType currentNumber;
+			char *currentBuffer;
 
 			SplitClosure splitClosure;
 			SearchNodeClosure searchClosure;
 		};
 
 		return libchain::contextify([] (auto &c) {
-			auto read_root = libchain::sequence()
-			& libchain::await<void(char *)>([&c] (auto callback) {
-				c.blockNumber = c.self->p_curFileHead.rootBlock;
-				c.self->p_pageCache.readPage(c.blockNumber,
-						Async::transition(callback));
-			})
-			& libchain::apply([&c] (char *buffer) {
-				c.blockBuffer = buffer;
-			}, libchain::nullary);
-
-			auto maybe_split_root = libchain::sequence()
-			& read_root
+			auto read_block = libchain::sequence()
 			& libchain::apply([&c] () -> bool {
-				return c.self->blockIsFull(c.blockNumber, c.blockBuffer);
+				return c.parentNumber == -1;
 			}, libchain::unary)
 			& libchain::branch(
-				libchain::sequence()
-				& libchain::await<void()>([&c] (auto callback) {
-					c.splitClosure.split(c.blockNumber, c.blockBuffer, nullptr, 0,
-							Async::transition(callback));
-				})
-				& libchain::apply([&c] () {
-					c.self->p_pageCache.writePage(c.blockNumber);
-					c.self->p_pageCache.releasePage(c.blockNumber);
-				}, libchain::nullary)
-				& read_root,
+				// we are at the root of the tree
+				libchain::apply([&c] () {
+					c.currentNumber = c.self->p_curFileHead.rootBlock;
+				}, libchain::nullary),
 
-				libchain::apply([&c] () { }, libchain::nullary)
-			)
-			& libchain::apply([&c] () {
-				assert(!c.self->blockIsFull(c.blockNumber, c.blockBuffer));
-			}, libchain::nullary);
-
-			auto insert_or_descend = libchain::sequence()
-			& libchain::apply([&c] () -> bool {
-				int flags = c.self->p_headGetFlags(c.blockBuffer);
-				if((flags & 1) != 0) {
-					assert(c.self->p_leafGetEntCount(c.blockBuffer) < c.self->p_entsPerLeaf());
-				}else{
-					assert(c.self->p_innerGetEntCount(c.blockBuffer) < c.self->p_entsPerInner());
-				}
-				return (flags & 1) != 0;
-			}, libchain::unary)
-			& libchain::branch(
+				// determine the indexInParent and read the block number
 				libchain::sequence()
 				& libchain::await<void(int)>([&c] (auto callback) {
-					c.searchClosure.prevInLeaf(c.blockBuffer, c.compare,
+					assert(!(c.self->p_headGetFlags(c.parentBuffer) & BlockHead::kFlagIsLeaf));
+					
+					c.searchClosure.prevInInner(c.parentBuffer, c.compare,
 							Async::transition(callback));
 				})
 				& libchain::apply([&c] (int index) {
-					if(index >= 0) {
-						c.self->p_insertAtLeaf(c.blockBuffer, index + 1, *c.key, c.value);
-					}else{
-						c.self->p_insertAtLeaf(c.blockBuffer, 0, *c.key, c.value);
-					}
-					c.self->p_pageCache.writePage(c.blockNumber);
-					c.self->p_pageCache.releasePage(c.blockNumber);
+					c.indexInParent = index;
+
+					char *ref_ptr = c.parentBuffer + (c.indexInParent >= 0
+							? c.self->p_refOffInner(c.indexInParent) : c.self->p_lrefOffInner());
+					
+					c.currentNumber = OS::fromLeU32(*((BlkIndexType*)ref_ptr));
 				}, libchain::nullary)
-				& libchain::apply([&c] () -> bool {
+			)
+			& libchain::await<void(char *)>([&c] (auto callback) {
+				c.self->p_pageCache.readPage(c.currentNumber,
+						Async::transition(callback));
+			})
+			& libchain::apply([&c] (char *buffer) {
+				c.currentBuffer = buffer;
+			}, libchain::nullary);
+
+			auto maybe_split_block = libchain::sequence()
+			& read_block
+			& libchain::apply([&c] () -> bool {
+				return c.self->blockIsFull(c.currentBuffer);
+			}, libchain::unary)
+			& libchain::branch(
+				// the current block is full: split it
+				libchain::sequence()
+				& libchain::await<void()>([&c] (auto callback) {
+					c.splitClosure.split(c.currentNumber, c.currentBuffer,
+							c.parentBuffer, c.indexInParent,
+							Async::transition(callback));
+				})
+				& libchain::apply([&c] () {
+					if(c.parentNumber != -1)
+						c.self->p_pageCache.writePage(c.parentNumber);
+					c.self->p_pageCache.writePage(c.currentNumber);
+					c.self->p_pageCache.releasePage(c.currentNumber);
+				}, libchain::nullary)
+				// the correct block might have changed; re-read it
+				& read_block
+				& libchain::apply([&c] () {
+					assert(!c.self->blockIsFull(c.currentBuffer));
+				}, libchain::nullary),
+
+				libchain::apply([&c] () { }, libchain::nullary)
+			);
+
+			auto insert_or_descend = libchain::sequence()
+			& maybe_split_block
+			& libchain::apply([&c] () -> bool {
+				int flags = c.self->p_headGetFlags(c.currentBuffer);
+				// TODO: remove those assertions
+				if(flags & BlockHead::kFlagIsLeaf) {
+					assert(c.self->p_leafGetEntCount(c.currentBuffer) < c.self->p_entsPerLeaf());
+				}else{
+					assert(c.self->p_innerGetEntCount(c.currentBuffer) < c.self->p_entsPerInner());
+				}
+				return flags & BlockHead::kFlagIsLeaf;
+			}, libchain::unary)
+			& libchain::branch(
+				// it is a leaf: insert an entry here
+				libchain::sequence()
+				& libchain::await<void(int)>([&c] (auto callback) {
+					c.searchClosure.prevInLeaf(c.currentBuffer, c.compare,
+							Async::transition(callback));
+				})
+				& libchain::apply([&c] (int index) -> bool {
+					if(index >= 0) {
+						c.self->p_insertAtLeaf(c.currentBuffer, index + 1, *c.key, c.value);
+					}else{
+						c.self->p_insertAtLeaf(c.currentBuffer, 0, *c.key, c.value);
+					}
+					if(c.parentNumber != -1)
+						c.self->p_pageCache.releasePage(c.parentNumber);
+					c.self->p_pageCache.writePage(c.currentNumber);
+					c.self->p_pageCache.releasePage(c.currentNumber);
+					
 					return false;
 				}, libchain::unary),
 
-				libchain::sequence()
-				& libchain::await<void(int)>([&c] (auto callback) {
-					c.searchClosure.prevInInner(c.blockBuffer, c.compare,
-							Async::transition(callback));
-				})
-				& libchain::await<void(char *)>([&c] (auto callback, int index) {
-					c.childIndex = index;
+				// it is an inner block: descent to the next block
+				libchain::apply([&c] () -> bool {
+					if(c.parentNumber != -1)
+						c.self->p_pageCache.releasePage(c.parentNumber);
+					c.parentBuffer = c.currentBuffer;
+					c.parentNumber = c.currentNumber;
 
-					char *ref_ptr = c.blockBuffer + (c.childIndex >= 0
-							? c.self->p_refOffInner(c.childIndex) : c.self->p_lrefOffInner());
-					
-					c.childNumber = OS::fromLeU32(*((BlkIndexType*)ref_ptr));
-					c.self->p_pageCache.readPage(c.childNumber,
-							Async::transition(callback));
-				})
-				& libchain::apply([&c] (char *buffer) {
-					c.childBuffer = buffer;
-
-					// check if we have to split the child
-					return c.self->blockIsFull(c.childNumber, c.childBuffer);
-				}, libchain::unary)
-				& libchain::branch(
-					libchain::sequence()
-					& libchain::await<void()>([&c] (auto callback) {
-						c.splitClosure.split(c.childNumber, c.childBuffer,
-								c.blockBuffer, c.childIndex,
-								Async::transition(callback));
-					})
-					& libchain::apply([&c] () {
-						c.self->p_pageCache.writePage(c.blockNumber);
-						c.self->p_pageCache.writePage(c.childNumber);
-						c.self->p_pageCache.releasePage(c.childNumber);
-					}, libchain::nullary),
-
-					libchain::apply([&c] () {
-						c.self->p_pageCache.releasePage(c.blockNumber);
-						c.blockBuffer = c.childBuffer;
-						c.blockNumber = c.childNumber;
-					}, libchain::nullary)
-				)
-				& libchain::apply([&c] () -> bool {
 					return true;
 				}, libchain::unary)
 			);
 
-			return libchain::sequence()
-			& maybe_split_root
-			& libchain::repeat(
-				insert_or_descend
-			);
+			return libchain::repeat(insert_or_descend);
 		}, Context(this, key, value, compare));
 	}
 
@@ -350,7 +347,7 @@ public:
 		p_pageCache.initializePage(1, ASYNC_MEMBER(this, &Btree::createOnInitialize));
 	}
 	void createOnInitialize(char *root_block) {
-		p_headSetFlags(root_block, 1);
+		p_headSetFlags(root_block, BlockHead::kFlagIsLeaf);
 		p_leafSetEntCount(root_block, 0);
 		p_leafSetLeftLink(root_block, 0);
 		p_leafSetRightLink(root_block, 0);
@@ -393,6 +390,10 @@ private:
 		BlkIndexType depth;
 	};
 	struct BlockHead {
+		enum {
+			kFlagIsLeaf = 1
+		};
+
 		flags_type flags;
 	};
 	struct InnerHead {
@@ -488,7 +489,7 @@ private:
 		return number;
 	}
 
-	bool blockIsFull(BlkIndexType block_num, char *block_buf);
+	bool blockIsFull(char *block_buf);
 
 	void p_blockIntegrity(BlkIndexType block_num,
 			KeyType min, KeyType max);
@@ -632,7 +633,7 @@ void Btree<KeyType>::FindClosure::findFirstOnRead(char *buffer) {
 	p_blockBuffer = buffer;
 
 	flags_type flags = p_tree->p_headGetFlags(p_blockBuffer);
-	if((flags & 1) != 0) {
+	if((flags & BlockHead::kFlagIsLeaf) != 0) {
 		if(p_tree->p_leafGetEntCount(p_blockBuffer) != 0) {
 			p_tree->p_pageCache.releasePage(p_blockNumber);
 
@@ -677,7 +678,7 @@ void Btree<KeyType>::FindClosure::findNextOnRead(char *buffer) {
 	p_blockBuffer = buffer;
 
 	flags_type flags = p_tree->p_headGetFlags(p_blockBuffer);
-	if((flags & 1) != 0) {
+	if((flags & BlockHead::kFlagIsLeaf) != 0) {
 		p_searchClosure.nextInLeaf(p_blockBuffer, p_compare,
 				ASYNC_MEMBER(this, &FindClosure::findNextInLeaf));
 		return;
@@ -737,7 +738,7 @@ void Btree<KeyType>::FindClosure::findPrevOnRead(char *buffer) {
 	p_blockBuffer = buffer;
 
 	flags_type flags = p_tree->p_headGetFlags(p_blockBuffer);
-	if((flags & 1) != 0) {
+	if((flags & BlockHead::kFlagIsLeaf) != 0) {
 		p_searchClosure.prevInLeaf(p_blockBuffer, p_compare,
 				ASYNC_MEMBER(this, &FindClosure::findPrevInLeaf));
 		return;
@@ -796,9 +797,9 @@ void Btree<KeyType>::FindClosure::findPrevReadLeft(char *buffer) {
  * ------------------------------------------------------------------------- */
 
 template<typename KeyType>
-bool Btree<KeyType>::blockIsFull(BlkIndexType block_num, char *block_buf) {
+bool Btree<KeyType>::blockIsFull(char *block_buf) {
 	flags_type flags = OS::fromLeU32(*((flags_type*)block_buf));
-	if((flags & 1) != 0) {
+	if((flags & BlockHead::kFlagIsLeaf) != 0) {
 		if(p_leafGetEntCount(block_buf) >= p_entsPerLeaf() - 1) {
 			return true;
 		}
@@ -821,7 +822,7 @@ void Btree<KeyType>::SplitClosure::split(BlkIndexType block_num, char *block_buf
 	p_onComplete = on_complete;
 
 	flags_type flags = OS::fromLeU32(*((flags_type*)block_buf));
-	if((flags & 1) != 0) {
+	if((flags & BlockHead::kFlagIsLeaf) != 0) {
 		if(p_tree->p_leafGetEntCount(block_buf) >= p_tree->p_entsPerLeaf() - 1) {
 			splitLeaf();
 			return;
@@ -855,7 +856,7 @@ void Btree<KeyType>::SplitClosure::splitLeaf() {
 }
 template<typename KeyType>
 void Btree<KeyType>::SplitClosure::splitLeafOnInitialize(char *split_block) {
-	p_tree->p_headSetFlags(split_block, 1);
+	p_tree->p_headSetFlags(split_block, BlockHead::kFlagIsLeaf);
 	p_tree->p_leafSetEntCount(split_block, p_rightSize);
 	p_tree->p_leafSetLeftLink(split_block, p_blockNumber);
 	p_tree->p_leafSetRightLink(split_block, p_rightLinkNumber);
@@ -1134,7 +1135,7 @@ void Btree<KeyType>::p_blockIntegrity(BlkIndexType block_num,
 	//p_readBlock(block_num, block_buf);
 	
 	flags_type flags = OS::fromLeU32(*(flags_type*)block_buf);
-	if((flags & 1) != 0) {
+	if((flags & BlockHead::kFlagIsLeaf) != 0) {
 		BlkIndexType ent_count = p_innerGetEntCount(block_buf);
 		KeyType prev_key = min;
 		for(int i = 0; i < ent_count; i++) {
