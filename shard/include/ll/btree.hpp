@@ -87,12 +87,6 @@ public:
 	public:
 		SearchNodeClosure(Btree *tree) : p_tree(tree) { }
 
-		void prevInLeaf(char *block,
-				UnaryCompareCallback compare,
-				Async::Callback<void(int)> callback);
-		void prevInInner(char *block,
-				UnaryCompareCallback compare,
-				Async::Callback<void(int)> callback);
 		void nextInLeaf(char *block,
 				UnaryCompareCallback compare,
 				Async::Callback<void(int)> callback);
@@ -101,10 +95,6 @@ public:
 				Async::Callback<void(int)> callback);
 	
 	private:
-		void prevInLeafLoop();
-		void prevInLeafCheck(int result);
-		void prevInInnerLoop();
-		void prevInInnerCheck(int result);
 		void nextInLeafLoop();
 		void nextInLeafCheck(int result);
 		void nextInInnerLoop();
@@ -151,18 +141,86 @@ public:
 		KeyType p_splitKey;
 	};
 
-	template<typename UnaryCompare>
-	auto insert(KeyType *key, void *value, UnaryCompare compare) {
+	template<typename CompareVs>
+	auto lowerBoundInner(char *buffer, CompareVs compare) {
+		assert(!(p_headGetFlags(buffer) & BlockHead::kFlagIsLeaf));
+
+		return libchain::contextify([this, buffer, compare] (int *index) {
+			return libchain::sequence()
+			+ libchain::repeat(
+				libchain::sequence()
+				+ libchain::apply([index] () { return *index > 0; })
+				+ libchain::branch(
+					// there are still items we need to look through
+					libchain::sequence()
+					+ libchain::await<void(int)>([this, buffer, compare, index] (auto callback) {
+						// TODO: why do we need this-> here?
+						KeyType ent_key = p_readKey(buffer + this->p_keyOffInner(*index - 1));
+						compare(ent_key, Async::transition(callback));
+					})
+					+ libchain::apply([index] (int result) {
+						if(result <= 0)
+							return false; // we found an item <= the desired
+
+						// repeat with the next smaller index
+						(*index)--;
+						return true;
+					}),
+					
+					// there are no items left in the block
+					libchain::apply([] () { return false; })
+				)
+			)
+			+ libchain::apply([index] () { return *index - 1; });
+		}, p_innerGetEntCount(buffer));
+	}
+
+	template<typename CompareVs>
+	auto lowerBoundLeaf(char *buffer, CompareVs compare) {
+		assert(p_headGetFlags(buffer) & BlockHead::kFlagIsLeaf);
+
+		return libchain::contextify([this, buffer, compare] (int *index) {
+			return libchain::sequence()
+			+ libchain::repeat(
+				libchain::sequence()
+				+ libchain::apply([index] () { return *index > 0; })
+				+ libchain::branch(
+					// there are still items we need to look through
+					libchain::sequence()
+					+ libchain::await<void(int)>([this, buffer, compare, index] (auto callback) {
+						// TODO: why do we need this-> here?
+						KeyType ent_key = p_readKey(buffer + this->p_keyOffLeaf(*index - 1));
+						compare(ent_key, Async::transition(callback));
+					})
+					+ libchain::apply([index] (int result) {
+						if(result <= 0)
+							return false; // we found an item <= the desired
+
+						// repeat with the next smaller index
+						(*index)--;
+						return true;
+					}),
+					
+					// there are no items left in the block
+					libchain::apply([] () { return false; })
+				)
+			)
+			+ libchain::apply([index] () { return *index - 1; });
+		}, p_leafGetEntCount(buffer));
+	}
+
+	template<typename CompareVs>
+	auto insert(KeyType *key, void *value, CompareVs compare) {
 		struct Context {
-			Context(Btree *self, KeyType *key, void *value, UnaryCompare compare)
+			Context(Btree *self, KeyType *key, void *value, CompareVs compare)
 			: self(self), key(key), value(value), compare(compare),
 					parentNumber(-1), parentBuffer(nullptr), indexInParent(0),
-					splitClosure(self), searchClosure(self) { }
+					splitClosure(self) { }
 
 			Btree *self;
 			KeyType *key;
 			void *value;
-			UnaryCompare compare;
+			CompareVs compare;
 
 			BlkIndexType parentNumber;
 			char *parentBuffer;
@@ -172,7 +230,6 @@ public:
 			char *currentBuffer;
 
 			SplitClosure splitClosure;
-			SearchNodeClosure searchClosure;
 		};
 
 		return libchain::contextify([] (auto c) {
@@ -188,12 +245,9 @@ public:
 
 				// determine the indexInParent and read the block number
 				libchain::sequence()
-				+ libchain::await<void(int)>([c] (auto callback) {
-					assert(!(c->self->p_headGetFlags(c->parentBuffer) & BlockHead::kFlagIsLeaf));
-					
-					c->searchClosure.prevInInner(c->parentBuffer, c->compare,
-							Async::transition(callback));
-				})
+				+ libchain::compose([c] () {
+					return c->self->lowerBoundInner(c->parentBuffer, c->compare);
+				}, libchain::dynamic)
 				+ libchain::apply([c] (int index) {
 					c->indexInParent = index;
 
@@ -257,10 +311,9 @@ public:
 			+ libchain::branch(
 				// it is a leaf: insert an entry here
 				libchain::sequence()
-				+ libchain::await<void(int)>([c] (auto callback) {
-					c->searchClosure.prevInLeaf(c->currentBuffer, c->compare,
-							Async::transition(callback));
-				})
+				+ libchain::compose([c] () {
+					return c->self->lowerBoundLeaf(c->currentBuffer, c->compare);
+				}, libchain::dynamic)
 				+ libchain::apply([c] (int index) -> bool {
 					if(index >= 0) {
 						c->self->p_insertAtLeaf(c->currentBuffer, index + 1, *c->key, c->value);
@@ -682,11 +735,13 @@ void Btree<KeyType>::FindClosure::findNextOnRead(char *buffer) {
 
 	flags_type flags = p_tree->p_headGetFlags(p_blockBuffer);
 	if((flags & BlockHead::kFlagIsLeaf) != 0) {
+		std::cout << "nextInLeaf()" << std::endl;
 		p_searchClosure.nextInLeaf(p_blockBuffer, p_compare,
 				ASYNC_MEMBER(this, &FindClosure::findNextInLeaf));
 		return;
 	}
 
+	std::cout << "nextInInner()" << std::endl;
 	p_searchClosure.nextInInner(p_blockBuffer, p_compare,
 			ASYNC_MEMBER(this, &FindClosure::findNextOnFoundChild));
 }
@@ -741,14 +796,13 @@ void Btree<KeyType>::FindClosure::findPrevOnRead(char *buffer) {
 	p_blockBuffer = buffer;
 
 	flags_type flags = p_tree->p_headGetFlags(p_blockBuffer);
-	if((flags & BlockHead::kFlagIsLeaf) != 0) {
-		p_searchClosure.prevInLeaf(p_blockBuffer, p_compare,
-				ASYNC_MEMBER(this, &FindClosure::findPrevInLeaf));
-		return;
+	if(flags & BlockHead::kFlagIsLeaf) {
+		auto action = p_tree->lowerBoundLeaf(p_blockBuffer, p_compare);
+		libchain::run(action, ASYNC_MEMBER(this, &FindClosure::findPrevInLeaf));
+	}else{
+		auto action = p_tree->lowerBoundInner(p_blockBuffer, p_compare);
+		libchain::run(action, ASYNC_MEMBER(this, &FindClosure::findPrevOnFoundChild));
 	}
-
-	p_searchClosure.prevInInner(p_blockBuffer, p_compare,
-			ASYNC_MEMBER(this, &FindClosure::findPrevOnFoundChild));
 }
 template<typename KeyType>
 void Btree<KeyType>::FindClosure::findPrevOnFoundChild(int index) {
@@ -968,73 +1022,6 @@ void Btree<KeyType>::SplitClosure::fixParentOnInitialize(char *new_root_buffer) 
 /* ------------------------------------------------------------------------- *
  * INTERNAL UTILITY FUNCTIONS                                                *
  * ------------------------------------------------------------------------- */
-
-template<typename KeyType>
-void Btree<KeyType>::SearchNodeClosure::prevInLeaf(char *block,
-		UnaryCompareCallback compare,
-		Async::Callback<void(int)> callback) {
-	p_blockBuffer = block;
-	p_compare = compare;
-	p_callback = callback;
-
-	p_entryCount = p_tree->p_leafGetEntCount(p_blockBuffer);
-	p_entryIndex = p_entryCount;
-
-	prevInLeafLoop();
-}
-template<typename KeyType>
-void Btree<KeyType>::SearchNodeClosure::prevInLeafLoop() {
-	if(p_entryIndex > 0) {
-		KeyType ent_key = p_tree->p_readKey(p_blockBuffer
-				+ p_tree->p_keyOffLeaf(p_entryIndex - 1));
-		p_compare(ent_key, ASYNC_MEMBER(this, &SearchNodeClosure::prevInLeafCheck));
-	}else{
-		p_callback(-1);
-	}
-}
-template<typename KeyType>
-void Btree<KeyType>::SearchNodeClosure::prevInLeafCheck(int result) {
-	if(result <= 0) {
-		p_callback(p_entryIndex - 1);
-	}else{
-		p_entryIndex--;
-		//TODO: use nextTick() to prevent stack overflow
-		prevInLeafLoop();
-	}
-}
-template<typename KeyType>
-void Btree<KeyType>::SearchNodeClosure::prevInInner(char *block,
-		UnaryCompareCallback compare,
-		Async::Callback<void(int)> callback) {
-	p_blockBuffer = block;
-	p_compare = compare;
-	p_callback = callback;
-
-	p_entryCount = p_tree->p_innerGetEntCount(p_blockBuffer);
-	p_entryIndex = p_entryCount;
-	
-	prevInInnerLoop();
-}
-template<typename KeyType>
-void Btree<KeyType>::SearchNodeClosure::prevInInnerLoop() {
-	if(p_entryIndex > 0) {
-		KeyType ent_key = p_tree->p_readKey(p_blockBuffer
-				+ p_tree->p_keyOffInner(p_entryIndex - 1));
-		p_compare(ent_key, ASYNC_MEMBER(this, &SearchNodeClosure::prevInInnerCheck));
-	}else{
-		p_callback(-1);
-	}
-}
-template<typename KeyType>
-void Btree<KeyType>::SearchNodeClosure::prevInInnerCheck(int result) {
-	if(result <= 0) {
-		p_callback(p_entryIndex - 1);
-	}else{
-		p_entryIndex--;
-		//TODO: use nextTick() to prevent stack overflow
-		prevInInnerLoop();
-	}
-}
 
 template<typename KeyType>
 void Btree<KeyType>::SearchNodeClosure::nextInLeaf(char *block,
