@@ -146,14 +146,11 @@ public:
 		assert(!(p_headGetFlags(buffer) & BlockHead::kFlagIsLeaf));
 
 		return libchain::contextify([this, buffer, compare] (int *index) {
-			return libchain::sequence()
-			+ libchain::repeat(
-				libchain::sequence()
-				+ libchain::apply([index] () { return *index > 0; })
+			return libchain::repeat(
+				libchain::apply([index] () { return *index > 0; })
 				+ libchain::branch(
 					// there are still items we need to look through
-					libchain::sequence()
-					+ libchain::await<void(int)>([this, buffer, compare, index] (auto callback) {
+					libchain::await<void(int)>([this, buffer, compare, index] (auto callback) {
 						// TODO: why do we need this-> here?
 						KeyType ent_key = p_readKey(buffer + this->p_keyOffInner(*index - 1));
 						compare(ent_key, Async::transition(callback));
@@ -180,14 +177,11 @@ public:
 		assert(p_headGetFlags(buffer) & BlockHead::kFlagIsLeaf);
 
 		return libchain::contextify([this, buffer, compare] (int *index) {
-			return libchain::sequence()
-			+ libchain::repeat(
-				libchain::sequence()
-				+ libchain::apply([index] () { return *index > 0; })
+			return libchain::repeat(
+				libchain::apply([index] () { return *index > 0; })
 				+ libchain::branch(
 					// there are still items we need to look through
-					libchain::sequence()
-					+ libchain::await<void(int)>([this, buffer, compare, index] (auto callback) {
+					libchain::await<void(int)>([this, buffer, compare, index] (auto callback) {
 						// TODO: why do we need this-> here?
 						KeyType ent_key = p_readKey(buffer + this->p_keyOffLeaf(*index - 1));
 						compare(ent_key, Async::transition(callback));
@@ -233,8 +227,8 @@ public:
 		};
 
 		return libchain::contextify([] (auto c) {
-			auto read_block = libchain::sequence()
-			+ libchain::apply([c] () -> bool {
+			auto read_block =
+			libchain::apply([c] () -> bool {
 				return c->parentNumber == -1;
 			})
 			+ libchain::branch(
@@ -244,10 +238,9 @@ public:
 				}),
 
 				// determine the indexInParent and read the block number
-				libchain::sequence()
-				+ libchain::compose([c] () {
+				libchain::compose([c] () {
 					return c->self->lowerBoundInner(c->parentBuffer, c->compare);
-				}, libchain::dynamic)
+				})
 				+ libchain::apply([c] (int index) {
 					c->indexInParent = index;
 
@@ -266,15 +259,14 @@ public:
 				c->currentBuffer = buffer;
 			});
 
-			auto maybe_split_block = libchain::sequence()
-			+ read_block
+			auto maybe_split_block =
+			read_block
 			+ libchain::apply([c] () -> bool {
 				return c->self->blockIsFull(c->currentBuffer);
 			})
 			+ libchain::branch(
 				// the current block is full: split it
-				libchain::sequence()
-				+ libchain::await<void()>([c] (auto callback) {
+				libchain::await<void()>([c] (auto callback) {
 					c->splitClosure.split(c->currentNumber, c->currentBuffer,
 							c->parentBuffer, c->indexInParent,
 							Async::transition(callback));
@@ -294,8 +286,8 @@ public:
 				libchain::apply([c] () { })
 			);
 
-			auto insert_or_descend = libchain::sequence()
-			+ maybe_split_block
+			auto insert_or_descend =
+			maybe_split_block
 			+ libchain::apply([c] () -> bool {
 				int flags = c->self->p_headGetFlags(c->currentBuffer);
 				// TODO: remove those assertions
@@ -310,10 +302,9 @@ public:
 			})
 			+ libchain::branch(
 				// it is a leaf: insert an entry here
-				libchain::sequence()
-				+ libchain::compose([c] () {
+				libchain::compose([c] () {
 					return c->self->lowerBoundLeaf(c->currentBuffer, c->compare);
-				}, libchain::dynamic)
+				})
 				+ libchain::apply([c] (int index) -> bool {
 					if(index >= 0) {
 						c->self->p_insertAtLeaf(c->currentBuffer, index + 1, *c->key, c->value);
